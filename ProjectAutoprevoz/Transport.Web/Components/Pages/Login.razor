@@ -1,0 +1,125 @@
+@page "/login"
+@layout LoginLayout
+@rendermode InteractiveServer
+
+@inject IJSRuntime JS
+@inject ITenantService TenantService
+@inject NavigationManager Nav
+
+<PageTitle>Prijava — Autoprevoz</PageTitle>
+
+<div style="display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f5f5f5;">
+    <MudCard Style="width:420px;" Elevation="4">
+
+        <MudCardHeader>
+            <CardHeaderContent>
+                <div class="d-flex align-center justify-center py-2">
+                    <MudIcon Icon="@Icons.Material.Filled.LocalShipping"
+                             Color="Color.Primary"
+                             Style="font-size:2rem;"
+                             Class="mr-2" />
+                    <MudText Typo="Typo.h5" Color="Color.Primary">
+                        <b>Autoprevoz</b>
+                    </MudText>
+                </div>
+            </CardHeaderContent>
+        </MudCardHeader>
+
+        <MudCardContent>
+            @if (_greska is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
+                    @_greska
+                </MudAlert>
+            }
+
+            <MudTextField @bind-Value="_email"
+                          Label="Email adresa"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Email"
+                          ShrinkLabel="true"
+                          Class="mb-4"
+                          Disabled="_ucitava" />
+
+            <MudTextField @bind-Value="_lozinka"
+                          Label="Lozinka"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          ShrinkLabel="true"
+                          Class="mb-2"
+                          Disabled="_ucitava" />
+        </MudCardContent>
+
+        <MudCardActions Class="px-4 pb-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large"
+                       OnClick="Prijavi"
+                       Disabled="_ucitava">
+                @if (_ucitava)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Prijavi se
+            </MudButton>
+        </MudCardActions>
+
+    </MudCard>
+</div>
+
+@code {
+    private string _email   = string.Empty;
+    private string _lozinka = string.Empty;
+    private string? _greska;
+    private bool _ucitava;
+
+    private async Task Prijavi()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_lozinka))
+        {
+            _greska = "Unesite email adresu i lozinku.";
+            return;
+        }
+
+        _greska  = null;
+        _ucitava = true;
+
+        try
+        {
+            var rezultat = await JS.InvokeAsync<LoginRezultat>(
+                "autoprevoz.login", _email, _lozinka);
+
+            if (rezultat.Success)
+            {
+                TenantService.SetTenant(
+                    rezultat.ConnectionString ?? string.Empty,
+                    rezultat.NazivFirme       ?? string.Empty,
+                    rezultat.IdKorisnika,
+                    rezultat.Privilegija);
+
+                Nav.NavigateTo("/dashboard", forceLoad: true);
+            }
+            else
+            {
+                _greska = rezultat.Greska ?? "Greška pri prijavljivanju.";
+            }
+        }
+        catch
+        {
+            _greska = "Greška pri prijavljivanju. Pokušajte ponovo.";
+        }
+        finally
+        {
+            _ucitava = false;
+        }
+    }
+
+    private record LoginRezultat(
+        bool    Success,
+        string? ConnectionString,
+        string? NazivFirme,
+        int     IdKorisnika,
+        int     Privilegija,
+        string? Greska);
+}

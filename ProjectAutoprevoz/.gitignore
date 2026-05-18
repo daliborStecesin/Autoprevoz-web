@@ -1,0 +1,23 @@
+# Kredencijali i lokalne konfiguracije — NIKAD u git!
+**/appsettings.json
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.example.json
+
+# Build izlaz
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+
+# OS fajlovi
+.DS_Store
+Thumbs.db

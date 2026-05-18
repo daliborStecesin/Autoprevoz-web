@@ -1,0 +1,206 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using System.Text.RegularExpressions
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+
+<PageTitle>Kontrolna tabla — Autoprevoz</PageTitle>
+
+<MudGrid Spacing="3">
+
+    @* Leva kolona — glavni sadržaj *@
+    <MudItem xs="12" md="9">
+        <div class="d-flex justify-space-between align-center mb-5">
+            <div>
+                <MudText Typo="Typo.h4">
+                    Dobrodošli, <strong>@TenantService.GetNazivFirme()</strong>
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                    Kontrolna tabla sistema
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Logout"
+                       OnClick="Odjavi">
+                Odjavi se
+            </MudButton>
+        </div>
+
+        <MudAlert Severity="Severity.Success" Class="mb-3" Dense="true">
+            Konekcija na bazu uspešna!
+        </MudAlert>
+
+        <MudChip T="string"
+                 Color="Color.Primary"
+                 Icon="@Icons.Material.Filled.Storage"
+                 Size="Size.Small">
+            @_initialCatalog
+        </MudChip>
+    </MudItem>
+
+    @* Desna kolona — Podsetnici sidebar *@
+    <MudItem xs="12" md="3">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.Notifications"
+                     Size="Size.Small" Class="mr-1" />
+            Podsetnici
+        </MudText>
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        }
+        else if (_greska is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">@_greska</MudAlert>
+        }
+        else if (!_hitni.Any() && !_uskoro.Any())
+        {
+            <MudAlert Severity="Severity.Success" Dense="true">
+                Nema nadolazećih obaveza
+            </MudAlert>
+        }
+        else
+        {
+            @foreach (var p in _hitni)
+            {
+                var item = p;
+                <div @onclick="@(async () => await OtvoriDetalje(item))"
+                     style="cursor:pointer; margin-bottom:8px;">
+                    <MudCard Elevation="1"
+                             Style="border-left:4px solid var(--mud-palette-error);">
+                        <MudCardContent Class="pa-3">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Error">
+                                <b>@p.Vrsta</b>
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">@p.Opis</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
+                                @p.DatumPotsenika?.ToString("dd.MM.yyyy")
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </div>
+            }
+
+            @foreach (var p in _uskoro)
+            {
+                var item = p;
+                <div @onclick="@(async () => await OtvoriDetalje(item))"
+                     style="cursor:pointer; margin-bottom:8px;">
+                    <MudCard Elevation="1"
+                             Style="border-left:4px solid #ff9800;">
+                        <MudCardContent Class="pa-3">
+                            <MudText Typo="Typo.subtitle2" Style="color:#e65100;">
+                                <b>@p.Vrsta</b>
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">@p.Opis</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
+                                @p.DatumPotsenika?.ToString("dd.MM.yyyy")
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </div>
+            }
+        }
+    </MudItem>
+
+</MudGrid>
+
+@code {
+    private string          _initialCatalog = string.Empty;
+    private List<Potsetnik> _hitni          = [];
+    private List<Potsetnik> _uskoro         = [];
+    private bool            _ucitava        = true;
+    private string?         _greska;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var connStr = TenantService.GetConnectionString();
+        var m = Regex.Match(connStr,
+            @"(?:Initial\s+Catalog|Database)\s*=\s*([^;]+)",
+            RegexOptions.IgnoreCase);
+        _initialCatalog = m.Success ? m.Groups[1].Value.Trim() : "(nepoznato)";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await UcitajPodsetnike();
+    }
+
+    private async Task UcitajPodsetnike()
+    {
+        _ucitava = true;
+        StateHasChanged();
+
+        try
+        {
+            var danas = DateOnly.FromDateTime(DateTime.Today);
+            var do15  = danas.AddDays(15);
+            var do30  = danas.AddDays(30);
+
+            var svi = await Db.Podsetnici
+                .Where(p => p.DatumPotsenika >= danas && p.DatumPotsenika <= do30)
+                .OrderBy(p => p.DatumPotsenika)
+                .ToListAsync();
+
+            _hitni  = svi.Where(p => p.DatumPotsenika <= do15).ToList();
+            _uskoro = svi.Where(p => p.DatumPotsenika >  do15).ToList();
+
+            _ucitava = false;
+            StateHasChanged();
+
+            if (_hitni.Any())
+                await OtvoriHitniDialog();
+        }
+        catch (Exception ex)
+        {
+            _greska  = $"Podsetnici nisu učitani: {ex.Message}";
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OtvoriHitniDialog()
+    {
+        var parameters = new DialogParameters<HitniPodsetnicisDialog>
+        {
+            { x => x.Podsetnici, _hitni }
+        };
+        var options = new DialogOptions
+        {
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Small,
+            FullWidth        = true,
+            CloseOnEscapeKey = true
+        };
+        await Dialog.ShowAsync<HitniPodsetnicisDialog>(
+            "⚠️ Hitni podsetnici!", parameters, options);
+    }
+
+    private async Task OtvoriDetalje(Potsetnik p)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PodsetnikDialog> { { x => x.PodsetnikId, p.IdPotsetnik } };
+        var dialog     = await Dialog.ShowAsync<PodsetnikDialog>("Podsetnik", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false })
+            await UcitajPodsetnike();
+    }
+
+    private void Odjavi() => Nav.NavigateTo("/api/auth/logout", forceLoad: true);
+}

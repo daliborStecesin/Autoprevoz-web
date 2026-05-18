@@ -1,0 +1,54 @@
+@using Transport.Domain.Entities
+
+@inject IDialogService Dialog
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Sledeći podsetnici zahtevaju hitnu pažnju:
+        </MudText>
+
+        @foreach (var p in Podsetnici)
+        {
+            <MudPaper Elevation="1" Class="pa-3 mb-2"
+                      Style="border-left:4px solid var(--mud-palette-error);">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Error">
+                            <b>@p.Vrsta</b>
+                        </MudText>
+                        <MudText Typo="Typo.body2">@p.Opis</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            Datum: @p.DatumPotsenika?.ToString("dd.MM.yyyy")
+                        </MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               OnClick="() => OtvoriDetalje(p.IdPotsetnik)">
+                        Detalji
+                    </MudButton>
+                </div>
+            </MudPaper>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="() => MudDialog.Cancel()">
+            Zatvori
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<Potsetnik> Podsetnici { get; set; } = [];
+
+    private async Task OtvoriDetalje(int id)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PodsetnikDialog> { { x => x.PodsetnikId, id } };
+        await Dialog.ShowAsync<PodsetnikDialog>("Podsetnik", parameters, opts);
+    }
+}

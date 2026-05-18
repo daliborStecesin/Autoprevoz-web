@@ -1,0 +1,177 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject IDialogService     Dialog
+@inject ISnackbar          Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_vrsta"
+                           Label="Vrsta"
+                           Variant="Variant.Outlined"
+                           FullWidth="true">
+                    @foreach (var v in _vrste)
+                    {
+                        <MudSelectItem Value="@v">@v</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_opis"
+                              Label="Opis"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              FullWidth="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_datumIzrade"
+                               Label="Datum izrade"
+                               Variant="Variant.Outlined"
+                               DateFormat="dd.MM.yyyy" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-3">
+                    <MudNumericField @bind-Value="_ponavljanje"
+                                     Label="Ponavljanje na svakih"
+                                     Variant="Variant.Outlined"
+                                     Min="0"
+                                     Style="flex:1" />
+                    <MudText Class="mt-4 text-nowrap">Meseci</MudText>
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_datumPotsenika"
+                               Label="Datum podsetnika"
+                               Variant="Variant.Outlined"
+                               DateFormat="dd.MM.yyyy" />
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+
+        @if (PodsetnikId > 0)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       OnClick="OznaciKaoUradjen">
+                Označi kao urađen
+            </MudButton>
+        }
+
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Izlaz
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter]          public int        PodsetnikId { get; set; }
+
+    private static readonly string[] _vrste =
+    [
+        "IZLAZNI RACUN", "REGISTRACIJA VOZILA", "SERVIS VOZILA",
+        "TEHNICKI PREGLED", "OSTALO"
+    ];
+
+    private string    _vrsta          = "OSTALO";
+    private string    _opis           = string.Empty;
+    private DateTime? _datumIzrade    = DateTime.Today;
+    private int       _ponavljanje    = 0;
+    private DateTime? _datumPotsenika = DateTime.Today;
+
+    private Potsetnik? _entitet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PodsetnikId > 0)
+        {
+            _entitet = await Db.Podsetnici.FindAsync(PodsetnikId);
+            if (_entitet is not null)
+            {
+                _vrsta          = _entitet.Vrsta         ?? "OSTALO";
+                _opis           = _entitet.Opis          ?? string.Empty;
+                _ponavljanje    = _entitet.Ponavljanje    ?? 0;
+                _datumIzrade    = _entitet.DatumIzrade?.ToDateTime(TimeOnly.MinValue);
+                _datumPotsenika = _entitet.DatumPotsenika?.ToDateTime(TimeOnly.MinValue);
+            }
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (_entitet is null)
+        {
+            Db.Podsetnici.Add(new Potsetnik
+            {
+                Vrsta          = _vrsta,
+                Opis           = _opis,
+                DatumIzrade    = _datumIzrade.HasValue    ? DateOnly.FromDateTime(_datumIzrade.Value)    : null,
+                Ponavljanje    = _ponavljanje,
+                DatumPotsenika = _datumPotsenika.HasValue ? DateOnly.FromDateTime(_datumPotsenika.Value) : null
+            });
+        }
+        else
+        {
+            _entitet.Vrsta          = _vrsta;
+            _entitet.Opis           = _opis;
+            _entitet.DatumIzrade    = _datumIzrade.HasValue    ? DateOnly.FromDateTime(_datumIzrade.Value)    : null;
+            _entitet.Ponavljanje    = _ponavljanje;
+            _entitet.DatumPotsenika = _datumPotsenika.HasValue ? DateOnly.FromDateTime(_datumPotsenika.Value) : null;
+        }
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Podsetnik sačuvan.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task OznaciKaoUradjen()
+    {
+        if (_entitet is null) return;
+
+        if (_ponavljanje > 0)
+        {
+            var noviDatum = (_entitet.DatumPotsenika ?? DateOnly.FromDateTime(DateTime.Today))
+                            .AddMonths(_ponavljanje);
+            _entitet.DatumPotsenika = noviDatum;
+            await Db.SaveChangesAsync();
+            Snackbar.Add(
+                $"Podsetnik pomeren za {_ponavljanje} meseci. Novi datum: {noviDatum:dd.MM.yyyy}",
+                Severity.Success);
+        }
+        else
+        {
+            var potvrda = await Dialog.ShowMessageBox(
+                "Potvrda",
+                "Podsetnik nema ponavljanje i biće trajno obrisan. Nastaviti?",
+                yesText: "Da, obriši",
+                cancelText: "Odustani");
+
+            if (potvrda != true) return;
+
+            Db.Podsetnici.Remove(_entitet);
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Podsetnik obrisan.", Severity.Info);
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

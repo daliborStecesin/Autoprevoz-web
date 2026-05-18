@@ -1,0 +1,115 @@
+﻿@page "/"
+
+<PageTitle>Početna — Autoprevoz</PageTitle>
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h3" GutterBottom="true">
+            Dobrodošli u Autoprevoz — Transport Management System
+        </MudText>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Primary" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Fakturisanje</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Upravljanje računima i otpremnicama</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/fakturisanje/racuni">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.DriveEta" Color="Color.Secondary" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Transport</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Nalozi za prevoz i putni nalozi</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="/transport/nalozi">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Color="Color.Tertiary" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Finansije</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Uplate, dugovanja i kartice</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Tertiary" Href="/finansije/kartice">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Color="Color.Warning" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Vozni Park</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Vozila i vozači</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Warning" Href="/vozni-park/vozila">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.Money" Color="Color.Info" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Osoblje</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Dnevnice i plate</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Info" Href="/osoblje/dnevnice">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Success" Style="font-size: 2rem;" />
+                <MudText Typo="Typo.h6" Class="ml-2">Magacin</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">Upravljanje lagrom</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Success" Href="/magacin/lager">Otvori</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+<MudDivider Class="my-6" />
+
+<MudText Typo="Typo.h5" GutterBottom="true">
+    Status Aplikacije — Faza 1
+</MudText>
+
+<MudProgressLinear Color="Color.Success" Value="100" Class="my-4" />
+<MudText Typo="Typo.body2" Class="mb-4">
+    ✓ Infrastruktura i baza podataka<br/>
+    ✓ Entiteti i DbContext<br/>
+    ✓ Osnovne stranice<br/>
+    ⏳ Implementacija modula (pred nama)
+</MudText>

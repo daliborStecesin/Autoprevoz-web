@@ -1,0 +1,209 @@
+@page "/podsetnici"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Podsetnici — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Notifications" Class="mr-2" />
+    Periodični podsetnici
+</MudText>
+
+<MudDataGrid T="Potsetnik"
+             Items="@_filtrirani"
+             Dense="true"
+             Striped="true"
+             Hover="true"
+             RowClick="NaKlikReda"
+             Loading="_ucitava">
+    <ToolBarContent>
+        <MudSelect Value="_filterVrsta"
+                   T="string?"
+                   Label="Vrsta"
+                   Variant="Variant.Outlined"
+                   Clearable="true"
+                   Style="min-width:220px;"
+                   ValueChanged="@((string? v) => Filtriraj(v))">
+            @foreach (var v in _vrste)
+            {
+                <MudSelectItem Value="@v">@v</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSpacer />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NoviPodsetnik"
+                   Class="mr-2">
+            Novi podsetnik
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Delete"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="Obrisi">
+            Obriši
+        </MudButton>
+    </ToolBarContent>
+
+    <Columns>
+        <PropertyColumn Property="x => x.Vrsta"  Title="Vrsta" />
+        <PropertyColumn Property="x => x.Opis"   Title="Opis" />
+        <TemplateColumn Title="Datum izrade">
+            <CellTemplate>
+                @context.Item.DatumIzrade?.ToString("dd.MM.yyyy")
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Datum podsetnika">
+            <CellTemplate>
+                @{
+                    var dana = context.Item.DatumPotsenika.HasValue
+                        ? (context.Item.DatumPotsenika.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days
+                        : (int?)null;
+                    var boja = dana <= 15 ? "color:#d32f2f;font-weight:bold"
+                             : dana <= 30 ? "color:#e65100;font-weight:bold"
+                             : "";
+                }
+                <span style="@boja">
+                    @context.Item.DatumPotsenika?.ToString("dd.MM.yyyy")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="" CellStyle="width:60px">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Size="Size.Small"
+                               Color="Color.Primary"
+                               OnClick="@(async (e) => await OtvoriDetalje(context.Item.IdPotsetnik))"
+                               Title="Izmeni" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+
+    <PagerContent>
+        <MudDataGridPager T="Potsetnik" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private List<Potsetnik> _svi        = [];
+    private List<Potsetnik> _filtrirani = [];
+    private Potsetnik?      _selektovani;
+    private string?         _filterVrsta;
+    private bool            _ucitava = true;
+
+    private DateTime _posledniKlik = DateTime.MinValue;
+    private int      _posledniId;
+
+    private static readonly string[] _vrste =
+    [
+        "IZLAZNI RACUN", "REGISTRACIJA VOZILA", "SERVIS VOZILA",
+        "TEHNICKI PREGLED", "OSTALO"
+    ];
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await UcitajSve();
+    }
+
+    private async Task UcitajSve()
+    {
+        _ucitava = true;
+        StateHasChanged();
+
+        _svi = await Db.Podsetnici
+            .OrderBy(p => p.DatumPotsenika)
+            .AsNoTracking()
+            .ToListAsync();
+
+        Filtriraj(_filterVrsta);
+        _ucitava = false;
+        StateHasChanged();
+    }
+
+    private void Filtriraj(string? vrsta)
+    {
+        _filterVrsta = vrsta;
+        _filtrirani  = string.IsNullOrEmpty(vrsta)
+            ? [.. _svi]
+            : [.. _svi.Where(p => p.Vrsta == vrsta)];
+    }
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Potsetnik> args)
+    {
+        var sada = DateTime.Now;
+        var jeDoubleKlik = _selektovani?.IdPotsetnik == args.Item.IdPotsetnik
+                        && (sada - _posledniKlik).TotalMilliseconds < 400;
+
+        _selektovani  = args.Item;
+        _posledniKlik = sada;
+        _posledniId   = args.Item.IdPotsetnik;
+        StateHasChanged();
+
+        if (jeDoubleKlik)
+            await OtvoriDetalje(args.Item.IdPotsetnik);
+    }
+
+    private async Task NoviPodsetnik()
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PodsetnikDialog> { { x => x.PodsetnikId, 0 } };
+        var dialog     = await Dialog.ShowAsync<PodsetnikDialog>("Novi podsetnik", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private async Task OtvoriDetalje(int id)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PodsetnikDialog> { { x => x.PodsetnikId, id } };
+        var dialog     = await Dialog.ShowAsync<PodsetnikDialog>("Podsetnik", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private async Task Obrisi()
+    {
+        if (_selektovani is null) return;
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda brisanja",
+            $"Obrisati podsetnik '{_selektovani.Vrsta} — {_selektovani.Opis}'?",
+            yesText: "Da, obriši",
+            cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        var entitet = await Db.Podsetnici.FindAsync(_selektovani.IdPotsetnik);
+        if (entitet is not null)
+        {
+            Db.Podsetnici.Remove(entitet);
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Podsetnik obrisan.", Severity.Success);
+            _selektovani = null;
+            await UcitajSve();
+        }
+    }
+}

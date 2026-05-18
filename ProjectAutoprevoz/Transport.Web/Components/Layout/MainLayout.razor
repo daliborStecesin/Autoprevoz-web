@@ -1,0 +1,69 @@
+@inherits LayoutComponentBase
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ITenantService TenantService
+@inject NavigationManager Nav
+
+<MudThemeProvider Theme="@_theme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Class="mr-2" />
+        <MudText Typo="Typo.h6" Class="mr-auto">Autoprevoz — Transport Management</MudText>
+        <MudText Typo="Typo.body2" Class="mr-2 d-none d-sm-block">
+            @TenantService.GetNazivFirme()
+        </MudText>
+        <MudTooltip Text="Odjavi se">
+            <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                           Color="Color.Inherit"
+                           OnClick="Odjavi" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="@_drawerOpen" Elevation="1">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Navigacija</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6 pt-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+            Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private MudTheme _theme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#1976D2",
+            Secondary = "#424242",
+            Background = "#FAFAFA",
+            Surface = "#FFFFFF",
+            DrawerBackground = "#212121",
+            DrawerText = "#FFFFFF",
+            AppbarBackground = "#1976D2",
+            AppbarText = "#FFFFFF"
+        }
+    };
+
+    private void Odjavi() => Nav.NavigateTo("/api/auth/logout", forceLoad: true);
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}
