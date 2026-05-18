@@ -65,6 +65,9 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<NalogPrevoz>()
             .HasQueryFilter(n => n.Brisano == 0 || n.Brisano == null);
 
+        modelBuilder.Entity<Vozac>()
+            .HasQueryFilter(v => v.aktivan == 1 || v.aktivan == null);
+
         // ============================================================================
         // PARTNERSHIPS — Relacije između entiteta
         // ============================================================================

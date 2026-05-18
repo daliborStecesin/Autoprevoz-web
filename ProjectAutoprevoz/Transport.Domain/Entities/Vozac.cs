@@ -7,49 +7,66 @@ namespace Transport.Domain.Entities;
 public class Vozac
 {
     [Key]
-    [Column("Id")]
-    public int Id { get; set; }
+    public int Broj { get; set; }
 
-    [Required]
-    [MaxLength(100)]
-    public string Ime { get; set; } = null!;
+    [MaxLength(50)]
+    public string? Ime { get; set; }
 
-    [MaxLength(100)]
+    [MaxLength(50)]
     public string? Prezime { get; set; }
 
-    [MaxLength(20)]
-    public string? JMB { get; set; }
+    [MaxLength(200)]
+    public string? Adresa { get; set; }
 
     [MaxLength(100)]
     public string? Mesto { get; set; }
 
-    [MaxLength(100)]
-    public string? Adresa { get; set; }
-
-    [MaxLength(20)]
+    [MaxLength(30)]
     public string? Telefon { get; set; }
 
+    [MaxLength(30)]
+    public string? TelefonMob { get; set; }
+
+    [Column("Broj_LK")]
+    [MaxLength(30)]
+    public string? BrojLK { get; set; }
+
+    [MaxLength(20)]
+    public string? JMBG { get; set; }
+
     [MaxLength(100)]
-    public string? Email { get; set; }
+    public string? Zaposlenje { get; set; }
 
-    [MaxLength(20)]
-    public string? BrojVozackeDozvole { get; set; }
-
-    public DateTime? DatumIstekVozackeDozvole { get; set; }
-
-    [MaxLength(20)]
-    public string? KategorijaDozvoле { get; set; }
-
-    [MaxLength(20)]
-    public string Status { get; set; } = "Aktivan";
+    [MaxLength(200)]
+    public string? Mail { get; set; }
 
     [MaxLength(500)]
-    public string? Napomena { get; set; }
+    public string? Komentar { get; set; }
 
-    public DateTime? DatumUnosa { get; set; }
+    public DateOnly? istekDozvole { get; set; }
 
-    public DateTime? DatumIzmene { get; set; }
+    [MaxLength(50)]
+    public string? pasos { get; set; }
+
+    public DateOnly? istekPasosa { get; set; }
+
+    public DateOnly? datumZaposlenja { get; set; }
+
+    public DateOnly? datumRodjenja { get; set; }
+
+    public decimal? dnevnica { get; set; }
+
+    [MaxLength(20)]
+    public string? tipIsplate { get; set; }
+
+    public decimal? procenatZaPlatu { get; set; }
+
+    public decimal? fixnoPlata { get; set; }
+
+    public decimal? cenaPoKm { get; set; }
+
+    public int? aktivan { get; set; }
 
     public virtual ICollection<Dnevnica> Dnevnice { get; set; } = [];
-    public virtual ICollection<Plata> Plate { get; set; } = [];
+    public virtual ICollection<Plata>    Plate    { get; set; } = [];
 }

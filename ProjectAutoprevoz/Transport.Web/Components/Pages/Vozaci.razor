@@ -1,0 +1,144 @@
+@page "/vozaci"
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+
+<PageTitle>Vozači / Zaposleni — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+    Vozači / Zaposleni
+</MudText>
+
+<MudDataGrid T="Vozac"
+             Items="@_filtrirani"
+             Dense="true"
+             Striped="true"
+             Hover="true"
+             Loading="_ucitava"
+             RowClick="@(async (args) => await OtvoriDialog(args.Item.Broj))">
+    <ToolBarContent>
+        <MudTextField Value="_pretraga"
+                      T="string"
+                      ValueChanged="@((string v) => Filtriraj(v))"
+                      Label="Pretraga po imenu / prezimenu"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Clearable="true"
+                      Style="min-width:280px;" />
+
+        <MudSpacer />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="NoviVozac">
+            Novi vozač
+        </MudButton>
+    </ToolBarContent>
+
+    <Columns>
+        <PropertyColumn Property="x => x.Ime"       Title="Ime" />
+        <PropertyColumn Property="x => x.Prezime"   Title="Prezime" />
+        <PropertyColumn Property="x => x.Mesto"     Title="Mesto" />
+        <PropertyColumn Property="x => x.Zaposlenje" Title="Zaposlenje" />
+        <PropertyColumn Property="x => x.TelefonMob" Title="Mobilni" />
+        <TemplateColumn Title="Tip isplate">
+            <CellTemplate>
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@TipColor(context.Item.tipIsplate)">
+                    @(context.Item.tipIsplate ?? "—")
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+
+    <PagerContent>
+        <MudDataGridPager T="Vozac" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private List<Vozac> _svi        = [];
+    private List<Vozac> _filtrirani = [];
+    private bool        _ucitava    = true;
+    private string      _pretraga   = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+            Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await UcitajSve();
+    }
+
+    private async Task UcitajSve()
+    {
+        _ucitava = true;
+        StateHasChanged();
+
+        _svi = await Db.Vozaci
+            .OrderBy(v => v.Prezime)
+            .ThenBy(v => v.Ime)
+            .AsNoTracking()
+            .ToListAsync();
+
+        Filtriraj(_pretraga);
+        _ucitava = false;
+        StateHasChanged();
+    }
+
+    private void Filtriraj(string pretraga)
+    {
+        _pretraga   = pretraga;
+
+        if (string.IsNullOrWhiteSpace(pretraga))
+        {
+            _filtrirani = [.. _svi];
+            return;
+        }
+
+        _filtrirani = [.. _svi.Where(v =>
+            (v.Ime     ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
+            (v.Prezime ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    private async Task NoviVozac()
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<VozacDialog> { { x => x.VozacId, 0 } };
+        var dialog     = await Dialog.ShowAsync<VozacDialog>("Novi vozač", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private async Task OtvoriDialog(int id)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<VozacDialog> { { x => x.VozacId, id } };
+        var dialog     = await Dialog.ShowAsync<VozacDialog>("Vozač", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private static Color TipColor(string? tip) => tip switch
+    {
+        "DNEVNICA" => Color.Info,
+        "PROCENAT" => Color.Success,
+        "FIXNO"    => Color.Primary,
+        "PO_KM"    => Color.Warning,
+        _          => Color.Default
+    };
+}

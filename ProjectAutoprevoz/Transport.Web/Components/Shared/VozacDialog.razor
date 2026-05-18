@@ -1,0 +1,351 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject IDialogService     Dialog
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:600px;">
+    <DialogContent>
+        <MudTabs Elevation="0" Rounded="false" ApplyEffectsToContainer="true">
+
+            @* ── TAB 1 — Osnovni podaci ─────────────────────────────── *@
+            <MudTabPanel Text="Osnovni podaci" Icon="@Icons.Material.Filled.Person">
+                <MudGrid Spacing="2" Class="mt-2">
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_ime"
+                                      Label="Ime *"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_prezime"
+                                      Label="Prezime *"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="8">
+                        <MudTextField @bind-Value="_adresa"
+                                      Label="Adresa"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_mesto"
+                                      Label="Mesto"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_telefon"
+                                      Label="Telefon"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_telefonMob"
+                                      Label="Mobilni"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_mail"
+                                      Label="E-mail"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      InputType="InputType.Email" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_zaposlenje"
+                                      Label="Zaposlenje"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_jmbg"
+                                      Label="JMBG"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_brojLK"
+                                      Label="Broj LK"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_pasos"
+                                      Label="Br. Pasoša"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="_istekDozvole"
+                                       Label="Istek dozvole"
+                                       Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="_istekPasosa"
+                                       Label="Istek pasoša"
+                                       Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="_datumZaposlenja"
+                                       Label="Zaposlen od"
+                                       Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="_datumRodjenja"
+                                       Label="Datum rođenja"
+                                       Variant="Variant.Outlined"
+                                       DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_komentar"
+                                      Label="Komentar"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      Lines="2" />
+                    </MudItem>
+
+                </MudGrid>
+            </MudTabPanel>
+
+            @* ── TAB 2 — Obračun plate ──────────────────────────────── *@
+            <MudTabPanel Text="Obračun plate" Icon="@Icons.Material.Filled.Payments">
+                <MudGrid Spacing="3" Class="mt-2">
+
+                    @* Radio izbor tipa — ne koristi popup, radi pouzdano unutar dialoga *@
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">
+                            Tip isplate
+                        </MudText>
+                        <MudRadioGroup T="string" @bind-Value="_tipIsplate">
+                            <MudRadio T="string" Value="@("DNEVNICA")" Color="Color.Primary">Dnevnica</MudRadio>
+                            <MudRadio T="string" Value="@("PROCENAT")" Color="Color.Primary">Procenat</MudRadio>
+                            <MudRadio T="string" Value="@("FIXNO")"    Color="Color.Primary">Fiksna plata</MudRadio>
+                            <MudRadio T="string" Value="@("PO_KM")"    Color="Color.Primary">Po kilometru</MudRadio>
+                        </MudRadioGroup>
+                    </MudItem>
+
+                    @* Dinamičko polje ovisno o izabranom tipu *@
+                    @if (_tipIsplate == "DNEVNICA")
+                    {
+                        <MudItem xs="12" sm="5">
+                            <MudNumericField @bind-Value="_dnevnica"
+                                             Label="Dnevnica"
+                                             Variant="Variant.Outlined"
+                                             Format="F2"
+                                             Adornment="Adornment.End"
+                                             AdornmentText="RSD" />
+                        </MudItem>
+                    }
+                    else if (_tipIsplate == "PROCENAT")
+                    {
+                        <MudItem xs="12" sm="5">
+                            <MudNumericField @bind-Value="_procenat"
+                                             Label="Procenat za platu"
+                                             Variant="Variant.Outlined"
+                                             Format="F2"
+                                             Adornment="Adornment.End"
+                                             AdornmentText="%" />
+                        </MudItem>
+                    }
+                    else if (_tipIsplate == "FIXNO")
+                    {
+                        <MudItem xs="12" sm="5">
+                            <MudNumericField @bind-Value="_fixnoPlata"
+                                             Label="Fiksna plata"
+                                             Variant="Variant.Outlined"
+                                             Format="F2"
+                                             Adornment="Adornment.End"
+                                             AdornmentText="RSD" />
+                        </MudItem>
+                    }
+                    else if (_tipIsplate == "PO_KM")
+                    {
+                        <MudItem xs="12" sm="5">
+                            <MudNumericField @bind-Value="_cenaPoKm"
+                                             Label="Cena po kilometru"
+                                             Variant="Variant.Outlined"
+                                             Format="F2"
+                                             Adornment="Adornment.End"
+                                             AdornmentText="RSD/km" />
+                        </MudItem>
+                    }
+
+                </MudGrid>
+            </MudTabPanel>
+
+        </MudTabs>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+
+        @if (VozacId > 0)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.PersonOff"
+                       OnClick="Deaktiviraj">
+                Deaktiviraj
+            </MudButton>
+        }
+
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter]          public int        VozacId  { get; set; }
+
+    private Vozac? _entitet;
+
+    // Tab 1
+    private string    _ime          = string.Empty;
+    private string    _prezime      = string.Empty;
+    private string?   _adresa;
+    private string?   _mesto;
+    private string?   _telefon;
+    private string?   _telefonMob;
+    private string?   _mail;
+    private string?   _zaposlenje;
+    private string?   _jmbg;
+    private string?   _brojLK;
+    private string?   _pasos;
+    private string?   _komentar;
+    private DateTime? _istekDozvole;
+    private DateTime? _istekPasosa;
+    private DateTime? _datumZaposlenja;
+    private DateTime? _datumRodjenja;
+
+    // Tab 2
+    private string   _tipIsplate  = "DNEVNICA";
+    private decimal? _dnevnica;
+    private decimal? _procenat;
+    private decimal? _fixnoPlata;
+    private decimal? _cenaPoKm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (VozacId > 0)
+        {
+            _entitet = await Db.Vozaci.IgnoreQueryFilters()
+                                      .FirstOrDefaultAsync(v => v.Broj == VozacId);
+            if (_entitet is not null)
+            {
+                _ime             = _entitet.Ime         ?? string.Empty;
+                _prezime         = _entitet.Prezime     ?? string.Empty;
+                _adresa          = _entitet.Adresa;
+                _mesto           = _entitet.Mesto;
+                _telefon         = _entitet.Telefon;
+                _telefonMob      = _entitet.TelefonMob;
+                _mail            = _entitet.Mail;
+                _zaposlenje      = _entitet.Zaposlenje;
+                _jmbg            = _entitet.JMBG;
+                _brojLK          = _entitet.BrojLK;
+                _pasos           = _entitet.pasos;
+                _komentar        = _entitet.Komentar;
+                _tipIsplate      = _entitet.tipIsplate  ?? "DNEVNICA";
+                _dnevnica        = _entitet.dnevnica;
+                _procenat        = _entitet.procenatZaPlatu;
+                _fixnoPlata      = _entitet.fixnoPlata;
+                _cenaPoKm        = _entitet.cenaPoKm;
+
+                _istekDozvole    = ToDateTime(_entitet.istekDozvole);
+                _istekPasosa     = ToDateTime(_entitet.istekPasosa);
+                _datumZaposlenja = ToDateTime(_entitet.datumZaposlenja);
+                _datumRodjenja   = ToDateTime(_entitet.datumRodjenja);
+            }
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_ime))
+        {
+            Snackbar.Add("Ime je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        if (_entitet is null)
+        {
+            _entitet = new Vozac { aktivan = 1 };
+            Db.Vozaci.Add(_entitet);
+        }
+
+        _entitet.Ime             = _ime;
+        _entitet.Prezime         = _prezime;
+        _entitet.Adresa          = _adresa;
+        _entitet.Mesto           = _mesto;
+        _entitet.Telefon         = _telefon;
+        _entitet.TelefonMob      = _telefonMob;
+        _entitet.Mail            = _mail;
+        _entitet.Zaposlenje      = _zaposlenje;
+        _entitet.JMBG            = _jmbg;
+        _entitet.BrojLK          = _brojLK;
+        _entitet.pasos           = _pasos;
+        _entitet.Komentar        = _komentar;
+        _entitet.tipIsplate      = _tipIsplate;
+        _entitet.dnevnica        = _tipIsplate == "DNEVNICA" ? _dnevnica       : null;
+        _entitet.procenatZaPlatu = _tipIsplate == "PROCENAT" ? _procenat       : null;
+        _entitet.fixnoPlata      = _tipIsplate == "FIXNO"    ? _fixnoPlata     : null;
+        _entitet.cenaPoKm        = _tipIsplate == "PO_KM"    ? _cenaPoKm       : null;
+        _entitet.istekDozvole    = ToDateOnly(_istekDozvole);
+        _entitet.istekPasosa     = ToDateOnly(_istekPasosa);
+        _entitet.datumZaposlenja = ToDateOnly(_datumZaposlenja);
+        _entitet.datumRodjenja   = ToDateOnly(_datumRodjenja);
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Vozač sačuvan.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task Deaktiviraj()
+    {
+        if (_entitet is null) return;
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda deaktivacije",
+            "Da li ste sigurni? Vozač neće biti obrisan, samo deaktiviran.",
+            yesText: "Da, deaktiviraj",
+            cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        _entitet.aktivan = 0;
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Vozač deaktiviran.", Severity.Info);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private static DateTime? ToDateTime(DateOnly? d)
+        => d.HasValue ? d.Value.ToDateTime(TimeOnly.MinValue) : null;
+
+    private static DateOnly? ToDateOnly(DateTime? d)
+        => d.HasValue ? DateOnly.FromDateTime(d.Value) : null;
+}
