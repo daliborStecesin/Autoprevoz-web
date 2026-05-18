@@ -47,7 +47,9 @@ public class TransportDbContext : DbContext
     public DbSet<AnalitikaEpp> AnalitikaEPP { get; set; }
 
     // Podešavanja
-    public DbSet<DefaultValue> DefaultValues { get; set; }
+    public DbSet<DefaultValue>  DefaultValues  { get; set; }
+    public DbSet<PodaciFirme>   PodaciFirme    { get; set; }
+    public DbSet<Banka>         Banke          { get; set; }
 
     // Podsetnici
     public DbSet<Potsetnik> Podsetnici { get; set; }
@@ -67,6 +69,9 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Vozac>()
             .HasQueryFilter(v => v.aktivan == 1 || v.aktivan == null);
+
+        modelBuilder.Entity<Banka>()
+            .HasQueryFilter(b => b.aktivan == 1 || b.aktivan == null);
 
         // ============================================================================
         // PARTNERSHIPS — Relacije između entiteta

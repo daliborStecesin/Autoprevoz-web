@@ -1,0 +1,273 @@
+@page "/podesavanja/podaci-firme"
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Podaci firme — Autoprevoz</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-2" />
+        Podaci firme
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Save"
+               Disabled="_ucitava"
+               OnClick="Sacuvaj">
+        Sačuvaj
+    </MudButton>
+</div>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_podaci is not null)
+{
+    @* ── GLAVNI PODACI (3 kolone) ────────────────────────────────── *@
+    <MudGrid Spacing="3" Class="mb-4">
+
+        @* Leva kolona — Osnovno *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.Domain" Size="Size.Small" Class="mr-1" />
+                    Osnovni podaci
+                </MudText>
+                <MudTextField @bind-Value="_podaci.NazivFirme"      Label="Naziv firme *"        Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.Mesto"           Label="Mesto"                Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.PosBroj"         Label="Poštanski broj"       Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.Adresa"          Label="Adresa"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.PIB"             Label="PIB"                  Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.MaticniBroj"     Label="Matični broj"         Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.SifraDelatnosti" Label="Šifra delatnosti"     Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.EpPdv"           Label="EP PDV"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudSelect T="string"
+                           @bind-Value="_podaci.drzava"
+                           Label="Država"
+                           Variant="Variant.Outlined"
+                           ShrinkLabel="true"
+                           Class="mb-3">
+                    <MudSelectItem T="string" Value="@("SRBIJA")">Srbija</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("HRVATSKA")">Hrvatska</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("SLOVENIJA")">Slovenija</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("BOSNA I HERCEGOVINA")">Bosna i Hercegovina</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("CRNA GORA")">Crna Gora</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("MAKEDONIJA")">Makedonija</MudSelectItem>
+                </MudSelect>
+            </MudPaper>
+        </MudItem>
+
+        @* Srednja kolona — Kontakt *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Class="mr-1" />
+                    Kontakt
+                </MudText>
+                <MudTextField @bind-Value="_podaci.Telefon"     Label="Telefon"           Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.Fax"         Label="Fax"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.mobilni"     Label="Mobilni"           Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.mobilni2"    Label="Mobilni 2"         Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.mail"        Label="E-mail"            Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Email" />
+                <MudTextField @bind-Value="_podaci.sajt"        Label="Sajt"              Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.mailRacuna"  Label="Mail za račune"    Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Email" />
+                <MudTextField @bind-Value="_podaci.sifraMaila"  Label="Šifra maila"       Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Password" />
+            </MudPaper>
+        </MudItem>
+
+        @* Desna kolona — PDV napomene *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
+                    PDV napomene
+                </MudText>
+                <MudTextField @bind-Value="_podaci.NapomenaPDV"
+                              Label="Napomena PDV"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="2" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.NapomenaBezPdvIzvoz"
+                              Label="Domaća napomena bez PDV - IZVOZ"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="2" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.NapomenaBezPdvUvoz"
+                              Label="Domaća napomena bez PDV - UVOZ"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="2" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.NapomenaInoPdvIzvoz"
+                              Label="Inostrana napomena bez PDV - IZVOZ"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="2" Class="mb-3" />
+                <MudTextField @bind-Value="_podaci.NapomenaInoPdvUvoz"
+                              Label="Inostrana napomena bez PDV - UVOZ"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="2" />
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+
+    @* ── TRAJNE NAPOMENE ─────────────────────────────────────────── *@
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
+            <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Class="mr-1" />
+            Trajne napomene na računu
+        </MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_podaci.NapomenaTrajne1"
+                              Label="Napomena 1"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="3" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_podaci.NapomenaTrajne2"
+                              Label="Napomena 2"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Lines="3" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── BANKE ───────────────────────────────────────────────────── *@
+    <div class="d-flex justify-space-between align-center mb-3">
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Class="mr-1" />
+            Banke
+        </MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NovaBanka">
+            Nova banka
+        </MudButton>
+    </div>
+
+    <MudDataGrid T="Banka"
+                 Items="@_banke"
+                 Dense="true"
+                 Striped="true"
+                 Hover="true"
+                 Loading="_ucitavaBanke"
+                 RowClick="@(async (args) => await OtvoriBanku(args.Item.idBanke))">
+        <Columns>
+            <PropertyColumn Property="x => x.banka"     Title="Naziv banke" />
+            <PropertyColumn Property="x => x.racun"     Title="Račun" />
+            <PropertyColumn Property="x => x.SWIFT"     Title="SWIFT" />
+            <PropertyColumn Property="x => x.IBAN"      Title="IBAN" />
+            <PropertyColumn Property="x => x.TipRacuna" Title="Tip računa" />
+        </Columns>
+    </MudDataGrid>
+}
+
+@code {
+    private Transport.Domain.Entities.PodaciFirme? _podaci;
+    private List<Transport.Domain.Entities.Banka>  _banke        = [];
+    private bool                                    _ucitava      = true;
+    private bool                                    _ucitavaBanke = false;
+    private bool                                    _noviZapis    = false;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+            Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _ucitava = true;
+        StateHasChanged();
+
+        _podaci = await Db.PodaciFirme.FirstOrDefaultAsync();
+
+        if (_podaci is null)
+        {
+            _podaci    = new Transport.Domain.Entities.PodaciFirme { drzava = "SRBIJA" };
+            _noviZapis = true;
+        }
+
+        await UcitajBanke();
+        _ucitava = false;
+        StateHasChanged();
+    }
+
+    private async Task UcitajBanke()
+    {
+        _ucitavaBanke = true;
+        _banke = await Db.Banke
+            .OrderBy(b => b.banka)
+            .AsNoTracking()
+            .ToListAsync();
+        _ucitavaBanke = false;
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (_podaci is null) return;
+
+        if (string.IsNullOrWhiteSpace(_podaci.NazivFirme))
+        {
+            Snackbar.Add("Naziv firme je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            if (_noviZapis)
+            {
+                Db.PodaciFirme.Add(_podaci);
+                _noviZapis = false;
+            }
+            else
+            {
+                // Eksplicitno markiramo kao Modified jer @bind-Value
+                // ne notifikuje EF Core change tracker automatski
+                Db.Entry(_podaci).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+            }
+
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Podaci firme sačuvani.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri čuvanju: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task NovaBanka()
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<BankaDialog> { { x => x.BankaId, 0 } };
+        var dialog     = await Dialog.ShowAsync<BankaDialog>("Nova banka", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await UcitajBanke();
+            StateHasChanged();
+        }
+    }
+
+    private async Task OtvoriBanku(int id)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<BankaDialog> { { x => x.BankaId, id } };
+        var dialog     = await Dialog.ShowAsync<BankaDialog>("Banka", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await UcitajBanke();
+            StateHasChanged();
+        }
+    }
+}

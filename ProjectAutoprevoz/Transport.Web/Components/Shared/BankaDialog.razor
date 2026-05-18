@@ -1,0 +1,147 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject IDialogService     Dialog
+@inject ISnackbar          Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_banka"
+                              Label="Naziv banke *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_racun"
+                              Label="Broj računa *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_swift"
+                              Label="SWIFT"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_iban"
+                              Label="IBAN"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">Tip računa</MudText>
+                <MudRadioGroup T="string" @bind-Value="_tipRacuna">
+                    <MudRadio T="string" Value="@("DOMAĆI")"     Color="Color.Primary">Domaći</MudRadio>
+                    <MudRadio T="string" Value="@("INOSTRANI")"  Color="Color.Primary">Inostrani</MudRadio>
+                </MudRadioGroup>
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+
+        @if (BankaId > 0)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Block"
+                       OnClick="Deaktiviraj">
+                Deaktiviraj
+            </MudButton>
+        }
+
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter]          public int        BankaId   { get; set; }
+
+    private Banka?  _entitet;
+    private string  _banka    = string.Empty;
+    private string  _racun    = string.Empty;
+    private string? _swift;
+    private string? _iban;
+    private string  _tipRacuna = "DOMAĆI";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (BankaId > 0)
+        {
+            _entitet = await Db.Banke.IgnoreQueryFilters()
+                                     .FirstOrDefaultAsync(b => b.idBanke == BankaId);
+            if (_entitet is not null)
+            {
+                _banka     = _entitet.banka     ?? string.Empty;
+                _racun     = _entitet.racun     ?? string.Empty;
+                _swift     = _entitet.SWIFT;
+                _iban      = _entitet.IBAN;
+                _tipRacuna = _entitet.TipRacuna ?? "DOMAĆI";
+            }
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_banka) || string.IsNullOrWhiteSpace(_racun))
+        {
+            Snackbar.Add("Naziv banke i broj računa su obavezna polja.", Severity.Warning);
+            return;
+        }
+
+        if (_entitet is null)
+        {
+            _entitet = new Banka { aktivan = 1 };
+            Db.Banke.Add(_entitet);
+        }
+
+        _entitet.banka     = _banka;
+        _entitet.racun     = _racun;
+        _entitet.SWIFT     = _swift;
+        _entitet.IBAN      = _iban;
+        _entitet.TipRacuna = _tipRacuna;
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Banka sačuvana.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task Deaktiviraj()
+    {
+        if (_entitet is null) return;
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda deaktivacije",
+            "Da li ste sigurni da želite da deaktivirate ovu banku?",
+            yesText: "Da, deaktiviraj",
+            cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        _entitet.aktivan = 0;
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Banka deaktivirana.", Severity.Info);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}
