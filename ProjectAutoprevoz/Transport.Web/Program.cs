@@ -54,6 +54,7 @@ builder.Services.AddScoped<IPdvService, PdvService>();
 // ============================================================================
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<INbsPartnerService, NbsPartnerService>();
 builder.Services.AddHttpContextAccessor();
 
 // ============================================================================

@@ -1,0 +1,194 @@
+@using Transport.Application.DTOs
+@using Transport.Application.Interfaces
+
+@inject INbsPartnerService NbsService
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:700px;">
+    <DialogContent>
+
+        <div class="d-flex gap-3 align-center mb-4">
+            <MudTextField @bind-Value="_unos"
+                          Label="@LabelPretrage"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel="true"
+                          Style="flex:1"
+                          OnKeyDown="@(async (e) => { if (e.Key == "Enter") await Pretrazi(); })" />
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Pretrazi"
+                       Disabled="_ucitava">
+                @if (_ucitava) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+                Pretraži
+            </MudButton>
+        </div>
+
+        @if (_rezultati.Count > 0)
+        {
+            @if (_izabranaKompanija is null)
+            {
+                @* Korak 1: Lista kompanija *@
+                <MudText Typo="Typo.subtitle2" Class="mb-2 mud-text-secondary">
+                    Pronađeno @_rezultati.Count kompanija — kliknite da izaberete
+                </MudText>
+
+                <MudDataGrid T="NbsKompanija"
+                             Items="_rezultati"
+                             Dense="true" Striped="true" Hover="true"
+                             RowClick="@(args => IzaberiKompaniju(args.Item))">
+                    <Columns>
+                        <PropertyColumn Property="x => x.Naziv"       Title="Naziv" />
+                        <PropertyColumn Property="x => x.Pib"         Title="PIB" />
+                        <PropertyColumn Property="x => x.MaticniBroj" Title="Matični broj" />
+                        <PropertyColumn Property="x => x.Adresa"      Title="Adresa" />
+                        <PropertyColumn Property="x => x.Mesto"       Title="Mesto" />
+                        <TemplateColumn Title="Računa">
+                            <CellTemplate>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                                    @context.Item.Racuni.Count
+                                </MudChip>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            }
+            else
+            {
+                @* Korak 2: Računi izabrane kompanije *@
+                <div class="d-flex align-center mb-3">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                                   OnClick="() => _izabranaKompanija = null"
+                                   Title="Nazad na listu" />
+                    <MudText Typo="Typo.subtitle1" Class="ml-2">
+                        <b>@_izabranaKompanija.Naziv</b>
+                        <MudText Typo="Typo.caption" Class="ml-2 mud-text-secondary">
+                            PIB: @_izabranaKompanija.Pib | MB: @_izabranaKompanija.MaticniBroj
+                        </MudText>
+                    </MudText>
+                </div>
+
+                @if (_izabranaKompanija.Racuni.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Ova kompanija nema žiro računa u NBS registru.
+                        Možete je importovati bez računa.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudText Typo="Typo.subtitle2" Class="mb-2 mud-text-secondary">
+                        Označite žiro račune koje želite da uvezete:
+                    </MudText>
+                    @foreach (var racun in _izabranaKompanija.Racuni)
+                    {
+                        <MudPaper Elevation="1" Class="pa-3 mb-2">
+                            <div class="d-flex align-center gap-3">
+                                <MudCheckBox @bind-Value="racun.Izabran" Color="Color.Primary" />
+                                <div>
+                                    <MudText Typo="Typo.body2"><b>@racun.ZiroRacun</b></MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@racun.Banka</MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    }
+                }
+            }
+        }
+        else if (_pretrazivano && !_ucitava)
+        {
+            @if (_greska is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    Nije pronađena nijedna kompanija za zadatu pretragu.
+                </MudAlert>
+            }
+        }
+
+    </DialogContent>
+
+    <DialogActions>
+        @if (_izabranaKompanija is not null)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       OnClick="PotvrdiIzbor">
+                Potvrdi izbor
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string TipPretrage      { get; set; } = "NAZIV"; // NAZIV | PIB | MB
+    [Parameter] public string? PocetnaVrednost { get; set; }
+
+    private string             _unos              = string.Empty;
+    private List<NbsKompanija> _rezultati         = [];
+    private NbsKompanija?      _izabranaKompanija;
+    private string?            _greska;
+    private bool              _ucitava;
+    private bool              _pretrazivano;
+
+    private string LabelPretrage => TipPretrage switch
+    {
+        "PIB" => "Pretraga po PIB-u",
+        "MB"  => "Pretraga po matičnom broju",
+        _     => "Pretraga po nazivu"
+    };
+
+    protected override void OnInitialized()
+    {
+        _unos = PocetnaVrednost ?? string.Empty;
+    }
+
+    private async Task Pretrazi()
+    {
+        if (string.IsNullOrWhiteSpace(_unos)) return;
+
+        _ucitava           = true;
+        _pretrazivano      = false;
+        _rezultati         = [];
+        _greska            = null;
+        _izabranaKompanija = null;
+        StateHasChanged();
+
+        (List<NbsKompanija> rezultati, string? greska) odgovor = TipPretrage switch
+        {
+            "PIB" => await NbsService.PretraziSaDetaljimaAsync(pib: _unos),
+            "MB"  => long.TryParse(_unos, out var mb)
+                         ? await NbsService.PretraziSaDetaljimaAsync(mb: mb)
+                         : ([], "Matični broj mora biti broj."),
+            _     => await NbsService.PretraziSaDetaljimaAsync(naziv: _unos)
+        };
+
+        _rezultati    = odgovor.rezultati;
+        _greska       = odgovor.greska;
+        _ucitava      = false;
+        _pretrazivano = true;
+        StateHasChanged();
+    }
+
+    private void IzaberiKompaniju(NbsKompanija k)
+    {
+        _izabranaKompanija = k;
+    }
+
+    private void PotvrdiIzbor()
+    {
+        if (_izabranaKompanija is null) return;
+        var izabrani = _izabranaKompanija.Racuni.Where(r => r.Izabran).ToList();
+        MudDialog.Close(DialogResult.Ok(new NbsIzbor(_izabranaKompanija, izabrani)));
+    }
+}

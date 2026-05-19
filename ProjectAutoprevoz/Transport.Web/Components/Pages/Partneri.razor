@@ -1,0 +1,209 @@
+@page "/partneri"
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Partneri — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+    Imenik firme — Partneri
+</MudText>
+
+<MudDataGrid T="Partner"
+             Items="@_filtrirani"
+             Dense="true"
+             Striped="true"
+             Hover="true"
+             Loading="_ucitava"
+             RowClick="NaKlikReda"
+             RowStyleFunc="@((item, _) => item.Broj == _selektovani?.Broj
+                 ? "background-color:#1976D2 !important; color:#ffffff !important; font-weight:600;"
+                 : string.Empty)">
+    <ToolBarContent>
+        <MudToggleGroup T="string"
+                        Value="_paramPretraga"
+                        ValueChanged="@(async (string v) => { _paramPretraga = v; await Filtriraj(_pretraga); })"
+                        Exclusive="true"
+                        Color="Color.Primary"
+                        Size="Size.Small"
+                        Class="mr-3">
+            <MudToggleItem T="string" Value="@("Naziv")"  Text="Naziv"  />
+            <MudToggleItem T="string" Value="@("PIB")"    Text="PIB"    />
+            <MudToggleItem T="string" Value="@("MB")"     Text="MB"     />
+            <MudToggleItem T="string" Value="@("Adresa")" Text="Adresa" />
+            <MudToggleItem T="string" Value="@("Mesto")"  Text="Mesto"  />
+        </MudToggleGroup>
+
+        <MudTextField Value="_pretraga"
+                      T="string"
+                      ValueChanged="@(async (string v) => await Filtriraj(v))"
+                      Placeholder="Unesite vrednost..."
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Clearable="true"
+                      Style="min-width:250px;"
+                      Class="mr-3" />
+
+        <MudSpacer />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="NoviPartner" Class="mr-2">
+            Dodaj partnera
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })"
+                   Class="mr-2">
+            Izmeni
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Delete"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="Obrisi">
+            Obriši
+        </MudButton>
+    </ToolBarContent>
+
+    <Columns>
+        <PropertyColumn Property="x => x.Naziv"   Title="Naziv" />
+        <PropertyColumn Property="x => x.Adresa"  Title="Adresa" />
+        <PropertyColumn Property="x => x.Mesto"   Title="Mesto" />
+        <PropertyColumn Property="x => x.PIB"      Title="PIB" />
+        <PropertyColumn Property="x => x.PosBroj"  Title="Matični broj" />
+        <PropertyColumn Property="x => x.Telefon1" Title="Telefon" />
+    </Columns>
+
+    <PagerContent>
+        <MudDataGridPager T="Partner" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private List<Partner> _filtrirani    = [];
+    private Partner?      _selektovani;
+    private bool          _ucitava       = true;
+    private string        _pretraga      = string.Empty;
+    private string        _paramPretraga = "Naziv";
+    private DateTime      _poslednjKlik  = DateTime.MinValue;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated())
+            Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await UcitajSve();
+    }
+
+    private async Task UcitajSve() => await Filtriraj(_pretraga);
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Partner> args)
+    {
+        var now      = DateTime.Now;
+        var dvostruk = _selektovani?.Broj == args.Item.Broj &&
+                       (now - _poslednjKlik).TotalMilliseconds < 400;
+
+        _selektovani  = args.Item;
+        _poslednjKlik = now;
+        StateHasChanged();
+
+        if (dvostruk)
+            await OtvoriDialog(args.Item.Broj);
+    }
+
+    private async Task Filtriraj(string tekst)
+    {
+        _pretraga = tekst;
+        _ucitava  = true;
+        StateHasChanged();
+
+        IQueryable<Partner> query = Db.Partneri.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(tekst))
+        {
+            query = _paramPretraga switch
+            {
+                "PIB"    => query.Where(p => (p.PIB    ?? "").Contains(tekst)),
+                "MB"     => query.Where(p => (p.PosBroj ?? "").Contains(tekst)),
+                "Adresa" => query.Where(p => (p.Adresa ?? "").Contains(tekst)),
+                "Mesto"  => query.Where(p => (p.Mesto  ?? "").Contains(tekst)),
+                _        => query.Where(p => (p.Naziv  ?? "").Contains(tekst))
+            };
+        }
+
+        _filtrirani = await query.OrderBy(p => p.Naziv).ToListAsync();
+        _ucitava    = false;
+        StateHasChanged();
+    }
+
+    private async Task NoviPartner()
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PartnerDialog> { { x => x.PartnerId, 0 } };
+        var dialog     = await Dialog.ShowAsync<PartnerDialog>("Novi partner", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private async Task OtvoriDialog(int id)
+    {
+        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<PartnerDialog> { { x => x.PartnerId, id } };
+        var dialog     = await Dialog.ShowAsync<PartnerDialog>("Partner", parameters, opts);
+        var result     = await dialog.Result;
+        if (result is { Canceled: false }) await UcitajSve();
+    }
+
+    private async Task Obrisi()
+    {
+        if (_selektovani is null) return;
+
+        // Sačuvaj vrijednosti PRIJE await — dialog može resetovati _selektovani
+        var id    = _selektovani.Broj;
+        var naziv = _selektovani.Naziv;
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda brisanja",
+            $"Obrisati partnera '{naziv}'?",
+            yesText: "Da, obriši",
+            cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        try
+        {
+            var entitet = await Db.Partneri
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.Broj == id);
+
+            if (entitet is not null)
+            {
+                entitet.Brisano = 1;
+                await Db.SaveChangesAsync();
+                Snackbar.Add($"Partner '{naziv}' obrisan.", Severity.Success);
+                _selektovani = null;
+                await UcitajSve();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+}

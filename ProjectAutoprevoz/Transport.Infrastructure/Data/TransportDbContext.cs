@@ -14,8 +14,9 @@ public class TransportDbContext : DbContext
     }
 
     // Partneri i finansije
-    public DbSet<Partner> Partneri { get; set; }
-    public DbSet<KarticaPartnera> Kartice { get; set; }
+    public DbSet<Partner>      Partneri      { get; set; }
+    public DbSet<PartnerRacun> PartnerRacuni { get; set; }
+    public DbSet<KarticaPartnera> Kartice    { get; set; }
 
     // Fakturisanje
     public DbSet<Racun> Racuni { get; set; }
@@ -64,6 +65,11 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<Partner>()
             .HasQueryFilter(p => p.Brisano == 0 || p.Brisano == null);
 
+        // tbl_partneri ima trigger updatePartnera — EF Core mora koristiti
+        // standardni INSERT/UPDATE bez OUTPUT klauzule
+        modelBuilder.Entity<Partner>()
+            .ToTable("tbl_partneri", t => t.UseSqlOutputClause(false));
+
         modelBuilder.Entity<NalogPrevoz>()
             .HasQueryFilter(n => n.Brisano == 0 || n.Brisano == null);
 
@@ -72,6 +78,17 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Banka>()
             .HasQueryFilter(b => b.aktivan == 1 || b.aktivan == null);
+
+        // PartnerRacun relacija
+        modelBuilder.Entity<PartnerRacun>(e =>
+        {
+            e.ToTable("tbl_partner_racuni");
+            e.HasKey(r => r.idRacuna);
+            e.HasOne(r => r.Partner)
+             .WithMany(p => p.ZiroRacuni)
+             .HasForeignKey(r => r.idPartnera)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // ============================================================================
         // PARTNERSHIPS — Relacije između entiteta

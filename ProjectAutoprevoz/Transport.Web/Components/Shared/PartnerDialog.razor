@@ -1,0 +1,438 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Application.DTOs
+
+@inject TransportDbContext Db
+@inject IDialogService     Dialog
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:720px; max-width:820px;">
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            @* ── Naziv + NBS lupa ─────────────────────────────── *@
+            <MudItem xs="11">
+                <MudTextField @bind-Value="_naziv" Label="Naziv *"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="1" Class="d-flex align-end pb-1">
+                <MudTooltip Text="NBS pretraga po nazivu">
+                    <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                   Color="Color.Primary"
+                                   OnClick="@(async () => await OtvoriNbs("NAZIV", _naziv))" />
+                </MudTooltip>
+            </MudItem>
+
+            @* ── Adresa, Mesto ─────────────────────────────────── *@
+            <MudItem xs="12" sm="7">
+                <MudTextField @bind-Value="_adresa" Label="Adresa"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudTextField @bind-Value="_mesto" Label="Mesto"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+
+            @* ── PIB + NBS lupa ────────────────────────────────── *@
+            <MudItem xs="5">
+                <MudTextField @bind-Value="_pib" Label="PIB"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="1" Class="d-flex align-end pb-1">
+                <MudTooltip Text="NBS pretraga po PIB-u">
+                    <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                   Color="Color.Primary"
+                                   OnClick="@(async () => await OtvoriNbs("PIB", _pib))" />
+                </MudTooltip>
+            </MudItem>
+
+            @* ── Matični broj + NBS lupa ──────────────────────── *@
+            <MudItem xs="5">
+                <MudTextField @bind-Value="_maticniBroj" Label="Matični broj"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="1" Class="d-flex align-end pb-1">
+                <MudTooltip Text="NBS pretraga po matičnom broju">
+                    <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                   Color="Color.Primary"
+                                   OnClick="@(async () => await OtvoriNbs("MB", _maticniBroj))" />
+                </MudTooltip>
+            </MudItem>
+
+            @* ── Kontakt ────────────────────────────────────────── *@
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_telefon1" Label="Telefon 1"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_telefon2" Label="Telefon 2"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_mobilni" Label="Mobilni"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_fax" Label="Fax"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_mail" Label="Mail"
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_web" Label="Web"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="8">
+                <MudTextField @bind-Value="_konOsoba" Label="Kontakt osoba"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="string" @bind-Value="_status" Label="Status"
+                           Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("KUPAC")">Kupac</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("DOBAVLJAČ")">Dobavljač</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("OSTALO")">Ostalo</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_napomena" Label="Napomena"
+                              Variant="Variant.Outlined" ShrinkLabel="true" Lines="2" />
+            </MudItem>
+
+            @* ── Žiro računi ────────────────────────────────────── *@
+            <MudItem xs="12">
+                <MudDivider Class="my-1" />
+                <div class="d-flex justify-space-between align-center my-2">
+                    <MudText Typo="Typo.subtitle2">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance"
+                                 Size="Size.Small" Class="mr-1" />
+                        Žiro računi
+                    </MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="PrikaziFormuZaRacun">
+                        Dodaj račun
+                    </MudButton>
+                </div>
+
+                @if (_prikaziFormuRacuna)
+                {
+                    <MudPaper Elevation="0" Class="pa-3 mb-2"
+                              Style="border:1px solid #e0e0e0; border-radius:4px;">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" sm="5">
+                                <MudTextField @bind-Value="_noviRacunBroj" Label="Žiro račun *"
+                                              Variant="Variant.Outlined" ShrinkLabel="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField @bind-Value="_noviRacunBanka" Label="Banka"
+                                              Variant="Variant.Outlined" ShrinkLabel="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudTextField @bind-Value="_noviRacunIban" Label="IBAN"
+                                              Variant="Variant.Outlined" ShrinkLabel="true" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled"
+                                           Color="Color.Success" OnClick="DodajRacun">
+                                    Dodaj
+                                </MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                           Class="ml-2"
+                                           OnClick="() => _prikaziFormuRacuna = false">
+                                    Otkaži
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                }
+
+                @if (_racuni.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Striped="true" Class="mb-1">
+                        <thead>
+                            <tr>
+                                <th>Žiro račun</th>
+                                <th>Banka</th>
+                                <th>IBAN</th>
+                                <th style="width:70px;text-align:center;">Glavni</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in _racuni)
+                            {
+                                <tr>
+                                    <td>@r.ZiroRacun</td>
+                                    <td>@r.Banka</td>
+                                    <td>@r.Iban</td>
+                                    <td style="text-align:center;">
+                                        <MudCheckBox Value="r.GlavniRacun"
+                                                     ValueChanged="@((bool v) => PostaviGlavni(r, v))"
+                                                     Color="Color.Primary" />
+                                    </td>
+                                    <td>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UkloniRacun(r))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Nema žiro računa.
+                    </MudText>
+                }
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter]          public int        PartnerId { get; set; }
+
+    private Partner? _entitet;
+
+    private string? _naziv;
+    private string? _adresa;
+    private string? _mesto;
+    private string? _pib;
+    private string? _maticniBroj; // čuva se u PosBroj koloni u bazi
+    private string? _telefon1;
+    private string? _telefon2;
+    private string? _mobilni;
+    private string? _fax;
+    private string? _mail;
+    private string? _web;
+    private string? _konOsoba;
+    private string  _status   = "KUPAC";
+    private string? _napomena;
+
+    private List<RacunDto> _racuni             = [];
+    private bool           _prikaziFormuRacuna;
+    private string?        _noviRacunBroj;
+    private string?        _noviRacunBanka;
+    private string?        _noviRacunIban;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PartnerId > 0)
+        {
+            _entitet = await Db.Partneri
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.Broj == PartnerId);
+
+            if (_entitet is not null)
+            {
+                _naziv       = _entitet.Naziv;
+                _adresa      = _entitet.Adresa;
+                _mesto       = _entitet.Mesto;
+                _pib         = _entitet.PIB;
+                _maticniBroj = _entitet.PosBroj; // PosBroj = matični broj
+                _telefon1    = _entitet.Telefon1;
+                _telefon2    = _entitet.Telefon2;
+                _mobilni     = _entitet.Mobilni;
+                _fax         = _entitet.Fax;
+                _mail        = _entitet.mail;
+                _web         = _entitet.Www;
+                _konOsoba    = _entitet.KonOsoba;
+                _status      = _entitet.Status ?? "KUPAC";
+                _napomena    = _entitet.Napomena;
+
+                try
+                {
+                    var dbRacuni = await Db.PartnerRacuni
+                        .Where(r => r.idPartnera == PartnerId)
+                        .AsNoTracking()
+                        .ToListAsync();
+                    _racuni = dbRacuni.Select(r => new RacunDto
+                    {
+                        Id          = r.idRacuna,
+                        ZiroRacun   = r.ziroRacun,
+                        Banka       = r.banka,
+                        Iban        = r.IBAN,
+                        GlavniRacun = r.glavniRacun == 1
+                    }).ToList();
+                }
+                catch { }
+            }
+        }
+    }
+
+    private async Task OtvoriNbs(string tip, string? vrednost)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<NbsPretragaDialog>
+        {
+            { x => x.TipPretrage,     tip      },
+            { x => x.PocetnaVrednost, vrednost }
+        };
+        var dialog = await Dialog.ShowAsync<NbsPretragaDialog>("NBS pretraga", parameters, opts);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is NbsIzbor izbor)
+        {
+            _naziv       = izbor.Kompanija.Naziv;
+            _pib         = izbor.Kompanija.Pib;
+            _maticniBroj = izbor.Kompanija.MaticniBroj;
+            _adresa      = izbor.Kompanija.Adresa;
+            _mesto       = izbor.Kompanija.Mesto;
+
+            foreach (var r in izbor.IzabraniRacuni)
+                if (!_racuni.Any(x => x.ZiroRacun == r.ZiroRacun))
+                    _racuni.Add(new RacunDto { ZiroRacun = r.ZiroRacun, Banka = r.Banka });
+        }
+    }
+
+    private void PrikaziFormuZaRacun()
+    {
+        _noviRacunBroj = _noviRacunBanka = _noviRacunIban = null;
+        _prikaziFormuRacuna = true;
+    }
+
+    private void DodajRacun()
+    {
+        if (string.IsNullOrWhiteSpace(_noviRacunBroj)) return;
+        _racuni.Add(new RacunDto
+        {
+            ZiroRacun = _noviRacunBroj,
+            Banka     = _noviRacunBanka,
+            Iban      = _noviRacunIban
+        });
+        _prikaziFormuRacuna = false;
+    }
+
+    private void UkloniRacun(RacunDto r) => _racuni.Remove(r);
+
+    private void PostaviGlavni(RacunDto r, bool v)
+    {
+        if (v) _racuni.ForEach(x => x.GlavniRacun = false);
+        r.GlavniRacun = v;
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_naziv))
+        {
+            Snackbar.Add("Naziv je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_pib))
+        {
+            var postoji = await Db.Partneri
+                .IgnoreQueryFilters()
+                .Where(p => p.PIB == _pib && p.Brisano != 1)
+                .Where(p => PartnerId == 0 || p.Broj != PartnerId)
+                .FirstOrDefaultAsync();
+
+            if (postoji is not null)
+            {
+                var nastavi = await Dialog.ShowMessageBox(
+                    "Duplikat PIB",
+                    $"Partner sa ovim PIB-om već postoji: {postoji.Naziv}. Da li želite da nastavite?",
+                    yesText: "Nastavi", cancelText: "Odustani");
+                if (nastavi != true) return;
+            }
+        }
+
+        try
+        {
+            if (_entitet is null)
+            {
+                _entitet = new Partner();
+                Db.Partneri.Add(_entitet);
+            }
+
+            _entitet.Naziv    = _naziv;
+            _entitet.Adresa   = _adresa;
+            _entitet.Mesto    = _mesto;
+            _entitet.PosBroj  = _maticniBroj; // Matični broj se čuva u PosBroj koloni
+            _entitet.PIB      = _pib;
+            _entitet.Telefon1 = _telefon1;
+            _entitet.Telefon2 = _telefon2;
+            _entitet.Mobilni  = _mobilni;
+            _entitet.Fax      = _fax;
+            _entitet.mail     = _mail;
+            _entitet.Www      = _web;
+            _entitet.KonOsoba = _konOsoba;
+            _entitet.Status   = _status;
+            _entitet.Napomena = _napomena;
+            _entitet.Brisano  = 0;
+
+            await Db.SaveChangesAsync();
+
+            try
+            {
+                var stariRacuni = await Db.PartnerRacuni
+                    .Where(r => r.idPartnera == _entitet.Broj)
+                    .ToListAsync();
+                Db.PartnerRacuni.RemoveRange(stariRacuni);
+
+                var glavniRacun = _racuni.FirstOrDefault(r => r.GlavniRacun);
+                foreach (var r in _racuni)
+                {
+                    Db.PartnerRacuni.Add(new PartnerRacun
+                    {
+                        idPartnera  = _entitet.Broj,
+                        ziroRacun   = r.ZiroRacun,
+                        banka       = r.Banka,
+                        IBAN        = r.Iban,
+                        glavniRacun = r.GlavniRacun ? 1 : 0,
+                        aktivan     = 1
+                    });
+                }
+
+                if (glavniRacun is not null)
+                {
+                    _entitet.Racun = glavniRacun.ZiroRacun;
+                    _entitet.Banka = glavniRacun.Banka;
+                }
+
+                await Db.SaveChangesAsync();
+            }
+            catch { }
+
+            Snackbar.Add("Partner sačuvan.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private class RacunDto
+    {
+        public int     Id          { get; set; }
+        public string? ZiroRacun   { get; set; }
+        public string? Banka       { get; set; }
+        public string? Iban        { get; set; }
+        public bool    GlavniRacun { get; set; }
+    }
+}
