@@ -1,6 +1,6 @@
 @inherits LayoutComponentBase
 @implements IAsyncDisposable
-@inject IJSRuntime JS
+@inject IJSRuntime    JS
 @inject ITenantService TenantService
 @inject NavigationManager Nav
 
@@ -8,29 +8,81 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<HeadContent>
+    <style>
+        /* ── Sidebar navigacija ─────────────────────────── */
+        .nav-section-title {
+            padding: 14px 14px 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(230, 235, 240, 0.45);
+        }
+        .mud-nav-link {
+            color: #E6EBF0 !important;
+            border-radius: 6px !important;
+            margin: 1px 6px !important;
+        }
+        .mud-nav-link:hover {
+            background-color: rgba(255,255,255,0.10) !important;
+        }
+        .mud-nav-link.active {
+            background-color: #3D8EB9 !important;
+            color: #ffffff !important;
+        }
+        .mud-nav-link .mud-icon-root {
+            color: #E6EBF0 !important;
+        }
+        /* ── Logo area ──────────────────────────────────── */
+        .logo-area {
+            display: flex;
+            align-items: center;
+            padding: 14px 12px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.10);
+            gap: 10px;
+        }
+        .logo-area img { height: 46px; max-width: 46px; object-fit: contain; border-radius: 8px; }
+        .logo-title { color: #E6EBF0; font-weight: 700; font-size: 1rem; line-height: 1.2; }
+        .logo-sub   { color: rgba(230,235,240,0.55); font-size: 0.72rem; }
+    </style>
+</HeadContent>
+
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="0" Style="background:#2D3E50; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="() => _drawerOpen = !_drawerOpen" />
         <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Class="mr-2" />
-        <MudText Typo="Typo.h6" Class="mr-auto">Autoprevoz — Transport Management</MudText>
-        <MudText Typo="Typo.body2" Class="mr-2 d-none d-sm-block">
+        <MudText Typo="Typo.h6" Class="mr-auto" Style="color:#E6EBF0; font-weight:600;">
+            Autoprevoz — Transport
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mr-3 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
             @TenantService.GetNazivFirme()
         </MudText>
         <MudTooltip Text="Odjavi se">
             <MudIconButton Icon="@Icons.Material.Filled.Logout"
-                           Color="Color.Inherit"
+                           Style="color:#E6EBF0;"
                            OnClick="Odjavi" />
         </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="@_drawerOpen" Elevation="1">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Navigacija</MudText>
-        </MudDrawerHeader>
+    <MudDrawer @bind-Open="@_drawerOpen" Elevation="0"
+               Style="background:#2D3E50; border-right:1px solid rgba(255,255,255,0.07);">
+        <div class="logo-area">
+            <img src="/images/logo.png" alt="Logo"
+                 onerror="this.style.display='none'" />
+            <div>
+                <div class="logo-title">Autoprevoz</div>
+                <div class="logo-sub">Transport Management</div>
+            </div>
+        </div>
         <NavMenu />
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6 pt-6">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-5 pt-4">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -45,25 +97,27 @@
             Nav.NavigateTo("/login", forceLoad: true);
     }
 
-    private MudTheme _theme = new MudTheme()
+    private readonly MudTheme _theme = new()
     {
-        PaletteLight = new PaletteLight()
+        PaletteLight = new PaletteLight
         {
-            Primary = "#1976D2",
-            Secondary = "#424242",
-            Background = "#FAFAFA",
-            Surface = "#FFFFFF",
-            DrawerBackground = "#212121",
-            DrawerText = "#FFFFFF",
-            AppbarBackground = "#1976D2",
-            AppbarText = "#FFFFFF"
+            Primary          = "#2D3E50",
+            Secondary        = "#3D8EB9",
+            Background       = "#F5F7FA",
+            Surface          = "#FFFFFF",
+            AppbarBackground = "#2D3E50",
+            AppbarText       = "#E6EBF0",
+            DrawerBackground = "#2D3E50",
+            DrawerText       = "#E6EBF0",
+            DrawerIcon       = "#E6EBF0",
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DrawerWidthLeft = "220px"
         }
     };
 
     private void Odjavi() => Nav.NavigateTo("/api/auth/logout", forceLoad: true);
 
-    async ValueTask IAsyncDisposable.DisposeAsync()
-    {
-        await Task.CompletedTask;
-    }
+    async ValueTask IAsyncDisposable.DisposeAsync() => await Task.CompletedTask;
 }
