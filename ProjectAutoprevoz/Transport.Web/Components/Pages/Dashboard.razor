@@ -10,6 +10,7 @@
 @inject NavigationManager Nav
 @inject TransportDbContext Db
 @inject IDialogService    Dialog
+@inject INbsKursService   KursService
 
 <PageTitle>Kontrolna tabla — Autoprevoz</PageTitle>
 
@@ -41,9 +42,46 @@
         <MudChip T="string"
                  Color="Color.Primary"
                  Icon="@Icons.Material.Filled.Storage"
-                 Size="Size.Small">
+                 Size="Size.Small"
+                 Class="mr-2">
             @_initialCatalog
         </MudChip>
+
+        @* Kurs EUR *@
+        <div class="d-flex align-center gap-3 mt-3">
+            <MudTextField T="string"
+                          Value="@_kursDatum?.ToString("yyyy-MM-dd")"
+                          ValueChanged="@(async (string v) => {
+                              if (DateTime.TryParse(v, out var d)) {
+                                  _kursDatum = d;
+                                  await UcitajKurs(d);
+                              }
+                          })"
+                          Label="Kurs na dan"
+                          InputType="InputType.Date"
+                          Variant="Variant.Outlined"
+                          Style="max-width:180px;" />
+
+            @if (_ucitavaKurs)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+            }
+            else if (_kursEur > 0)
+            {
+                <MudChip T="string"
+                         Color="Color.Success"
+                         Icon="@Icons.Material.Filled.CurrencyExchange"
+                         Size="Size.Medium">
+                    EUR / RSD: @_kursEur.ToString("F4")
+                </MudChip>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="py-1">
+                    Kurs nije dostupan za izabrani datum
+                </MudAlert>
+            }
+        </div>
     </MudItem>
 
     @* Desna kolona — Podsetnici sidebar *@
@@ -121,6 +159,11 @@
     private bool            _ucitava        = true;
     private string?         _greska;
 
+    // Kurs
+    private DateTime? _kursDatum   = DateTime.Today;
+    private decimal   _kursEur;
+    private bool      _ucitavaKurs;
+
     protected override void OnInitialized()
     {
         if (!TenantService.IsAuthenticated())
@@ -139,7 +182,17 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await UcitajPodsetnike();
+        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(DateTime.Today));
+    }
+
+    private async Task UcitajKurs(DateTime? datum)
+    {
+        if (datum is null) return;
+        _ucitavaKurs = true;
+        StateHasChanged();
+        _kursEur     = await KursService.GetKursAsync(datum.Value);
+        _ucitavaKurs = false;
+        StateHasChanged();
     }
 
     private async Task UcitajPodsetnike()

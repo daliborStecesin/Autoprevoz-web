@@ -1,0 +1,131 @@
+@page "/kursna-lista"
+@rendermode InteractiveServer
+
+@using Transport.Application.DTOs
+@using Transport.Application.Interfaces
+
+@inject INbsKursService  KursService
+@inject IJSRuntime       JS
+
+<PageTitle>Kursna lista — Autoprevoz</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.CurrencyExchange" Class="mr-2" />
+        Kursna lista NBS
+    </MudText>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Print"
+               OnClick="@(async () => await JS.InvokeVoidAsync("window.print"))">
+        Štampaj
+    </MudButton>
+</div>
+
+<div class="d-flex align-center gap-3 mb-4">
+    <MudTextField T="string"
+                  Value="@_datum?.ToString("yyyy-MM-dd")"
+                  ValueChanged="@((string v) => { if (DateTime.TryParse(v, out var d)) _datum = d; })"
+                  Label="Datum kursne liste"
+                  InputType="InputType.Date"
+                  Variant="Variant.Outlined"
+                  Style="max-width:200px;" />
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Search"
+               OnClick="Prikazi"
+               Disabled="_ucitava">
+        @if (_ucitava)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+        }
+        Prikaži
+    </MudButton>
+
+    @if (_datumListe is not null)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Lista br. @_brojListe — važi @_datumListe
+        </MudText>
+    }
+</div>
+
+@if (_greska is not null)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">@_greska</MudAlert>
+}
+
+@if (_lista.Count > 0)
+{
+    <MudDataGrid T="KursValuteDto"
+                 Items="_lista"
+                 Dense="true"
+                 Striped="true"
+                 Hover="true"
+                 SortMode="SortMode.Single"
+                 RowStyleFunc="@((item, _) => item.Oznaka == "EUR"
+                     ? "font-weight:700; background-color:#E3F2FD;"
+                     : string.Empty)">
+        <Columns>
+            <PropertyColumn Property="x => x.Oznaka"      Title="Oznaka"       />
+            <PropertyColumn Property="x => x.NazivValute" Title="Naziv valute" />
+            <TemplateColumn Title="Kupovni" SortBy="x => x.KupovniKurs">
+                <CellTemplate>
+                    @(context.Item.KupovniKurs > 0 ? context.Item.KupovniKurs.ToString("F4") : "—")
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Srednji" SortBy="x => x.SrednjiKurs">
+                <CellTemplate>
+                    <MudText Style="@(context.Item.Oznaka == "EUR" ? "font-weight:700;" : "")">
+                        @(context.Item.SrednjiKurs > 0 ? context.Item.SrednjiKurs.ToString("F4") : "—")
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Prodajni" SortBy="x => x.ProdajniKurs">
+                <CellTemplate>
+                    @(context.Item.ProdajniKurs > 0 ? context.Item.ProdajniKurs.ToString("F4") : "—")
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+}
+else if (_pretrazivano && !_ucitava)
+{
+    <MudAlert Severity="Severity.Info" Dense="true">
+        Kursna lista nije dostupna za @_datum?.ToString("dd.MM.yyyy").
+    </MudAlert>
+}
+
+@code {
+    private List<KursValuteDto> _lista        = [];
+    private DateTime?           _datum        = DateTime.Today;
+    private bool                _ucitava;
+    private bool                _pretrazivano;
+    private string?             _greska;
+    private string?             _datumListe;
+    private string?             _brojListe;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Prikazi();
+    }
+
+    private async Task Prikazi()
+    {
+        if (_datum is null) return;
+
+        _ucitava      = true;
+        _pretrazivano = false;
+        _greska       = null;
+        StateHasChanged();
+
+        var (lista, greska) = await KursService.GetSveValuteSaGreskamAsync(_datum.Value);
+        _lista  = lista;
+        _greska = greska;
+
+        _pretrazivano = true;
+        _ucitava      = false;
+        StateHasChanged();
+    }
+}
