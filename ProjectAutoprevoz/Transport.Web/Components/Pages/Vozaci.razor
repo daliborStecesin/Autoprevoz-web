@@ -22,7 +22,10 @@
              Striped="true"
              Hover="true"
              Loading="_ucitava"
-             RowClick="@(async (args) => await OtvoriDialog(args.Item.Broj))">
+             RowClick="NaKlikReda"
+             RowStyleFunc="@((item, _) => item.Broj == _selektovani?.Broj
+                 ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
+                 : string.Empty)">
     <ToolBarContent>
         <MudTextField Value="_pretraga"
                       T="string"
@@ -39,15 +42,24 @@
         <MudButton Variant="Variant.Filled"
                    Color="Color.Success"
                    StartIcon="@Icons.Material.Filled.PersonAdd"
-                   OnClick="NoviVozac">
+                   OnClick="NoviVozac"
+                   Class="mr-2">
             Novi vozač
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })">
+            Izmeni
         </MudButton>
     </ToolBarContent>
 
     <Columns>
-        <PropertyColumn Property="x => x.Ime"       Title="Ime" />
-        <PropertyColumn Property="x => x.Prezime"   Title="Prezime" />
-        <PropertyColumn Property="x => x.Mesto"     Title="Mesto" />
+        <PropertyColumn Property="x => x.Ime"        Title="Ime" />
+        <PropertyColumn Property="x => x.Prezime"    Title="Prezime" />
+        <PropertyColumn Property="x => x.Mesto"      Title="Mesto" />
         <PropertyColumn Property="x => x.Zaposlenje" Title="Zaposlenje" />
         <PropertyColumn Property="x => x.TelefonMob" Title="Mobilni" />
         <TemplateColumn Title="Tip isplate">
@@ -67,10 +79,12 @@
 </MudDataGrid>
 
 @code {
-    private List<Vozac> _svi        = [];
-    private List<Vozac> _filtrirani = [];
-    private bool        _ucitava    = true;
-    private string      _pretraga   = string.Empty;
+    private List<Vozac> _svi         = [];
+    private List<Vozac> _filtrirani  = [];
+    private Vozac?      _selektovani;
+    private bool        _ucitava     = true;
+    private string      _pretraga    = string.Empty;
+    private DateTime    _poslednjKlik = DateTime.MinValue;
 
     protected override void OnInitialized()
     {
@@ -102,35 +116,41 @@
 
     private void Filtriraj(string pretraga)
     {
-        _pretraga   = pretraga;
+        _pretraga = pretraga;
+        _filtrirani = string.IsNullOrWhiteSpace(pretraga)
+            ? [.. _svi]
+            : [.. _svi.Where(v =>
+                (v.Ime     ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
+                (v.Prezime ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase))];
+    }
 
-        if (string.IsNullOrWhiteSpace(pretraga))
-        {
-            _filtrirani = [.. _svi];
-            return;
-        }
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Vozac> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _selektovani?.Broj == args.Item.Broj &&
+                  (now - _poslednjKlik).TotalMilliseconds < 400;
 
-        _filtrirani = [.. _svi.Where(v =>
-            (v.Ime     ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
-            (v.Prezime ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase))];
+        _selektovani  = args.Item;
+        _poslednjKlik = now;
+        StateHasChanged();
+
+        if (dbl) await OtvoriDialog(args.Item.Broj);
     }
 
     private async Task NoviVozac()
     {
-        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
-        var parameters = new DialogParameters<VozacDialog> { { x => x.VozacId, 0 } };
-        var dialog     = await Dialog.ShowAsync<VozacDialog>("Novi vozač", parameters, opts);
-        var result     = await dialog.Result;
-        if (result is { Canceled: false }) await UcitajSve();
+        var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, 0 } };
+        var dialog = await Dialog.ShowAsync<VozacDialog>("Novi vozač", prms, opts);
+        if (!(await dialog.Result).Canceled) await UcitajSve();
     }
 
     private async Task OtvoriDialog(int id)
     {
-        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
-        var parameters = new DialogParameters<VozacDialog> { { x => x.VozacId, id } };
-        var dialog     = await Dialog.ShowAsync<VozacDialog>("Vozač", parameters, opts);
-        var result     = await dialog.Result;
-        if (result is { Canceled: false }) await UcitajSve();
+        var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, id } };
+        var dialog = await Dialog.ShowAsync<VozacDialog>("Vozač", prms, opts);
+        if (!(await dialog.Result).Canceled) await UcitajSve();
     }
 
     private static Color TipColor(string? tip) => tip switch

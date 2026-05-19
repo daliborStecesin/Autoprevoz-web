@@ -148,6 +148,52 @@
                 </div>
             }
         }
+
+        @* ── Važni datumi vozila ─────────────────── *@
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.h6" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Small" Class="mr-1" />
+            Važni datumi vozila
+        </MudText>
+
+        @if (_ucitavaVazne)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Warning" Class="mb-1" />
+        }
+        else if (!_vazniHitni.Any() && !_vazniUskoro.Any())
+        {
+            <MudAlert Severity="Severity.Success" Dense="true">
+                Svi dokumenti su ažurni
+            </MudAlert>
+        }
+        else
+        {
+            @foreach (var d in _vazniHitni)
+            {
+                <MudPaper Elevation="1" Class="pa-2 mb-1"
+                          Style="border-left:3px solid var(--mud-palette-error);">
+                    <MudText Typo="Typo.caption" Color="Color.Error">
+                        <b>@d.RegOznaka</b> — @d.TipDokumenta
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Ističe @d.DatumIsteka?.ToString("dd.MM.yyyy")
+                    </MudText>
+                </MudPaper>
+            }
+            @foreach (var d in _vazniUskoro)
+            {
+                <MudPaper Elevation="1" Class="pa-2 mb-1"
+                          Style="border-left:3px solid #ff9800;">
+                    <MudText Typo="Typo.caption" Style="color:#e65100;">
+                        <b>@d.RegOznaka</b> — @d.TipDokumenta
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Ističe @d.DatumIsteka?.ToString("dd.MM.yyyy")
+                    </MudText>
+                </MudPaper>
+            }
+        }
+
     </MudItem>
 
 </MudGrid>
@@ -160,7 +206,14 @@
     private string?         _greska;
 
     // Kurs
-    private DateTime? _kursDatum   = DateTime.Today;
+    private DateTime? _kursDatum = DateTime.Today;
+
+    // Važni datumi vozila
+    private List<VazniDatumSidebar> _vazniHitni  = [];
+    private List<VazniDatumSidebar> _vazniUskoro = [];
+    private bool                    _ucitavaVazne;
+
+    private record VazniDatumSidebar(string? RegOznaka, string? TipDokumenta, DateOnly? DatumIsteka);
     private decimal   _kursEur;
     private bool      _ucitavaKurs;
 
@@ -182,7 +235,36 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(DateTime.Today));
+        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(DateTime.Today), UcitajVazneDatume());
+    }
+
+    private async Task UcitajVazneDatume()
+    {
+        _ucitavaVazne = true; StateHasChanged();
+        try
+        {
+            var danas = DateOnly.FromDateTime(DateTime.Today);
+            var do15  = danas.AddDays(15);
+            var do30  = danas.AddDays(30);
+
+            var svi = await Db.VazniDatumi
+                .Include(d => d.Vozilo)
+                .Where(d => d.datumIsteka >= danas && d.datumIsteka <= do30)
+                .OrderBy(d => d.datumIsteka)
+                .AsNoTracking()
+                .ToListAsync();
+
+            _vazniHitni  = svi.Where(d => d.datumIsteka <= do15)
+                              .Select(d => new VazniDatumSidebar(
+                                  d.Vozilo?.registarskaOznaka, d.TipDokumenta, d.datumIsteka))
+                              .ToList();
+            _vazniUskoro = svi.Where(d => d.datumIsteka > do15)
+                              .Select(d => new VazniDatumSidebar(
+                                  d.Vozilo?.registarskaOznaka, d.TipDokumenta, d.datumIsteka))
+                              .ToList();
+        }
+        catch { }
+        _ucitavaVazne = false; StateHasChanged();
     }
 
     private async Task UcitajKurs(DateTime? datum)

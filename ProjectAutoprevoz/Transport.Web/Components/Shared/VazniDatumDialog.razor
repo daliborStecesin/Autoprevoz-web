@@ -1,0 +1,124 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject ISnackbar          Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudSelect T="string"
+                           @bind-Value="_tipDokumenta"
+                           Label="Tip dokumenta *"
+                           Variant="Variant.Outlined">
+                    @foreach (var t in _tipoviDokumenta)
+                    {
+                        <MudSelectItem T="string" Value="@t">@t</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string"
+                              Value="@_datumIzrade"
+                              ValueChanged="@((string v) => _datumIzrade = v)"
+                              Label="Datum izrade"
+                              InputType="InputType.Date"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string"
+                              Value="@_datumIsteka"
+                              ValueChanged="@((string v) => _datumIsteka = v)"
+                              Label="Datum isteka *"
+                              InputType="InputType.Date"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_brDokumenta"
+                              Label="Broj dokumenta"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int  DatumId  { get; set; }
+    [Parameter] public int  VoziloId { get; set; }
+
+    private static readonly string[] _tipoviDokumenta =
+    [
+        "REGISTRACIJA", "BELA POTVRDA", "TAHO SERTIFIKAT",
+        "VINJETA", "ADR SERTIFIKAT", "OSIGURANJE",
+        "TEHNIČKI PREGLED", "OSTALO"
+    ];
+
+    private string  _tipDokumenta = "REGISTRACIJA";
+    private string  _datumIzrade  = string.Empty;
+    private string  _datumIsteka  = string.Empty;
+    private string? _brDokumenta;
+
+    private VazniDatum? _entitet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DatumId > 0)
+        {
+            _entitet = await Db.VazniDatumi.FindAsync(DatumId);
+            if (_entitet is not null)
+            {
+                _tipDokumenta = _entitet.TipDokumenta ?? "REGISTRACIJA";
+                _datumIzrade  = _entitet.datumIzrade?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _datumIsteka  = _entitet.datumIsteka?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _brDokumenta  = _entitet.brDokumenta;
+            }
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_datumIsteka))
+        {
+            Snackbar.Add("Datum isteka je obavezan.", Severity.Warning);
+            return;
+        }
+
+        if (_entitet is null)
+        {
+            _entitet = new VazniDatum { idVozila = VoziloId };
+            Db.VazniDatumi.Add(_entitet);
+        }
+
+        _entitet.TipDokumenta = _tipDokumenta;
+        _entitet.datumIzrade  = DateOnly.TryParse(_datumIzrade, out var i)  ? i : null;
+        _entitet.datumIsteka  = DateOnly.TryParse(_datumIsteka, out var ist) ? ist : null;
+        _entitet.brDokumenta  = _brDokumenta;
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Datum sačuvan.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

@@ -1,0 +1,284 @@
+@page "/vozila"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Vozila — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Class="mr-2" />
+    Vozila
+</MudText>
+
+@* ── GORNJI PANEL: Lista vozila ──────────────────────────── *@
+<MudDataGrid T="Vozilo"
+             Items="_filtrirani"
+             Dense="true" Striped="true" Hover="true"
+             Loading="_ucitava"
+             RowClick="NaKlikReda"
+             RowStyleFunc="@((v, _) => v.VoziloId == _selektovano?.VoziloId
+                 ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
+                 : VoziloRowStyle(v))">
+    <ToolBarContent>
+        <MudTextField Value="_pretraga" T="string"
+                      ValueChanged="@((string v) => Filtriraj(v))"
+                      Placeholder="Pretraga po reg. oznaci ili marci..."
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Clearable="true"
+                      Style="min-width:300px;"
+                      Class="mr-3" />
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NovoVozilo">
+            Novo vozilo
+        </MudButton>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.vrstaVozila"       Title="Vrsta" />
+        <PropertyColumn Property="x => x.marka"             Title="Marka" />
+        <PropertyColumn Property="x => x.oznaka"            Title="Oznaka" />
+        <PropertyColumn Property="x => x.registarskaOznaka" Title="Reg. oznaka" />
+        <TemplateColumn Title="Registracija važi do">
+            <CellTemplate>
+                @context.Item.DatumSledeceRegistracije?.ToString("dd.MM.yyyy")
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Vozac" Title="Vozač" />
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="Vozilo" />
+    </PagerContent>
+</MudDataGrid>
+
+@* ── DONJI PANEL: Važni datumi selektovanog vozila ───────── *@
+@if (_selektovano is not null)
+{
+    <MudPaper Elevation="1" Class="mt-4 pa-0">
+        <div class="d-flex justify-space-between align-center pa-3"
+             style="border-bottom:1px solid #e0e0e0;">
+            <MudText Typo="Typo.subtitle1">
+                <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Class="mr-1" />
+                Važni datumi —
+                <b>@_selektovano.registarskaOznaka</b>
+                @if (!string.IsNullOrEmpty(_selektovano.marka))
+                {
+                    <MudText Typo="Typo.caption" Inline="true" Class="ml-1 mud-text-secondary">
+                        (@_selektovano.marka @_selektovano.oznaka)
+                    </MudText>
+                }
+            </MudText>
+            <div class="d-flex gap-2">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="DodajDatum">
+                    Dodaj datum
+                </MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="@(() => OtvoriDialog(_selektovano.VoziloId))">
+                    Izmeni vozilo
+                </MudButton>
+            </div>
+        </div>
+
+        @if (_ucitavaDatume)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_datumi.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="ma-2">
+                Nema evidentiranih važnih datuma za ovo vozilo.
+            </MudAlert>
+        }
+        else
+        {
+            <MudDataGrid T="VazniDatum"
+                         Items="_datumi"
+                         Dense="true" Striped="true" Hover="true"
+                         RowClick="@(async (args) => await UrediDatum(args.Item))"
+                         RowStyleFunc="DatumRowStyle">
+                <Columns>
+                    <PropertyColumn Property="x => x.TipDokumenta"  Title="Tip dokumenta" />
+                    <TemplateColumn Title="Datum isteka">
+                        <CellTemplate>
+                            @context.Item.datumIsteka?.ToString("dd.MM.yyyy")
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum izrade">
+                        <CellTemplate>
+                            @context.Item.datumIzrade?.ToString("dd.MM.yyyy")
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.brDokumenta" Title="Br. dokumenta" />
+                    <TemplateColumn Title="" CellStyle="width:50px">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(async (e) => await ObrisiDatum(context.Item))" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudPaper>
+}
+
+@code {
+    private List<Vozilo>    _svi          = [];
+    private List<Vozilo>    _filtrirani   = [];
+    private List<VazniDatum> _datumi      = [];
+    private Vozilo?          _selektovano;
+    private bool             _ucitava     = true;
+    private bool             _ucitavaDatume;
+    private string           _pretraga   = string.Empty;
+    private DateTime         _poslednjKlik = DateTime.MinValue;
+    private Vozilo?          _poslednjVozilo;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await UcitajSve();
+    }
+
+    private async Task UcitajSve()
+    {
+        _ucitava = true; StateHasChanged();
+        _svi = await Db.Vozila.OrderBy(v => v.registarskaOznaka).AsNoTracking().ToListAsync();
+        Filtriraj(_pretraga);
+        _ucitava = false; StateHasChanged();
+    }
+
+    private void Filtriraj(string t)
+    {
+        _pretraga   = t;
+        _filtrirani = string.IsNullOrWhiteSpace(t) ? [.. _svi] :
+            [.. _svi.Where(v =>
+                (v.registarskaOznaka ?? "").Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                (v.marka             ?? "").Contains(t, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Vozilo> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _poslednjVozilo?.VoziloId == args.Item.VoziloId &&
+                  (now - _poslednjKlik).TotalMilliseconds < 400;
+        _poslednjVozilo = args.Item;
+        _poslednjKlik   = now;
+        _selektovano    = args.Item;
+        StateHasChanged();
+
+        await UcitajDateZaVozilo(args.Item.VoziloId);
+
+        if (dbl) await OtvoriDialog(args.Item.VoziloId);
+    }
+
+    private async Task UcitajDateZaVozilo(int voziloId)
+    {
+        _ucitavaDatume = true; StateHasChanged();
+        _datumi = await Db.VazniDatumi
+            .Where(d => d.idVozila == voziloId)
+            .OrderBy(d => d.datumIsteka)
+            .AsNoTracking()
+            .ToListAsync();
+        _ucitavaDatume = false; StateHasChanged();
+    }
+
+    private async Task NovoVozilo()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var dlg  = await Dialog.ShowAsync<VoziloDialog>("Novo vozilo",
+            new DialogParameters<VoziloDialog> { { x => x.VoziloId, 0 } }, opts);
+        if (!(await dlg.Result).Canceled) await UcitajSve();
+    }
+
+    private async Task OtvoriDialog(int id)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var dlg  = await Dialog.ShowAsync<VoziloDialog>("Vozilo",
+            new DialogParameters<VoziloDialog> { { x => x.VoziloId, id } }, opts);
+        if (!(await dlg.Result).Canceled)
+        {
+            await UcitajSve();
+            if (_selektovano is not null)
+                await UcitajDateZaVozilo(_selektovano.VoziloId);
+        }
+    }
+
+    private async Task DodajDatum()
+    {
+        if (_selektovano is null) return;
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<VazniDatumDialog>
+        {
+            { x => x.DatumId,  0 },
+            { x => x.VoziloId, _selektovano.VoziloId }
+        };
+        var dlg = await Dialog.ShowAsync<VazniDatumDialog>("Dodaj datum", prms, opts);
+        if (!(await dlg.Result).Canceled)
+            await UcitajDateZaVozilo(_selektovano.VoziloId);
+    }
+
+    private async Task UrediDatum(VazniDatum d)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<VazniDatumDialog>
+        {
+            { x => x.DatumId,  d.idDozvole },
+            { x => x.VoziloId, d.idVozila ?? 0 }
+        };
+        var dlg = await Dialog.ShowAsync<VazniDatumDialog>("Izmeni datum", prms, opts);
+        if (!(await dlg.Result).Canceled && _selektovano is not null)
+            await UcitajDateZaVozilo(_selektovano.VoziloId);
+    }
+
+    private async Task ObrisiDatum(VazniDatum d)
+    {
+        var ok = await Dialog.ShowMessageBox("Brisanje", "Obrisati ovaj datum?",
+            yesText: "Da", cancelText: "Ne");
+        if (ok != true) return;
+        var entitet = await Db.VazniDatumi.FindAsync(d.idDozvole);
+        if (entitet is not null)
+        {
+            Db.VazniDatumi.Remove(entitet);
+            await Db.SaveChangesAsync();
+            if (_selektovano is not null)
+                await UcitajDateZaVozilo(_selektovano.VoziloId);
+        }
+    }
+
+    private static string VoziloRowStyle(Vozilo v)
+    {
+        if (v.DatumSledeceRegistracije is null) return string.Empty;
+        var d = (v.DatumSledeceRegistracije.Value - DateTime.Today).Days;
+        if (d <= 15) return "background-color:#FFEBEE;";
+        if (d <= 30) return "background-color:#FFF8E1;";
+        return string.Empty;
+    }
+
+    private static string DatumRowStyle(VazniDatum d, int _)
+    {
+        if (d.datumIsteka is null) return string.Empty;
+        var dani = (d.datumIsteka.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days;
+        if (dani <= 15) return "background-color:#FFEBEE;";
+        if (dani <= 30) return "background-color:#FFF8E1;";
+        return string.Empty;
+    }
+}

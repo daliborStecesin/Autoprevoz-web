@@ -34,8 +34,9 @@ public class TransportDbContext : DbContext
     public DbSet<SacuvaniNalog> SacuvaniNalozi { get; set; }
 
     // Vozni park i osoblje
-    public DbSet<Vozilo> Vozila { get; set; }
-    public DbSet<Vozac> Vozaci { get; set; }
+    public DbSet<Vozilo>    Vozila     { get; set; }
+    public DbSet<VazniDatum> VazniDatumi { get; set; }
+    public DbSet<Vozac>     Vozaci     { get; set; }
     public DbSet<Dnevnica> Dnevnice { get; set; }
     public DbSet<Plata> Plate { get; set; }
 
@@ -47,8 +48,9 @@ public class TransportDbContext : DbContext
     public DbSet<ObavestenjePP> ObavestenjaPP { get; set; }
     public DbSet<AnalitikaEpp> AnalitikaEPP { get; set; }
 
-    // Podešavanja
+    // Podešavanja i šifarnici
     public DbSet<DefaultValue>  DefaultValues  { get; set; }
+    public DbSet<Sifarnik>      Sifarnici      { get; set; }
     public DbSet<PodaciFirme>   PodaciFirme    { get; set; }
     public DbSet<Banka>         Banke          { get; set; }
 
@@ -75,6 +77,20 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Vozac>()
             .HasQueryFilter(v => v.aktivan == 1 || v.aktivan == null);
+
+        modelBuilder.Entity<Vozilo>()
+            .HasQueryFilter(v => v.aktivan == 1);
+
+        // VazniDatum (tbl_dozvole) — nema aktivan kolonu, nema filter
+        modelBuilder.Entity<VazniDatum>(e =>
+        {
+            e.ToTable("tbl_dozvole");
+            e.HasKey(d => d.idDozvole);
+            e.HasOne(d => d.Vozilo)
+             .WithMany(v => v.VazniDatumi)
+             .HasForeignKey(d => d.idVozila)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Banka>()
             .HasQueryFilter(b => b.aktivan == 1 || b.aktivan == null);
@@ -133,6 +149,7 @@ public class TransportDbContext : DbContext
 
         // Vozilo ← NaloziZaPrevoz
         modelBuilder.Entity<Vozilo>()
+            .ToTable("tbl_vozila")
             .HasMany(v => v.Nalozi)
             .WithOne()
             .HasForeignKey(n => n.VoziloId)

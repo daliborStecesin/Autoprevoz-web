@@ -1,0 +1,313 @@
+@page "/vozila/vazni-datumi"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+
+<PageTitle>Važni datumi vozila — Autoprevoz</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.Event" Class="mr-2" />
+        Važni datumi vozila
+    </MudText>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Print"
+               OnClick="@(async () => await JS.InvokeVoidAsync("window.print"))">
+        Štampaj
+    </MudButton>
+</div>
+
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="3">
+
+        @* Vozilo — custom inline dropdown (bez popup-a) *@
+        <MudItem xs="12" md="4">
+            <div style="position:relative;">
+                @if (_selektovanoVozilo is null)
+                {
+                    <MudTextField Value="_voziloPretraga"
+                                  ValueChanged="@((string v) => { _voziloPretraga = v; AzurirajPredloge(); })"
+                                  Label="Vozilo"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel="true"
+                                  Placeholder="Kucaj reg. oznaku ili marku..."
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.DirectionsCar"
+                                  Immediate="true"
+                                  T="string" />
+
+                    @if (!string.IsNullOrWhiteSpace(_voziloPretraga) && _voziloPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                    max-height:200px; overflow-y:auto;">
+                            @foreach (var v in _voziloPredlozi)
+                            {
+                                var vozilo = v;
+                                <div @onclick="() => IzaberiVozilo(vozilo)"
+                                     style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0;"
+                                     @onmouseenter="@(() => _hoverVoziloId = vozilo.VoziloId)"
+                                     @onmouseleave="@(() => _hoverVoziloId = 0)">
+                                    <span style="font-weight:600;">@v.registarskaOznaka</span>
+                                    <span style="color:#666; margin-left:8px; font-size:0.85rem;">@v.marka @v.oznaka</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:14px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.75rem; color:rgba(0,0,0,0.6); margin-bottom:2px;">Vozilo</div>
+                            <span style="font-weight:600;">@_selektovanoVozilo.registarskaOznaka</span>
+                            <span style="color:#666; margin-left:6px; font-size:0.88rem;">@_selektovanoVozilo.marka @_selektovanoVozilo.oznaka</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="OcistiVozilo" />
+                    </MudPaper>
+                }
+            </div>
+        </MudItem>
+
+        @* Period OD-DO *@
+        <MudItem xs="6" md="2">
+            <MudTextField T="string" Value="@_od"
+                          ValueChanged="@((string v) => _od = v)"
+                          Label="OD" InputType="InputType.Date"
+                          Variant="Variant.Outlined" ShrinkLabel="true" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudTextField T="string" Value="@_do"
+                          ValueChanged="@((string v) => _do = v)"
+                          Label="DO" InputType="InputType.Date"
+                          Variant="Variant.Outlined" ShrinkLabel="true" />
+        </MudItem>
+
+        <MudItem xs="12" md="4" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Prikazi" Disabled="_ucitava" FullWidth="true">
+                @if (_ucitava) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+                Prikaži
+            </MudButton>
+        </MudItem>
+
+        @* Tip dokumenta — MudToggleGroup (bez popup problema) *@
+        @if (_tipoviDokumenta.Count > 0)
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.caption" Class="mb-1 mud-text-secondary">Tip dokumenta:</MudText>
+                <div class="d-flex flex-wrap gap-1">
+                    <MudChip T="string"
+                             Color="@(_filterTip is null ? Color.Primary : Color.Default)"
+                             Variant="@(_filterTip is null ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(async () => { _filterTip = null; await Prikazi(); })"
+                             Size="Size.Small">
+                        Svi
+                    </MudChip>
+                    @foreach (var t in _tipoviDokumenta)
+                    {
+                        var tip = t;
+                        <MudChip T="string"
+                                 Color="@(_filterTip == tip ? Color.Primary : Color.Default)"
+                                 Variant="@(_filterTip == tip ? Variant.Filled : Variant.Outlined)"
+                                 OnClick="@(async () => { _filterTip = tip; await Prikazi(); })"
+                                 Size="Size.Small">
+                            @tip
+                        </MudChip>
+                    }
+                </div>
+            </MudItem>
+        }
+
+    </MudGrid>
+</MudPaper>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_pretrazivano)
+{
+    <MudDataGrid T="VazniDatumVm"
+                 Items="_rezultati"
+                 Dense="true" Striped="true"
+                 RowStyleFunc="@((item, _) => item.RowStyle)">
+        <Columns>
+            <PropertyColumn Property="x => x.RegOznaka"    Title="Vozilo" />
+            <PropertyColumn Property="x => x.TipDokumenta" Title="Tip dokumenta" />
+            <TemplateColumn Title="Datum isteka">
+                <CellTemplate>@context.Item.DatumIsteka?.ToString("dd.MM.yyyy")</CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Datum izrade">
+                <CellTemplate>@context.Item.DatumIzrade?.ToString("dd.MM.yyyy")</CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.BrDokumenta" Title="Br. dokumenta" />
+            <TemplateColumn Title="Dana do isteka">
+                <CellTemplate>
+                    @{
+                        var dani = context.Item.DatumIsteka.HasValue
+                            ? (context.Item.DatumIsteka.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days
+                            : (int?)null;
+                    }
+                    @if (dani.HasValue)
+                    {
+                        <MudText Color="@(dani <= 0 ? Color.Error : dani <= 15 ? Color.Error : dani <= 30 ? Color.Warning : Color.Default)"
+                                 Typo="Typo.body2">
+                            @(dani <= 0 ? "ISTEKLO" : $"{dani} dana")
+                        </MudText>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="VazniDatumVm" />
+        </PagerContent>
+    </MudDataGrid>
+
+    @if (_rezultati.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3">
+            Nema dokumenata koji ističu u izabranom periodu.
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.caption" Class="mt-2 mud-text-secondary">
+            Ukupno: @_rezultati.Count dokumenata
+        </MudText>
+    }
+}
+
+@code {
+    private List<Vozilo>       _svaVozila        = [];
+    private List<string>       _tipoviDokumenta  = [];
+    private List<VazniDatumVm> _rezultati        = [];
+    private bool               _ucitava;
+    private bool               _pretrazivano;
+
+    private Vozilo?      _selektovanoVozilo;
+    private string       _voziloPretraga   = string.Empty;
+    private List<Vozilo> _voziloPredlozi   = [];
+    private int          _hoverVoziloId;
+    private string?  _filterTip;
+    private string   _od = DateTime.Today.ToString("yyyy-MM-dd");
+    private string   _do = DateTime.Today.AddMonths(3).ToString("yyyy-MM-dd");
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _svaVozila = await Db.Vozila
+            .OrderBy(v => v.registarskaOznaka)
+            .AsNoTracking()
+            .ToListAsync();
+
+        // Tipovi dokumenata iz šifarnika
+        _tipoviDokumenta = await Db.Sifarnici
+            .Where(s => s.kategorija == "DOZVOLE" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .Where(n => n != null)
+            .ToListAsync();
+
+        // Fallback ako šifarnik prazan
+        if (_tipoviDokumenta.Count == 0)
+            _tipoviDokumenta = ["REGISTRACIJA", "BELA POTVRDA", "TAHO SERTIFIKAT",
+                                 "VINJETA", "ADR SERTIFIKAT", "OSIGURANJE",
+                                 "TEHNIČKI PREGLED", "OSTALO"];
+
+        await Prikazi();
+    }
+
+    private void AzurirajPredloge()
+    {
+        _voziloPredlozi = string.IsNullOrWhiteSpace(_voziloPretraga)
+            ? []
+            : [.. _svaVozila
+                .Where(v =>
+                    (v.registarskaOznaka ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    (v.marka             ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(15)];
+        StateHasChanged();
+    }
+
+    private void IzaberiVozilo(Vozilo v)
+    {
+        _selektovanoVozilo = v;
+        _voziloPretraga    = string.Empty;
+        _voziloPredlozi    = [];
+        StateHasChanged();
+    }
+
+    private void OcistiVozilo()
+    {
+        _selektovanoVozilo = null;
+        _voziloPretraga    = string.Empty;
+        _voziloPredlozi    = [];
+    }
+
+    private async Task Prikazi()
+    {
+        _ucitava = true; _pretrazivano = false; StateHasChanged();
+
+        var odDate = DateOnly.TryParse(_od, out var od) ? od : DateOnly.FromDateTime(DateTime.Today);
+        var doDate = DateOnly.TryParse(_do, out var d)  ? d  : odDate.AddMonths(3);
+
+        var query = Db.VazniDatumi
+            .Include(x => x.Vozilo)
+            .Where(x => x.datumIsteka >= odDate && x.datumIsteka <= doDate)
+            .AsNoTracking();
+
+        if (_selektovanoVozilo is not null)
+            query = query.Where(x => x.idVozila == _selektovanoVozilo.VoziloId);
+        if (!string.IsNullOrEmpty(_filterTip))
+            query = query.Where(x => x.TipDokumenta == _filterTip);
+
+        var lista = await query.OrderBy(x => x.datumIsteka).ToListAsync();
+
+        _rezultati = lista.Select(x =>
+        {
+            var dani = x.datumIsteka.HasValue
+                ? (int?)(x.datumIsteka.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days
+                : null;
+            return new VazniDatumVm
+            {
+                RegOznaka    = x.Vozilo?.registarskaOznaka ?? "—",
+                TipDokumenta = x.TipDokumenta,
+                DatumIsteka  = x.datumIsteka,
+                DatumIzrade  = x.datumIzrade,
+                BrDokumenta  = x.brDokumenta,
+                RowStyle     = dani <= 15 ? "background-color:#FFEBEE;" :
+                               dani <= 30 ? "background-color:#FFF8E1;" : string.Empty
+            };
+        }).ToList();
+
+        _ucitava = false; _pretrazivano = true; StateHasChanged();
+    }
+
+    private record VazniDatumVm
+    {
+        public string?   RegOznaka    { get; init; }
+        public string?   TipDokumenta { get; init; }
+        public DateOnly? DatumIsteka  { get; init; }
+        public DateOnly? DatumIzrade  { get; init; }
+        public string?   BrDokumenta  { get; init; }
+        public string    RowStyle     { get; init; } = string.Empty;
+    }
+}

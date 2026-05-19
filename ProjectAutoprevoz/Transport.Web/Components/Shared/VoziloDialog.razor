@@ -1,0 +1,434 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject IDialogService     Dialog
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:700px; max-width:850px;">
+    <DialogContent>
+        <MudTabs Elevation="0" ApplyEffectsToContainer="true">
+
+            @* ── TAB 1: Osnovni podaci ──────────────────────── *@
+            <MudTabPanel Text="Osnovni podaci" Icon="@Icons.Material.Filled.DirectionsCar">
+                <MudGrid Spacing="2" Class="mt-2">
+                    <MudItem xs="12" sm="4">
+                        <MudSelect T="string" @bind-Value="_vrstaVozila" Label="Vrsta vozila" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@("TERETNO")">Teretno</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("PUTNIČKO")">Putničko</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("PRIKOLICA")">Prikolica</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("POLUPRIKOLICA")">Poluprikolica</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("OSTALO")">Ostalo</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_marka" Label="Marka *" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_tip" Label="Tip" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_oznaka" Label="Oznaka / Model" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_registarskaOznaka" Label="Registarska oznaka *" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_gorivo" Label="Gorivo" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_brSasije" Label="Broj šasije" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_brMotora" Label="Broj motora" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField T="string" Value="@_godProizvodnje"
+                                      ValueChanged="@((string v) => _godProizvodnje = v)"
+                                      Label="Godina proizvodnje"
+                                      InputType="InputType.Date"
+                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_boja" Label="Boja" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_jedBrVozila" Label="Jed. br. vozila" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+
+                    <MudItem xs="12"><MudDivider Class="my-1" /></MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudTextField T="string" Value="@_datumKupovine"
+                                      ValueChanged="@((string v) => _datumKupovine = v)"
+                                      Label="Datum kupovine"
+                                      InputType="InputType.Date"
+                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField T="string" Value="@_datumRegistracije"
+                                      ValueChanged="@((string v) => _datumRegistracije = v)"
+                                      Label="Datum registracije"
+                                      InputType="InputType.Date"
+                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField T="string" Value="@_datumSledeceReg"
+                                      ValueChanged="@((string v) => _datumSledeceReg = v)"
+                                      Label="Sledeća registracija"
+                                      InputType="InputType.Date"
+                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_pocKilometraza" Label="Početna km" Variant="Variant.Outlined" ShrinkLabel="true" Format="F0" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_kilometraza" Label="Trenutna km" Variant="Variant.Outlined" ShrinkLabel="true" Format="F0" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_prosekPotrosnje" Label="Prosek potrošnje (l/100km)" Variant="Variant.Outlined" ShrinkLabel="true" Format="F2" />
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+
+            @* ── TAB 2: Tehnički podaci ─────────────────────── *@
+            <MudTabPanel Text="Tehnički podaci" Icon="@Icons.Material.Filled.Build">
+                <MudGrid Spacing="2" Class="mt-2">
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_snagaKW" Label="Snaga (kW)" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_zapremina" Label="Zapremina (cm³)" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_masa" Label="Masa (kg)" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_maxMasa" Label="Max masa (kg)" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_nosivost" Label="Nosivost (kg)" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_tipTovarnog" Label="Tip tovarnog" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_dimenzijeTovarnog" Label="Dimenzije tovarnog" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_serBrSaobracajne" Label="Serijski br. saobraćajne" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" Value="@_datumIstekaSD"
+                                      ValueChanged="@((string v) => _datumIstekaSD = v)"
+                                      Label="Datum isteka SD"
+                                      InputType="InputType.Date"
+                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+
+            @* ── TAB 3: Vlasnik ─────────────────────────────── *@
+            <MudTabPanel Text="Vlasnik" Icon="@Icons.Material.Filled.Person">
+                <MudGrid Spacing="2" Class="mt-2">
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_jmbgVlasnika" Label="JMBG vlasnika" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField @bind-Value="_prezimeNazivVlasnika" Label="Prezime / Naziv vlasnika" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_imeVlasnika" Label="Ime vlasnika" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_adresaVlasnika" Label="Adresa vlasnika" Variant="Variant.Outlined" ShrinkLabel="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="_vrednostNovog" Label="Vrednost novog (RSD)" Variant="Variant.Outlined" Format="F2" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="_vrednostTrenutno" Label="Vrednost trenutna (RSD)" Variant="Variant.Outlined" Format="F2" />
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+
+            @* ── TAB 4: Važni datumi ─────────────────────────── *@
+            <MudTabPanel Text="Važni datumi" Icon="@Icons.Material.Filled.Event">
+                <div class="d-flex justify-space-between align-center my-2">
+                    <MudText Typo="Typo.subtitle2">Dokumenti i rokovi</MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="DodajDatum">
+                        Dodaj datum
+                    </MudButton>
+                </div>
+
+                <MudDataGrid T="VazniDatum"
+                             Items="_vazniDatumi"
+                             Dense="true" Striped="true" Hover="true"
+                             RowClick="@(async (args) => await UrediDatum(args.Item))"
+                             RowStyleFunc="@DatumRowStyle">
+                    <Columns>
+                        <PropertyColumn Property="x => x.TipDokumenta" Title="Tip dokumenta" />
+                        <TemplateColumn Title="Datum isteka">
+                            <CellTemplate>
+                                @context.Item.datumIsteka?.ToString("dd.MM.yyyy")
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Datum izrade">
+                            <CellTemplate>
+                                @context.Item.datumIzrade?.ToString("dd.MM.yyyy")
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.brDokumenta" Title="Br. dokumenta" />
+                        <TemplateColumn Title="" CellStyle="width:50px">
+                            <CellTemplate>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(async (e) => await ObrisiDatum(context.Item))" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </MudTabPanel>
+
+        </MudTabs>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            Sačuvaj
+        </MudButton>
+        @if (VoziloId > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Block"
+                       OnClick="Deaktiviraj">
+                Deaktiviraj
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int VoziloId { get; set; }
+
+    private Vozilo? _entitet;
+    private List<VazniDatum> _vazniDatumi = [];
+
+    // Tab 1
+    private string  _vrstaVozila          = "TERETNO";
+    private string? _marka;
+    private string? _tip;
+    private string? _oznaka;
+    private string? _registarskaOznaka;
+    private string? _gorivo;
+    private string? _brSasije;
+    private string? _brMotora;
+    private string  _godProizvodnje        = string.Empty;
+    private string? _boja;
+    private string? _jedBrVozila;
+    private string  _datumKupovine         = string.Empty;
+    private string  _datumRegistracije     = string.Empty;
+    private string  _datumSledeceReg       = string.Empty;
+    private decimal? _pocKilometraza;
+    private decimal? _kilometraza;
+    private decimal? _prosekPotrosnje;
+    // Tab 2
+    private string? _snagaKW;
+    private string? _zapremina;
+    private string? _masa;
+    private string? _maxMasa;
+    private string? _nosivost;
+    private string? _tipTovarnog;
+    private string? _dimenzijeTovarnog;
+    private string? _serBrSaobracajne;
+    private string  _datumIstekaSD         = string.Empty;
+    // Tab 3
+    private string? _jmbgVlasnika;
+    private string? _prezimeNazivVlasnika;
+    private string? _imeVlasnika;
+    private string? _adresaVlasnika;
+    private decimal? _vrednostNovog;
+    private decimal? _vrednostTrenutno;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (VoziloId > 0)
+        {
+            _entitet = await Db.Vozila.IgnoreQueryFilters()
+                                      .FirstOrDefaultAsync(v => v.VoziloId == VoziloId);
+            if (_entitet is not null)
+            {
+                _vrstaVozila           = _entitet.vrstaVozila          ?? "TERETNO";
+                _marka                 = _entitet.marka;
+                _tip                   = _entitet.tip;
+                _oznaka                = _entitet.oznaka;
+                _registarskaOznaka     = _entitet.registarskaOznaka;
+                _gorivo                = _entitet.Gorivo;
+                _brSasije              = _entitet.brSasije;
+                _brMotora              = _entitet.brMotora;
+                _godProizvodnje        = _entitet.godinaProizvodnje?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _boja                  = _entitet.boja;
+                _jedBrVozila           = _entitet.JedBrVozila;
+                _datumKupovine         = _entitet.DatumKupovine?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _datumRegistracije     = _entitet.DatumRegistracije?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _datumSledeceReg       = _entitet.DatumSledeceRegistracije?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _pocKilometraza        = _entitet.PocKilometraza;
+                _kilometraza           = _entitet.Kilometraza;
+                _prosekPotrosnje       = _entitet.prosekPotrosnje;
+                _snagaKW               = _entitet.snagaKW;
+                _zapremina             = _entitet.zapremina;
+                _masa                  = _entitet.masa;
+                _maxMasa               = _entitet.maxMasa;
+                _nosivost              = _entitet.nosivost;
+                _tipTovarnog           = _entitet.tipTovarnog;
+                _dimenzijeTovarnog     = _entitet.dimenzijeTovarnog;
+                _serBrSaobracajne      = _entitet.serBrSaobracajne;
+                _datumIstekaSD         = _entitet.datumIstekaSD?.ToString("yyyy-MM-dd") ?? string.Empty;
+                _jmbgVlasnika          = _entitet.JMBGvlasnika;
+                _prezimeNazivVlasnika  = _entitet.PrezimeNazivVlasnika;
+                _imeVlasnika           = _entitet.imeVlasnika;
+                _adresaVlasnika        = _entitet.adresaVlasnika;
+                _vrednostNovog         = _entitet.vrednostNovog;
+                _vrednostTrenutno      = _entitet.vrednostTrenutno;
+            }
+
+            _vazniDatumi = await Db.VazniDatumi
+                .Where(d => d.idVozila == VoziloId)
+                .OrderBy(d => d.datumIsteka)
+                .ToListAsync();
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_marka) || string.IsNullOrWhiteSpace(_registarskaOznaka))
+        {
+            Snackbar.Add("Marka i registarska oznaka su obavezna polja.", Severity.Warning);
+            return;
+        }
+        try
+        {
+            if (_entitet is null) { _entitet = new Vozilo(); Db.Vozila.Add(_entitet); }
+
+            _entitet.vrstaVozila              = _vrstaVozila;
+            _entitet.marka                    = _marka;
+            _entitet.tip                      = _tip;
+            _entitet.oznaka                   = _oznaka;
+            _entitet.registarskaOznaka        = _registarskaOznaka;
+            _entitet.Gorivo                   = _gorivo;
+            _entitet.brSasije                 = _brSasije;
+            _entitet.brMotora                 = _brMotora;
+            _entitet.godinaProizvodnje        = DateOnly.TryParse(_godProizvodnje, out var gp) ? gp : null;
+            _entitet.boja                     = _boja;
+            _entitet.JedBrVozila              = _jedBrVozila;
+            _entitet.DatumKupovine            = DateTime.TryParse(_datumKupovine, out var dk) ? dk : null;
+            _entitet.DatumRegistracije        = DateTime.TryParse(_datumRegistracije, out var dr) ? dr : null;
+            _entitet.DatumSledeceRegistracije = DateTime.TryParse(_datumSledeceReg, out var ds) ? ds : null;
+            _entitet.PocKilometraza           = _pocKilometraza;
+            _entitet.Kilometraza              = _kilometraza;
+            _entitet.prosekPotrosnje          = _prosekPotrosnje;
+            _entitet.snagaKW                  = _snagaKW;
+            _entitet.zapremina                = _zapremina;
+            _entitet.masa                     = _masa;
+            _entitet.maxMasa                  = _maxMasa;
+            _entitet.nosivost                 = _nosivost;
+            _entitet.tipTovarnog              = _tipTovarnog;
+            _entitet.dimenzijeTovarnog        = _dimenzijeTovarnog;
+            _entitet.serBrSaobracajne         = _serBrSaobracajne;
+            _entitet.datumIstekaSD            = DateOnly.TryParse(_datumIstekaSD, out var sd) ? sd : null;
+            _entitet.JMBGvlasnika             = _jmbgVlasnika;
+            _entitet.PrezimeNazivVlasnika     = _prezimeNazivVlasnika;
+            _entitet.imeVlasnika              = _imeVlasnika;
+            _entitet.adresaVlasnika           = _adresaVlasnika;
+            _entitet.vrednostNovog            = _vrednostNovog;
+            _entitet.vrednostTrenutno         = _vrednostTrenutno;
+            _entitet.aktivan                  = 1;
+
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Vozilo sačuvano.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Deaktiviraj()
+    {
+        if (_entitet is null) return;
+        var ok = await Dialog.ShowMessageBox("Deaktivacija",
+            "Deaktivirati vozilo? Neće biti fizički obrisano.",
+            yesText: "Da", cancelText: "Odustani");
+        if (ok != true) return;
+        _entitet.aktivan = 0;
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Vozilo deaktivirano.", Severity.Info);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task DodajDatum()
+    {
+        var opts   = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms   = new DialogParameters<VazniDatumDialog>
+        {
+            { x => x.DatumId,  0 },
+            { x => x.VoziloId, VoziloId > 0 ? VoziloId : (_entitet?.VoziloId ?? 0) }
+        };
+        var dlg    = await Dialog.ShowAsync<VazniDatumDialog>("Dodaj datum", prms, opts);
+        var result = await dlg.Result;
+        if (result is { Canceled: false }) await OsveziDatume();
+    }
+
+    private async Task UrediDatum(VazniDatum d)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<VazniDatumDialog>
+        {
+            { x => x.DatumId,  d.idDozvole },
+            { x => x.VoziloId, d.idVozila ?? 0 }
+        };
+        var dlg    = await Dialog.ShowAsync<VazniDatumDialog>("Izmeni datum", prms, opts);
+        var result = await dlg.Result;
+        if (result is { Canceled: false }) await OsveziDatume();
+    }
+
+    private async Task ObrisiDatum(VazniDatum d)
+    {
+        var ok = await Dialog.ShowMessageBox("Brisanje", "Obrisati ovaj datum?",
+            yesText: "Da", cancelText: "Ne");
+        if (ok != true) return;
+        Db.VazniDatumi.Remove(d);
+        await Db.SaveChangesAsync();
+        await OsveziDatume();
+    }
+
+    private async Task OsveziDatume()
+    {
+        var id = VoziloId > 0 ? VoziloId : (_entitet?.VoziloId ?? 0);
+        if (id > 0)
+            _vazniDatumi = await Db.VazniDatumi
+                .Where(d => d.idVozila == id)
+                .OrderBy(d => d.datumIsteka)
+                .ToListAsync();
+    }
+
+    private static string DatumRowStyle(VazniDatum d, int _)
+    {
+        if (d.datumIsteka is null) return string.Empty;
+        var dani = (d.datumIsteka.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days;
+        if (dani <= 15) return "background-color:#FFEBEE;";
+        if (dani <= 30) return "background-color:#FFF8E1;";
+        return string.Empty;
+    }
+}
