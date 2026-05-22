@@ -102,33 +102,54 @@
             </MudButton>
         </MudItem>
 
-        @* Tip dokumenta — MudToggleGroup (bez popup problema) *@
-        @if (_tipoviDokumenta.Count > 0)
-        {
-            <MudItem xs="12">
-                <MudText Typo="Typo.caption" Class="mb-1 mud-text-secondary">Tip dokumenta:</MudText>
-                <div class="d-flex flex-wrap gap-1">
-                    <MudChip T="string"
-                             Color="@(_filterTip is null ? Color.Primary : Color.Default)"
-                             Variant="@(_filterTip is null ? Variant.Filled : Variant.Outlined)"
-                             OnClick="@(async () => { _filterTip = null; await Prikazi(); })"
-                             Size="Size.Small">
-                        Svi
-                    </MudChip>
-                    @foreach (var t in _tipoviDokumenta)
+        @* Tip dokumenta — inline dropdown *@
+        <MudItem xs="12" md="4">
+            <div style="position:relative;"
+                 @onfocusin="OnTipFocusin"
+                 @onfocusout="OnTipFocusout">
+                @if (_filterTip is null)
+                {
+                    <MudTextField Value="_tipPretraga"
+                                  ValueChanged="@((string v) => { _tipPretraga = v; AzurirajTipPredloge(); })"
+                                  Label="Tip dokumenta"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel="true"
+                                  Placeholder="Svi tipovi..."
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.Description"
+                                  Immediate="true"
+                                  T="string" />
+                    @if (_tipOpen && _tipPredlozi.Count > 0)
                     {
-                        var tip = t;
-                        <MudChip T="string"
-                                 Color="@(_filterTip == tip ? Color.Primary : Color.Default)"
-                                 Variant="@(_filterTip == tip ? Variant.Filled : Variant.Outlined)"
-                                 OnClick="@(async () => { _filterTip = tip; await Prikazi(); })"
-                                 Size="Size.Small">
-                            @tip
-                        </MudChip>
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                    max-height:220px; overflow-y:auto;">
+                            @foreach (var t in _tipPredlozi)
+                            {
+                                var tip = t;
+                                <div @onclick="@(async () => { _filterTip = tip; _tipPretraga = string.Empty; _tipPredlozi = []; await Prikazi(); })"
+                                     style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0;">
+                                    @tip
+                                </div>
+                            }
+                        </div>
                     }
-                </div>
-            </MudItem>
-        }
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:14px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.75rem; color:rgba(0,0,0,0.6); margin-bottom:2px;">Tip dokumenta</div>
+                            <span style="font-weight:600;">@_filterTip</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(async () => { _filterTip = null; _tipPretraga = string.Empty; await Prikazi(); })" />
+                    </MudPaper>
+                }
+            </div>
+        </MudItem>
 
     </MudGrid>
 </MudPaper>
@@ -200,7 +221,12 @@ else if (_pretrazivano)
     private string       _voziloPretraga   = string.Empty;
     private List<Vozilo> _voziloPredlozi   = [];
     private int          _hoverVoziloId;
-    private string?  _filterTip;
+
+    private string?      _filterTip;
+    private string       _tipPretraga      = string.Empty;
+    private List<string> _tipPredlozi      = [];
+    private bool         _tipOpen          = false;
+
     private string   _od = DateTime.Today.ToString("yyyy-MM-dd");
     private string   _do = DateTime.Today.AddMonths(3).ToString("yyyy-MM-dd");
 
@@ -252,6 +278,27 @@ else if (_pretrazivano)
         _selektovanoVozilo = v;
         _voziloPretraga    = string.Empty;
         _voziloPredlozi    = [];
+        StateHasChanged();
+    }
+
+    private void AzurirajTipPredloge()
+    {
+        _tipPredlozi = string.IsNullOrWhiteSpace(_tipPretraga)
+            ? [.. _tipoviDokumenta]
+            : [.. _tipoviDokumenta.Where(t => t.Contains(_tipPretraga, StringComparison.OrdinalIgnoreCase))];
+        StateHasChanged();
+    }
+
+    private void OnTipFocusin()
+    {
+        _tipOpen = true;
+        AzurirajTipPredloge();
+    }
+
+    private async Task OnTipFocusout()
+    {
+        await Task.Delay(150);
+        _tipOpen = false;
         StateHasChanged();
     }
 

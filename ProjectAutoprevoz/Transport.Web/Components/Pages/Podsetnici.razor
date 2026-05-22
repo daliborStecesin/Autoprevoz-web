@@ -18,6 +18,72 @@
     Periodični podsetnici
 </MudText>
 
+@* ── Filter + Akcije ── *@
+<div class="d-flex align-center gap-3 mb-3 flex-wrap">
+
+    @* Vrsta — inline dropdown *@
+    <div style="position:relative; min-width:260px;"
+         @onfocusin="OnVrstaFocusin"
+         @onfocusout="OnVrstaFocusout">
+        @if (_filterVrsta is null)
+        {
+            <MudTextField Value="_vrstaPretraga"
+                          ValueChanged="@((string v) => { _vrstaPretraga = v; AzurirajVrstePredloge(); })"
+                          Variant="Variant.Outlined"
+                          Placeholder="Sve vrste..."
+                          Label="Vrsta"
+                          ShrinkLabel="true"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Category"
+                          Immediate="true"
+                          Margin="Margin.Dense"
+                          T="string" />
+            @if (_vrstaOpen && _vrstePredlozi.Count > 0)
+            {
+                <div style="position:absolute; z-index:9999; left:0; right:0;
+                            background:white; border:1px solid #ccc; border-radius:4px;
+                            box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                            max-height:220px; overflow-y:auto;">
+                    @foreach (var v in _vrstePredlozi)
+                    {
+                        var vrsta = v;
+                        <div @onclick="() => { _filterVrsta = vrsta; _vrstaPretraga = string.Empty; _vrstePredlozi = []; Filtriraj(vrsta); }"
+                             style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.9rem;">
+                            @vrsta
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <MudPaper Elevation="0"
+                      Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:0.72rem; color:rgba(0,0,0,0.6); margin-bottom:1px;">Vrsta</div>
+                    <span style="font-weight:600; color:#1565C0;">@_filterVrsta</span>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                               OnClick="() => { _filterVrsta = null; _vrstaPretraga = string.Empty; Filtriraj(null); }" />
+            </MudPaper>
+        }
+    </div>
+
+    <MudSpacer />
+
+    <MudButton Variant="Variant.Filled" Color="Color.Success"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="NoviPodsetnik">
+        Novi podsetnik
+    </MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Error"
+               StartIcon="@Icons.Material.Filled.Delete"
+               Disabled="@(_selektovani is null)"
+               OnClick="Obrisi">
+        Obriši
+    </MudButton>
+</div>
+
 <MudDataGrid T="Potsetnik"
              Items="@_filtrirani"
              Dense="true"
@@ -25,38 +91,7 @@
              Hover="true"
              RowClick="NaKlikReda"
              Loading="_ucitava">
-    <ToolBarContent>
-        <MudSelect Value="_filterVrsta"
-                   T="string?"
-                   Label="Vrsta"
-                   Variant="Variant.Outlined"
-                   Clearable="true"
-                   Style="min-width:220px;"
-                   ValueChanged="@((string? v) => Filtriraj(v))">
-            @foreach (var v in _vrste)
-            {
-                <MudSelectItem Value="@v">@v</MudSelectItem>
-            }
-        </MudSelect>
-
-        <MudSpacer />
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Success"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="NoviPodsetnik"
-                   Class="mr-2">
-            Novi podsetnik
-        </MudButton>
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Error"
-                   StartIcon="@Icons.Material.Filled.Delete"
-                   Disabled="@(_selektovani is null)"
-                   OnClick="Obrisi">
-            Obriši
-        </MudButton>
-    </ToolBarContent>
+    <ToolBarContent></ToolBarContent>
 
     <Columns>
         <PropertyColumn Property="x => x.Vrsta"  Title="Vrsta" />
@@ -102,6 +137,9 @@
     private List<Potsetnik> _filtrirani = [];
     private Potsetnik?      _selektovani;
     private string?         _filterVrsta;
+    private string          _vrstaPretraga  = string.Empty;
+    private List<string>    _vrstePredlozi  = [];
+    private bool            _vrstaOpen      = false;
     private bool            _ucitava = true;
 
     private DateTime _posledniKlik = DateTime.MinValue;
@@ -149,6 +187,28 @@
         _filtrirani  = string.IsNullOrEmpty(vrsta)
             ? [.. _svi]
             : [.. _svi.Where(p => p.Vrsta == vrsta)];
+        StateHasChanged();
+    }
+
+    private void AzurirajVrstePredloge()
+    {
+        _vrstePredlozi = string.IsNullOrWhiteSpace(_vrstaPretraga)
+            ? [.. _vrste]
+            : [.. _vrste.Where(v => v.Contains(_vrstaPretraga, StringComparison.OrdinalIgnoreCase))];
+        StateHasChanged();
+    }
+
+    private void OnVrstaFocusin()
+    {
+        _vrstaOpen = true;
+        AzurirajVrstePredloge();
+    }
+
+    private async Task OnVrstaFocusout()
+    {
+        await Task.Delay(150);
+        _vrstaOpen = false;
+        StateHasChanged();
     }
 
     private async Task NaKlikReda(DataGridRowClickEventArgs<Potsetnik> args)

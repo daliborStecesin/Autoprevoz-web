@@ -36,6 +36,7 @@ public class TransportDbContext : DbContext
     // Vozni park i osoblje
     public DbSet<Vozilo>    Vozila     { get; set; }
     public DbSet<VazniDatum> VazniDatumi { get; set; }
+    public DbSet<Trosak>    Troskovi   { get; set; }
     public DbSet<Vozac>     Vozaci     { get; set; }
     public DbSet<Dnevnica> Dnevnice { get; set; }
     public DbSet<Plata> Plate { get; set; }
@@ -80,6 +81,16 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Vozilo>()
             .HasQueryFilter(v => v.aktivan == 1);
+
+        // Trosak (tbl_troskovi)
+        modelBuilder.Entity<Trosak>(e =>
+        {
+            e.HasQueryFilter(t => t.brisano == 0);
+            e.HasOne(t => t.Vozilo)
+             .WithMany()
+             .HasForeignKey(t => t.idVozila)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
 
         // VazniDatum (tbl_dozvole) — nema aktivan kolonu, nema filter
         modelBuilder.Entity<VazniDatum>(e =>

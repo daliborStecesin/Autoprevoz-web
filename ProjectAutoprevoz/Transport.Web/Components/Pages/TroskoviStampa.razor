@@ -1,0 +1,267 @@
+@page "/troskovi/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+
+<PageTitle>Obračun troškova — Štampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10pt;
+        color: #000;
+        background: #fff;
+    }
+
+    .wrap { padding: 24px 32px; }
+
+    .header { text-align: center; margin-bottom: 16px; }
+    .header h1 { font-size: 13pt; font-weight: bold; margin-bottom: 3px; }
+    .header .adresa { font-size: 8.5pt; color: #444; margin-bottom: 10px; }
+    .header .naslov { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
+    .header .filter-info { font-size: 9pt; color: #333; }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+        margin-top: 12px;
+    }
+    thead th {
+        background: #e8e8e8;
+        font-weight: bold;
+        padding: 6px 8px;
+        border: 1px solid #aaa;
+        white-space: nowrap;
+    }
+    tbody td {
+        padding: 5px 8px;
+        border: 1px solid #ccc;
+        vertical-align: top;
+    }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+
+    .right { text-align: right; }
+
+    .footer {
+        margin-top: 16px;
+        text-align: right;
+        font-size: 10pt;
+    }
+    .footer table {
+        display: inline-table;
+        width: auto;
+        margin-top: 0;
+    }
+    .footer td {
+        padding: 3px 12px;
+        border: 1px solid #aaa;
+        font-weight: bold;
+    }
+    .footer td:first-child { text-align: left; background: #e8e8e8; }
+    .footer td:last-child  { text-align: right; min-width: 120px; }
+
+    .no-print {
+        margin-top: 24px;
+        text-align: center;
+        padding-bottom: 20px;
+    }
+    .no-print button {
+        padding: 7px 22px;
+        font-size: 10pt;
+        cursor: pointer;
+        border: 1px solid #999;
+        border-radius: 4px;
+        background: #f0f0f0;
+        margin: 0 4px;
+    }
+    .no-print button:hover { background: #e0e0e0; }
+
+    .loading {
+        padding: 60px;
+        text-align: center;
+        font-size: 12pt;
+        color: #666;
+    }
+
+    @@media print {
+        .no-print { display: none !important; }
+
+        body { font-size: 9pt; }
+
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .footer td:first-child { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        tr { page-break-inside: avoid; }
+        table { page-break-after: auto; }
+
+        @@page { margin: 1.5cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else
+{
+    <div class="wrap">
+
+        @* ── Zaglavlje ── *@
+        <div class="header">
+            @if (_firma is not null)
+            {
+                <h1>@_firma.NazivFirme</h1>
+                @if (!string.IsNullOrEmpty(_firma.Adresa) || !string.IsNullOrEmpty(_firma.Mesto))
+                {
+                    <div class="adresa">
+                        @_firma.Adresa@(!string.IsNullOrEmpty(_firma.Adresa) && !string.IsNullOrEmpty(_firma.Mesto) ? ", " : "")@_firma.Mesto
+                    </div>
+                }
+            }
+            <div class="naslov">
+                Obračun troškova za period od: @FormatDatum(Od) DO: @FormatDatum(Do)
+            </div>
+            @if (!string.IsNullOrEmpty(_voziloPrikaz))
+            {
+                <div class="filter-info">Vozilo: <b>@_voziloPrikaz</b></div>
+            }
+            @if (!string.IsNullOrEmpty(Vrsta))
+            {
+                <div class="filter-info">Vrsta troška: <b>@Vrsta</b></div>
+            }
+        </div>
+
+        @* ── Tabela ── *@
+        <table>
+            <thead>
+                <tr>
+                    <th>Vozilo</th>
+                    <th>Vrsta troška</th>
+                    <th>Opis</th>
+                    <th>Datum</th>
+                    <th class="right">Vrednost RSD</th>
+                    <th class="right">Kurs</th>
+                    <th class="right">EUR</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_troskovi.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding:16px; color:#666;">
+                            Nema troškova za izabrane filtere.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var t in _troskovi)
+                    {
+                        <tr>
+                            <td>@(t.tipDokumenta ?? "—")</td>
+                            <td>@(t.vrstaTroska  ?? "—")</td>
+                            <td>@t.opis</td>
+                            <td style="white-space:nowrap;">@t.datum?.ToString("dd.MM.yyyy")</td>
+                            <td class="right">@t.vrednost?.ToString("N2")</td>
+                            <td class="right">@t.kurs?.ToString("N4")</td>
+                            <td class="right">@t.vrednostEUR?.ToString("N2")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        @* ── Footer totali ── *@
+        <div class="footer">
+            <table>
+                <tr>
+                    <td>Vrednost RSD:</td>
+                    <td>@_ukupnoRsd.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td>Vrednost EUR:</td>
+                    <td>@_ukupnoEur.ToString("N2")</td>
+                </tr>
+            </table>
+        </div>
+
+        @* ── Dugmad (sakrivena pri štampi) ── *@
+        <div class="no-print">
+            <button onclick="window.print()">🖨 Štampaj</button>
+            <button onclick="window.close()">✕ Zatvori</button>
+        </div>
+
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "vozilo")] public string? Vozilo { get; set; }
+    [SupplyParameterFromQuery(Name = "vrsta")]  public string? Vrsta  { get; set; }
+    [SupplyParameterFromQuery(Name = "od")]     public string? Od     { get; set; }
+    [SupplyParameterFromQuery(Name = "do")]     public string? Do     { get; set; }
+
+    private List<Trosak>  _troskovi    = [];
+    private PodaciFirme?  _firma;
+    private string?       _voziloPrikaz;
+    private bool          _ucitava     = true;
+    private decimal       _ukupnoRsd;
+    private decimal       _ukupnoEur;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+        var odDate = DateTime.TryParse(Od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+        var doDate = DateTime.TryParse(Do, out var d)  ? d.AddDays(1) : DateTime.Today.AddDays(1);
+
+        var query = Db.Troskovi
+            .Where(t => t.datum >= odDate && t.datum < doDate)
+            .AsNoTracking();
+
+        if (!string.IsNullOrEmpty(Vozilo) && int.TryParse(Vozilo, out var voziloId))
+        {
+            var idStr = voziloId.ToString();
+            query = query.Where(t => t.idDokumenta == idStr || t.idVozila == voziloId);
+            _voziloPrikaz = await Db.Vozila
+                .Where(v => v.VoziloId == voziloId)
+                .Select(v => v.registarskaOznaka + " — " + v.marka + " " + v.oznaka)
+                .FirstOrDefaultAsync();
+        }
+
+        if (!string.IsNullOrEmpty(Vrsta))
+            query = query.Where(t => t.vrstaTroska == Vrsta);
+
+        _troskovi = await query.OrderBy(t => t.datum).ToListAsync();
+
+        _ukupnoRsd = _troskovi.Sum(t => t.vrednost    ?? 0);
+        _ukupnoEur = _troskovi.Sum(t => t.vrednostEUR ?? 0);
+
+        _ucitava = false;
+        StateHasChanged();
+
+        await Task.Delay(400);
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static string FormatDatum(string? d) =>
+        DateTime.TryParse(d, out var dt) ? dt.ToString("dd.MM.yyyy") : (d ?? "");
+}

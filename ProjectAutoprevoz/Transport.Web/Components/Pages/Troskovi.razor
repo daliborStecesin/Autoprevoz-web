@@ -1,0 +1,499 @@
+@page "/troskovi"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+@inject IJSRuntime        JS
+
+<PageTitle>Troškovi — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Class="mr-2" />
+    Troškovi
+</MudText>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri ─────────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3">
+
+            @* Vozilo *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozilo:</MudText>
+            <div style="position:relative; margin-bottom:12px; margin-top:4px;">
+                @if (_filterVozilo is null)
+                {
+                    <MudTextField Value="_voziloPretraga"
+                                  ValueChanged="@((string v) => { _voziloPretraga = v; AzurirajVozilaPredloge(); })"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="Sva vozila..."
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.DirectionsCar"
+                                  Immediate="true"
+                                  Margin="Margin.Dense"
+                                  T="string" />
+                    @if (!string.IsNullOrWhiteSpace(_voziloPretraga) && _voziloPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                    max-height:200px; overflow-y:auto;">
+                            @foreach (var v in _voziloPredlozi)
+                            {
+                                var vozilo = v;
+                                <div @onclick="() => IzaberiFilterVozilo(vozilo)"
+                                     style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                    <span style="font-weight:600;">@v.registarskaOznaka</span>
+                                    <span style="color:#666; margin-left:6px;">@v.marka @v.oznaka</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_filterVozilo.registarskaOznaka</span>
+                            <div style="color:#666; font-size:0.78rem;">@_filterVozilo.marka @_filterVozilo.oznaka</div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="() => { _filterVozilo = null; _voziloPretraga = string.Empty; }" />
+                    </MudPaper>
+                }
+            </div>
+
+            @* Vrsta troška — inline dropdown *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vrsta troška:</MudText>
+            <div style="position:relative; margin-bottom:12px; margin-top:4px;"
+                 @onfocusin="OnVrstaFocusin"
+                 @onfocusout="OnVrstaFocusout">
+                @if (_filterVrsta is null)
+                {
+                    <MudTextField Value="_vrstaPretraga"
+                                  ValueChanged="@((string v) => { _vrstaPretraga = v; AzurirajVrstePredloge(); })"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="Sve vrste..."
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.Category"
+                                  Immediate="true"
+                                  Margin="Margin.Dense"
+                                  T="string" />
+                    @if (_vrstaOpen && _vrstePredlozi.Count > 0)
+                    {
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                    max-height:200px; overflow-y:auto;">
+                            @foreach (var v in _vrstePredlozi)
+                            {
+                                var vrsta = v;
+                                <div @onclick="@(async () => { _filterVrsta = vrsta; _vrstaPretraga = string.Empty; _vrstePredlozi = []; await Izlistaj(); })"
+                                     style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                    @vrsta
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.75rem; color:rgba(0,0,0,0.6); margin-bottom:2px;">Vrsta troška</div>
+                            <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_filterVrsta</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(async () => { _filterVrsta = null; _vrstaPretraga = string.Empty; await Izlistaj(); })" />
+                    </MudPaper>
+                }
+            </div>
+
+            @* Period OD — DO *@
+            <MudTextField T="string"
+                          Value="@_od"
+                          ValueChanged="@((string v) => _od = v)"
+                          Label="OD"
+                          InputType="InputType.Date"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel="true"
+                          Class="mb-2" />
+            <MudTextField T="string"
+                          Value="@_do"
+                          ValueChanged="@((string v) => _do = v)"
+                          Label="DO"
+                          InputType="InputType.Date"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel="true"
+                          Class="mb-3" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Izlistaj"
+                       Disabled="_ucitava"
+                       FullWidth="true">
+                @if (_ucitava)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Izlistaj
+            </MudButton>
+
+            @* ── Sumarni prikaz ── *@
+            @if (_pretrazivano)
+            {
+                <MudDivider Class="my-3" />
+
+                <div Class="mb-3">
+                    <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:700; letter-spacing:0.5px;">
+                        TROŠKOVI PO VRSTI:
+                    </MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#c62828;">
+                        @_ukupnoVrstaRsd.ToString("N2") RSD
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="color:#c62828;">
+                        EUR: @_ukupnoVrstaEur.ToString("N2")
+                    </MudText>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:700; letter-spacing:0.5px;">
+                        TROŠKOVI ZA PERIOD:
+                    </MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#c62828;">
+                        @_ukupnoPeriodRsd.ToString("N2") RSD
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="color:#c62828;">
+                        EUR: @_ukupnoPeriodEur.ToString("N2")
+                    </MudText>
+                </div>
+            }
+
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Dugmad + Grid ──────────────── *@
+    <MudItem xs="12" md="9">
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="DodajTrosak">
+                Dodaj trošak
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit"
+                       Disabled="@(_selektovani is null)"
+                       OnClick="IzmeniTrosak">
+                Izmeni
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       Disabled="@(_selektovani is null)"
+                       OnClick="BrisiTrosak">
+                Briši trošak
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Print"
+                       OnClick="OtvoriStampu">
+                Štampaj
+            </MudButton>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_greska))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                <b>SQL greška:</b> @_greska
+            </MudAlert>
+        }
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_pretrazivano)
+        {
+            <MudDataGrid T="Trosak"
+                         Items="_rezultati"
+                         Dense="true" Striped="true" Hover="true"
+                         RowClick="NaKlikReda"
+                         RowStyleFunc="@((item, _) => item.trosakId == _selektovani?.trosakId
+                             ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
+                             : string.Empty)">
+                <Columns>
+                    <TemplateColumn Title="Vozilo" SortBy="x => x.tipDokumenta">
+                        <CellTemplate>@(context.Item.tipDokumenta ?? "—")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.vrstaTroska"  Title="Vrsta troška" />
+                    <PropertyColumn Property="x => x.opis"          Title="Opis" />
+                    <TemplateColumn Title="Datum" SortBy="x => x.datum">
+                        <CellTemplate>@context.Item.datum?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vrednost RSD" SortBy="x => x.vrednost">
+                        <CellTemplate>
+                            <span style="text-align:right; display:block;">
+                                @context.Item.vrednost?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Kurs" SortBy="x => x.kurs">
+                        <CellTemplate>@context.Item.kurs?.ToString("N4")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="EUR" SortBy="x => x.vrednostEUR">
+                        <CellTemplate>
+                            <span style="text-align:right; display:block;">
+                                @context.Item.vrednostEUR?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Trosak" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_rezultati.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema troškova za izabrane filtere.
+                </MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">
+                    Ukupno zapisa: @_rezultati.Count
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Podesite filtere i kliknite <b>Izlistaj</b>.
+            </MudAlert>
+        }
+
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<Vozilo>  _svaVozila      = [];
+    private List<string>  _vrste          = [];
+    private List<Trosak>  _rezultati      = [];
+    private Trosak?       _selektovani;
+    private bool          _ucitava;
+    private bool          _pretrazivano;
+
+    private Vozilo?       _filterVozilo;
+    private string        _voziloPretraga  = string.Empty;
+    private List<Vozilo>  _voziloPredlozi  = [];
+
+    private string?       _filterVrsta;
+    private string        _vrstaPretraga   = string.Empty;
+    private List<string>  _vrstePredlozi   = [];
+    private bool          _vrstaOpen       = false;
+
+    private string        _od = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string        _do = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private decimal _ukupnoVrstaRsd;
+    private decimal _ukupnoVrstaEur;
+    private decimal _ukupnoPeriodRsd;
+    private decimal _ukupnoPeriodEur;
+    private string? _greska;
+
+    private DateTime _poslednjKlik   = DateTime.MinValue;
+    private Trosak?  _poslednjKlikT;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _svaVozila = await Db.Vozila
+            .OrderBy(v => v.registarskaOznaka)
+            .AsNoTracking()
+            .ToListAsync();
+
+        _vrste = await Db.Sifarnici
+            .Where(s => s.kategorija == "TROSKOVI" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .Where(n => n != null)
+            .ToListAsync();
+
+        if (_vrste.Count == 0)
+            _vrste = ["GORIVO", "SERVIS", "PUTARINE DOM", "PUTARINE EUR",
+                      "TERMINAL INO", "DNEVNICA DOM", "DNEVNICA INO", "OSTALO"];
+
+        await Izlistaj();
+    }
+
+    private void AzurirajVozilaPredloge()
+    {
+        _voziloPredlozi = string.IsNullOrWhiteSpace(_voziloPretraga)
+            ? []
+            : [.. _svaVozila
+                .Where(v =>
+                    (v.registarskaOznaka ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    (v.marka             ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(10)];
+        StateHasChanged();
+    }
+
+    private void IzaberiFilterVozilo(Vozilo v)
+    {
+        _filterVozilo   = v;
+        _voziloPretraga = string.Empty;
+        _voziloPredlozi = [];
+        StateHasChanged();
+    }
+
+    private void AzurirajVrstePredloge()
+    {
+        _vrstePredlozi = string.IsNullOrWhiteSpace(_vrstaPretraga)
+            ? [.. _vrste]
+            : [.. _vrste.Where(v => v.Contains(_vrstaPretraga, StringComparison.OrdinalIgnoreCase))];
+        StateHasChanged();
+    }
+
+    private void OnVrstaFocusin()
+    {
+        _vrstaOpen = true;
+        AzurirajVrstePredloge();
+    }
+
+    private async Task OnVrstaFocusout()
+    {
+        await Task.Delay(150);
+        _vrstaOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task Izlistaj()
+    {
+        _ucitava = true; _pretrazivano = false; _greska = null; StateHasChanged();
+
+        try
+        {
+            var odDate = DateTime.TryParse(_od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+            var doDate = DateTime.TryParse(_do, out var d)  ? d.AddDays(1) : DateTime.Today.AddDays(1);
+
+            var baseQuery = Db.Troskovi
+                .Where(t => t.datum >= odDate && t.datum < doDate)
+                .AsNoTracking();
+
+            if (_filterVozilo is not null)
+            {
+                var idStr = _filterVozilo.VoziloId.ToString();
+                baseQuery = baseQuery.Where(t => t.idDokumenta == idStr || t.idVozila == _filterVozilo.VoziloId);
+            }
+
+            var sviZaPeriod = await baseQuery
+                .OrderBy(t => t.datum)
+                .ToListAsync();
+
+            _ukupnoPeriodRsd = sviZaPeriod.Sum(t => t.vrednost    ?? 0);
+            _ukupnoPeriodEur = sviZaPeriod.Sum(t => t.vrednostEUR ?? 0);
+
+            _rezultati = _filterVrsta is null
+                ? sviZaPeriod
+                : [.. sviZaPeriod.Where(t => t.vrstaTroska == _filterVrsta)];
+
+            _ukupnoVrstaRsd = _rezultati.Sum(t => t.vrednost    ?? 0);
+            _ukupnoVrstaEur = _rezultati.Sum(t => t.vrednostEUR ?? 0);
+
+            _pretrazivano = true;
+        }
+        catch (Exception ex)
+        {
+            _greska = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Greška: {_greska}", Severity.Error, cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Trosak> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _poslednjKlikT?.trosakId == args.Item.trosakId &&
+                  (now - _poslednjKlik).TotalMilliseconds < 400;
+        _poslednjKlikT = args.Item;
+        _poslednjKlik  = now;
+        _selektovani   = args.Item;
+        StateHasChanged();
+
+        if (dbl) await IzmeniTrosak();
+    }
+
+    private async Task OtvoriStampu()
+    {
+        var url = $"/troskovi/stampa?od={Uri.EscapeDataString(_od)}&do={Uri.EscapeDataString(_do)}";
+        if (_filterVozilo is not null)
+            url += $"&vozilo={_filterVozilo.VoziloId}";
+        if (!string.IsNullOrEmpty(_filterVrsta))
+            url += $"&vrsta={Uri.EscapeDataString(_filterVrsta)}";
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    private async Task DodajTrosak()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<TrosakDialog> { { x => x.TrosakId, 0 } };
+        var dlg  = await Dialog.ShowAsync<TrosakDialog>("Novi trošak", prms, opts);
+        if (!(await dlg.Result).Canceled)
+        {
+            _selektovani = null;
+            await Izlistaj();
+        }
+    }
+
+    private async Task IzmeniTrosak()
+    {
+        if (_selektovani is null) return;
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<TrosakDialog> { { x => x.TrosakId, _selektovani.trosakId } };
+        var dlg  = await Dialog.ShowAsync<TrosakDialog>("Izmeni trošak", prms, opts);
+        if (!(await dlg.Result).Canceled) await Izlistaj();
+    }
+
+    private async Task BrisiTrosak()
+    {
+        if (_selektovani is null) return;
+
+        var ok = await Dialog.ShowMessageBox(
+            "Brisanje troška",
+            $"Da li ste sigurni da želite da obrišete trošak\n{_selektovani.vrstaTroska} — {_selektovani.datum?.ToString("dd.MM.yyyy")}?",
+            yesText: "Da, obriši",
+            cancelText: "Ne");
+
+        if (ok != true) return;
+
+        var entitet = await Db.Troskovi.FindAsync(_selektovani.trosakId);
+        if (entitet is not null)
+        {
+            entitet.brisano = 1;
+            await Db.SaveChangesAsync();
+            _selektovani = null;
+            Snackbar.Add("Trošak obrisan.", Severity.Success);
+            await Izlistaj();
+        }
+    }
+}
