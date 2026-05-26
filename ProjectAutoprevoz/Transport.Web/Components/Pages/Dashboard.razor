@@ -2,7 +2,6 @@
 @rendermode InteractiveServer
 
 @using Microsoft.EntityFrameworkCore
-@using System.Text.RegularExpressions
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
@@ -16,72 +15,14 @@
 
 <MudGrid Spacing="3">
 
-    @* Leva kolona — glavni sadržaj *@
+    @* Leva kolona — dobrodošlica *@
     <MudItem xs="12" md="9">
-        <div class="d-flex justify-space-between align-center mb-5">
-            <div>
-                <MudText Typo="Typo.h4">
-                    Dobrodošli, <strong>@TenantService.GetNazivFirme()</strong>
-                </MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
-                    Kontrolna tabla sistema
-                </MudText>
-            </div>
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Error"
-                       StartIcon="@Icons.Material.Filled.Logout"
-                       OnClick="Odjavi">
-                Odjavi se
-            </MudButton>
-        </div>
-
-        <MudAlert Severity="Severity.Success" Class="mb-3" Dense="true">
-            Konekcija na bazu uspešna!
-        </MudAlert>
-
-        <MudChip T="string"
-                 Color="Color.Primary"
-                 Icon="@Icons.Material.Filled.Storage"
-                 Size="Size.Small"
-                 Class="mr-2">
-            @_initialCatalog
-        </MudChip>
-
-        @* Kurs EUR *@
-        <div class="d-flex align-center gap-3 mt-3">
-            <MudTextField T="string"
-                          Value="@_kursDatum?.ToString("yyyy-MM-dd")"
-                          ValueChanged="@(async (string v) => {
-                              if (DateTime.TryParse(v, out var d)) {
-                                  _kursDatum = d;
-                                  await UcitajKurs(d);
-                              }
-                          })"
-                          Label="Kurs na dan"
-                          InputType="InputType.Date"
-                          Variant="Variant.Outlined"
-                          Style="max-width:180px;" />
-
-            @if (_ucitavaKurs)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-            }
-            else if (_kursEur > 0)
-            {
-                <MudChip T="string"
-                         Color="Color.Success"
-                         Icon="@Icons.Material.Filled.CurrencyExchange"
-                         Size="Size.Medium">
-                    EUR / RSD: @_kursEur.ToString("F4")
-                </MudChip>
-            }
-            else
-            {
-                <MudAlert Severity="Severity.Warning" Dense="true" Class="py-1">
-                    Kurs nije dostupan za izabrani datum
-                </MudAlert>
-            }
-        </div>
+        <MudText Typo="Typo.h4" Class="mb-1">
+            Dobrodošli, <strong>@TenantService.GetNazivFirme()</strong>
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Kontrolna tabla sistema
+        </MudText>
     </MudItem>
 
     @* Desna kolona — Podsetnici sidebar *@
@@ -198,44 +139,50 @@
 
 </MudGrid>
 
+@* Kurs EUR — fiksno donji desni ugao *@
+<div style="position:fixed; bottom:16px; right:16px; z-index:1200;">
+    @if (_ucitavaKurs)
+    {
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Default" />
+    }
+    else if (_kursEur > 0)
+    {
+        <MudPaper Elevation="3"
+                  Style="padding:5px 14px; border-radius:20px; background:rgba(255,255,255,0.96);
+                         border:1px solid #e0e0e0; display:flex; align-items:center; gap:6px;">
+            <MudIcon Icon="@Icons.Material.Filled.CurrencyExchange"
+                     Size="Size.Small" Style="color:#888; font-size:0.9rem;" />
+            <MudText Style="font-size:0.78rem; color:#555; font-weight:500; white-space:nowrap;">
+                EUR / RSD: @_kursEur.ToString("F2")
+            </MudText>
+        </MudPaper>
+    }
+</div>
+
 @code {
-    private string          _initialCatalog = string.Empty;
-    private List<Potsetnik> _hitni          = [];
-    private List<Potsetnik> _uskoro         = [];
-    private bool            _ucitava        = true;
+    private List<Potsetnik> _hitni   = [];
+    private List<Potsetnik> _uskoro  = [];
+    private bool            _ucitava = true;
     private string?         _greska;
 
-    // Kurs
-    private DateTime? _kursDatum = DateTime.Today;
-
-    // Važni datumi vozila
     private List<VazniDatumSidebar> _vazniHitni  = [];
     private List<VazniDatumSidebar> _vazniUskoro = [];
     private bool                    _ucitavaVazne;
 
     private record VazniDatumSidebar(string? RegOznaka, string? TipDokumenta, DateOnly? DatumIsteka);
-    private decimal   _kursEur;
-    private bool      _ucitavaKurs;
+
+    private decimal _kursEur;
+    private bool    _ucitavaKurs;
 
     protected override void OnInitialized()
     {
         if (!TenantService.IsAuthenticated())
-        {
             Nav.NavigateTo("/login");
-            return;
-        }
-
-        var connStr = TenantService.GetConnectionString();
-        var m = Regex.Match(connStr,
-            @"(?:Initial\s+Catalog|Database)\s*=\s*([^;]+)",
-            RegexOptions.IgnoreCase);
-        _initialCatalog = m.Success ? m.Groups[1].Value.Trim() : "(nepoznato)";
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnParametersSetAsync()
     {
-        if (!firstRender) return;
-        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(DateTime.Today), UcitajVazneDatume());
+        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(), UcitajVazneDatume());
     }
 
     private async Task UcitajVazneDatume()
@@ -267,21 +214,16 @@
         _ucitavaVazne = false; StateHasChanged();
     }
 
-    private async Task UcitajKurs(DateTime? datum)
+    private async Task UcitajKurs()
     {
-        if (datum is null) return;
-        _ucitavaKurs = true;
-        StateHasChanged();
-        _kursEur     = await KursService.GetKursAsync(datum.Value);
-        _ucitavaKurs = false;
-        StateHasChanged();
+        _ucitavaKurs = true; StateHasChanged();
+        _kursEur     = await KursService.GetKursAsync(DateTime.Today);
+        _ucitavaKurs = false; StateHasChanged();
     }
 
     private async Task UcitajPodsetnike()
     {
-        _ucitava = true;
-        StateHasChanged();
-
+        _ucitava = true; StateHasChanged();
         try
         {
             var danas = DateOnly.FromDateTime(DateTime.Today);
@@ -296,8 +238,7 @@
             _hitni  = svi.Where(p => p.DatumPotsenika <= do15).ToList();
             _uskoro = svi.Where(p => p.DatumPotsenika >  do15).ToList();
 
-            _ucitava = false;
-            StateHasChanged();
+            _ucitava = false; StateHasChanged();
 
             if (_hitni.Any())
                 await OtvoriHitniDialog();
@@ -305,8 +246,7 @@
         catch (Exception ex)
         {
             _greska  = $"Podsetnici nisu učitani: {ex.Message}";
-            _ucitava = false;
-            StateHasChanged();
+            _ucitava = false; StateHasChanged();
         }
     }
 
@@ -323,8 +263,7 @@
             FullWidth        = true,
             CloseOnEscapeKey = true
         };
-        await Dialog.ShowAsync<HitniPodsetnicisDialog>(
-            "⚠️ Hitni podsetnici!", parameters, options);
+        await Dialog.ShowAsync<HitniPodsetnicisDialog>("⚠️ Hitni podsetnici!", parameters, options);
     }
 
     private async Task OtvoriDetalje(Potsetnik p)
@@ -336,6 +275,4 @@
         if (result is { Canceled: false })
             await UcitajPodsetnike();
     }
-
-    private void Odjavi() => Nav.NavigateTo("/api/auth/logout", forceLoad: true);
 }

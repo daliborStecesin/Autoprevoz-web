@@ -1,4 +1,8 @@
 window.autoprevoz = {
+    showPicker: function (id) {
+        try { document.getElementById(id)?.showPicker(); } catch (_) { }
+    },
+
     login: async function (email, password) {
         try {
             const response = await fetch('/api/auth/login', {

@@ -1,0 +1,240 @@
+@page "/osoblje/plate/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+
+<PageTitle>Plate — Štampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 24px 32px; }
+    .firm-header .naziv { font-size: 13pt; font-weight: bold; }
+    .firm-header .adresa { font-size: 9pt; color: #333; }
+    .two-col { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .two-col .left { flex: 1; }
+    .two-col .right { border: 1px solid #333; padding: 12px 16px; min-width: 250px; text-align: left; }
+    .two-col .right .naslov { font-size: 10pt; font-weight: bold; margin-bottom: 6px; }
+    .two-col .right .vozac-name { font-size: 13pt; font-weight: bold; color: #1a237e; }
+    .period { font-size: 9pt; color: #333; margin-bottom: 4px; }
+    .period b { color: #c62828; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8px; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 6px 8px; border: 1px solid #aaa; white-space: nowrap; }
+    tbody td { padding: 5px 8px; border: 1px solid #ccc; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    .right-align { text-align: right; }
+    .footer-sums { margin-top: 20px; }
+    .footer-sums table { width: auto; margin-left: auto; }
+    .footer-sums td { padding: 4px 12px; border: 1px solid #aaa; font-weight: bold; }
+    .footer-sums td:first-child { background: #e8e8e8; text-align: left; min-width: 180px; }
+    .footer-sums td:last-child { text-align: right; min-width: 120px; }
+    .potpisi { display: flex; justify-content: space-between; margin-top: 40px; font-size: 9.5pt; }
+    .potpisi .blok { min-width: 200px; text-align: center; }
+    .potpisi .linija { border-top: 1px solid #333; margin-top: 24px; padding-top: 4px; }
+    .no-print { margin-top: 24px; text-align: center; padding-bottom: 20px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 9pt; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .footer-sums td:first-child { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr { page-break-inside: avoid; }
+        @@page { margin: 1.5cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else if (_greska is not null)
+{
+    <div class="loading" style="color:#c62828;"><b>Greška:</b><br />@_greska<br /><br /><button onclick="window.close()">Zatvori</button></div>
+}
+else
+{
+    <div class="wrap">
+        <div class="two-col">
+            <div class="left firm-header">
+                @if (_firma is not null)
+                {
+                    <div class="naziv">@_firma.NazivFirme</div>
+                    <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                    <div class="adresa">PIB: @_firma.PIB</div>
+                }
+            </div>
+            <div class="right">
+                <div class="naslov">Vozač</div>
+                <div class="vozac-name">@(_vozacIme ?? "—")</div>
+                @if (!string.IsNullOrEmpty(_vozacTelefon))
+                {
+                    <div class="period">@_vozacTelefon</div>
+                }
+            </div>
+        </div>
+
+        <div class="period">
+            IZVEŠTAJ ZA PERIOD: <b>@FormatDatum(Od)</b> DO: <b>@FormatDatum(Do)</b>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Tura</th>
+                    <th>Tip isplate</th>
+                    <th>Osnovica</th>
+                    <th class="right-align">Iznos plate</th>
+                    <th class="right-align">Za isplatu</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_plate.Count == 0)
+                {
+                    <tr><td colspan="6" style="text-align:center; padding:16px; color:#666;">Nema plata za izabrane filtere.</td></tr>
+                }
+                else
+                {
+                    @foreach (var p in _plate)
+                    {
+                        <tr>
+                            <td>@p.datum?.ToString("dd.MM.yyyy")</td>
+                            <td>@p.tura</td>
+                            <td>@FormatTipIsplate(p)</td>
+                            <td>@FormatOsnovica(p)</td>
+                            <td class="right-align">@p.iznosPlate?.ToString("N2")</td>
+                            <td class="right-align">@p.zaIsplatu?.ToString("N2")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="footer-sums">
+            <table>
+                <tr>
+                    <td>Za isplatu ukupno:</td>
+                    <td>@_ukupnoZaIsplatu.ToString("N2") RSD</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="potpisi">
+            <div class="blok"><div class="linija">Sastavio:</div></div>
+            <div class="blok"><div class="linija">M.P.</div></div>
+        </div>
+
+        <div class="no-print">
+            <button onclick="window.print()">🖨 Štampaj</button>
+            <button onclick="window.close()">✕ Zatvori</button>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "od")] public string? Od { get; set; }
+    [SupplyParameterFromQuery(Name = "do")] public string? Do { get; set; }
+    [SupplyParameterFromQuery(Name = "idVozaca")] public string? IdVozaca { get; set; }
+
+    private List<Plata> _plate = [];
+    private PodaciFirme? _firma;
+    private string? _vozacIme;
+    private string? _vozacTelefon;
+    private decimal _ukupnoZaIsplatu;
+    private bool _ucitava = true;
+    private string? _greska;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+            var odDate = DateTime.TryParse(Od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+            var doDate = DateTime.TryParse(Do, out var d) ? d.AddDays(1) : DateTime.Today.AddDays(1);
+
+            IQueryable<Plata> q = Db.Plate.AsNoTracking();
+            q = q.Where(x => x.datum >= odDate && x.datum < doDate);
+
+            if (!string.IsNullOrEmpty(IdVozaca))
+            {
+                q = q.Where(x => x.idVozaca == IdVozaca);
+                if (int.TryParse(IdVozaca, out var idV))
+                {
+                    var vozac = await Db.Vozaci.AsNoTracking()
+                        .Where(v => v.Broj == idV)
+                        .Select(v => new { v.Ime, v.Prezime, v.Telefon })
+                        .FirstOrDefaultAsync();
+                    if (vozac is not null)
+                    {
+                        _vozacIme = $"{vozac.Ime} {vozac.Prezime}";
+                        _vozacTelefon = vozac.Telefon;
+                    }
+                }
+            }
+
+            _plate = await q.OrderBy(x => x.datum).ToListAsync();
+            _ukupnoZaIsplatu = _plate.Sum(x => x.zaIsplatu ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _greska = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+
+        if (_greska is null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+
+    private static string FormatDatum(string? d) =>
+        DateTime.TryParse(d, out var dt) ? dt.ToString("dd.MM.yyyy") : (d ?? "");
+
+    private static string FormatTipIsplate(Plata p)
+    {
+        return p.tipIsplate switch
+        {
+            "PROCENAT" => p.procenat.HasValue ? $"Procenat {p.procenat.Value:N0}%" : "Procenat",
+            "PO_KM" => "Po km",
+            "FIXNO" => "Fixna plata",
+            "DNEVNICA" => "Dnevnica",
+            _ => string.IsNullOrWhiteSpace(p.tipIsplate) ? "—" : p.tipIsplate
+        };
+    }
+
+    private static string FormatOsnovica(Plata p)
+    {
+        return p.tipIsplate switch
+        {
+            "PROCENAT" => p.vrednostTure.HasValue ? $"Osnovica {p.vrednostTure.Value:N2} RSD" : "Osnovica",
+            "PO_KM" => p.km.HasValue ? $"Kilometara {p.km.Value:N0}" : "Kilometara",
+            "FIXNO" => p.fixnoPlata.HasValue ? $"Osnovica {p.fixnoPlata.Value:N2} RSD" : "Osnovica",
+            "DNEVNICA" => p.dnevnica.HasValue ? $"Osnovica {p.dnevnica.Value:N2} RSD" : "Osnovica",
+            _ => string.IsNullOrWhiteSpace(p.tipIsplate) ? "—" : string.Empty
+        };
+    }
+}

@@ -120,22 +120,8 @@
             </div>
 
             @* Period OD — DO *@
-            <MudTextField T="string"
-                          Value="@_od"
-                          ValueChanged="@((string v) => _od = v)"
-                          Label="OD"
-                          InputType="InputType.Date"
-                          Variant="Variant.Outlined"
-                          ShrinkLabel="true"
-                          Class="mb-2" />
-            <MudTextField T="string"
-                          Value="@_do"
-                          ValueChanged="@((string v) => _do = v)"
-                          Label="DO"
-                          InputType="InputType.Date"
-                          Variant="Variant.Outlined"
-                          ShrinkLabel="true"
-                          Class="mb-3" />
+            <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
+            <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Search"

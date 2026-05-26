@@ -81,16 +81,10 @@
 
         @* Period OD-DO *@
         <MudItem xs="6" md="2">
-            <MudTextField T="string" Value="@_od"
-                          ValueChanged="@((string v) => _od = v)"
-                          Label="OD" InputType="InputType.Date"
-                          Variant="Variant.Outlined" ShrinkLabel="true" />
+            <DateInput Label="OD" @bind-Value="_od" />
         </MudItem>
         <MudItem xs="6" md="2">
-            <MudTextField T="string" Value="@_do"
-                          ValueChanged="@((string v) => _do = v)"
-                          Label="DO" InputType="InputType.Date"
-                          Variant="Variant.Outlined" ShrinkLabel="true" />
+            <DateInput Label="DO" @bind-Value="_do" />
         </MudItem>
 
         <MudItem xs="12" md="4" Class="d-flex align-end">

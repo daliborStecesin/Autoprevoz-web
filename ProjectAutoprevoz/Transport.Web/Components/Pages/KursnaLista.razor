@@ -22,13 +22,10 @@
 </div>
 
 <div class="d-flex align-center gap-3 mb-4">
-    <MudTextField T="string"
-                  Value="@_datum?.ToString("yyyy-MM-dd")"
-                  ValueChanged="@((string v) => { if (DateTime.TryParse(v, out var d)) _datum = d; })"
-                  Label="Datum kursne liste"
-                  InputType="InputType.Date"
-                  Variant="Variant.Outlined"
-                  Style="max-width:200px;" />
+    <DateInput Label="Datum kursne liste"
+               Value="@(_datum?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd"))"
+               ValueChanged="@((string v) => { if (DateTime.TryParse(v, out var d)) _datum = d; })"
+               ContainerStyle="flex:none; max-width:200px;" />
 
     <MudButton Variant="Variant.Filled"
                Color="Color.Primary"

@@ -1,0 +1,448 @@
+@page "/osoblje/plate"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+@inject IJSRuntime        JS
+
+<PageTitle>Plate — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.Wallet" Class="mr-2" />
+    Plate
+</MudText>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vozač:</MudText>
+            <div style="position:relative; margin-bottom:14px; margin-top:4px;">
+                @if (_filterVozac is null)
+                {
+                    <MudTextField Value="_vozacPretraga"
+                                  ValueChanged="@((string v) => { _vozacPretraga = v; AzurirajVozacePredloge(); })"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="Kucaj ime/prezime..."
+                                  Immediate="true"
+                                  Margin="Margin.Dense"
+                                  T="string"
+                                  Style="background:#fff8dc;" />
+                    @if (!string.IsNullOrWhiteSpace(_vozacPretraga) && _vozaciPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto;">
+                            @foreach (var vozac in _vozaciPredlozi)
+                            {
+                                <div @onclick="() => IzaberiFilterVozac(vozac)"
+                                     style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.9rem;">
+                                    <span style="font-weight:600;">@vozac.Ime @vozac.Prezime</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="color:#666; font-size:0.75rem;">Vozač</div>
+                            <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_filterVozac.Ime @_filterVozac.Prezime</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="@(() => { _filterVozac = null; _vozacPretraga = string.Empty; _vozaciPredlozi.Clear(); })" />
+                    </MudPaper>
+                }
+            </div>
+
+            <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
+            <div class="mb-2"><DateInput Label="DO" @bind-Value="_do" /></div>
+            <div class="mb-3">
+                <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">Status isplate</label>
+                <select @bind="_filterIsplaceno"
+                        style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
+                               font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer;
+                               outline:none; height:36px;">
+                    <option value="all">Sve</option>
+                    <option value="placeno">Plaćeno</option>
+                    <option value="neplaceno">Neplaćeno</option>
+                </select>
+            </div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Izlistaj" Disabled="_ucitava" FullWidth="true" Class="mb-3">
+                @if (_ucitava)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Izlistaj
+            </MudButton>
+
+            <MudDivider Class="mb-3" />
+
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Isplate po vozaču</MudText>
+            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPoVozacu.ToString("N2") RSD</MudText>
+
+            <MudDivider Class="my-3" />
+
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Isplate za period</MudText>
+            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPeriod.ToString("N2") RSD</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="9">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@DodajPlatu">
+                Novi unos
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.Print"
+                       OnClick="@StampaPlate"
+                       Disabled="!_pretrazivano">
+                Štampa plate
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Edit"
+                       Disabled="_selektovana is null"
+                       OnClick="@IzmeniPlatu">
+                Izmena
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       Disabled="_selektovana is null"
+                       OnClick="@OznaciKaoPlaceno">
+                Označi kao plaćeno
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.RemoveCircle"
+                       Disabled="_selektovana is null"
+                       OnClick="@OznaciKaoNeplaceno">
+                Označi kao neplaćeno
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       Disabled="_selektovana is null"
+                       OnClick="@BrisiPlatu">
+                Obriši
+            </MudButton>
+        </div>
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_pretrazivano)
+        {
+            <MudDataGrid T="Plata"
+                         Items="_rezultati"
+                         Dense="true"
+                         Striped="true"
+                         Hover="true"
+                         RowClick="NaKlikReda"
+                         RowStyleFunc="@((item, _) => item.PlataId == _selektovana?.PlataId
+                             ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
+                             : string.Empty)">
+                <Columns>
+                    <TemplateColumn Title="Isplaćeno" SortBy="x => x.isplaceno" HeaderStyle="width:70px; text-align:center;">
+                        <CellTemplate>
+                            @if (context.Item.isplaceno == 1)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vozač" SortBy="x => x.idVozaca">
+                        <CellTemplate>@PrikaziVozaca(context.Item.idVozaca)</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum" SortBy="x => x.datum">
+                        <CellTemplate>@context.Item.datum?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Tura/Opis" SortBy="x => x.tura">
+                        <CellTemplate>
+                            <span style="max-width:260px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@context.Item.tura">
+                                @(context.Item.tura ?? "—")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vrednost ture" SortBy="x => x.vrednostTure" HeaderStyle="text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right;">@context.Item.vrednostTure?.ToString("N2")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Za isplatu" SortBy="x => x.zaIsplatu" HeaderStyle="text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; font-weight:600;">@context.Item.zaIsplatu?.ToString("N2")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Tip isplate" SortBy="x => x.tipIsplate">
+                        <CellTemplate>@(context.Item.tipIsplate ?? "—")</CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Plata" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_rezultati.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema plata za izabrane filtere.
+                </MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">
+                    Ukupno zapisa: @_rezultati.Count
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Podesite filtere i kliknite <b>Izlistaj</b>.
+            </MudAlert>
+        }
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<Vozac> _sviVozaci = [];
+    private List<Vozac> _vozaciPredlozi = [];
+    private Vozac? _filterVozac;
+    private string _vozacPretraga = string.Empty;
+
+    private string _od = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string _do = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private List<Plata> _rezultati = [];
+    private Plata? _selektovana;
+
+    private string _filterIsplaceno = "all";
+    private decimal _sumaPoVozacu;
+    private decimal _sumaPeriod;
+    private bool _ucitava;
+    private bool _pretrazivano;
+    private DateTime _poslednjiKlik = DateTime.MinValue;
+    private Plata? _poslednjaKliknuta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviVozaci = await Db.Vozaci
+            .OrderBy(v => v.Ime).ThenBy(v => v.Prezime)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private void AzurirajVozacePredloge()
+    {
+        _vozaciPredlozi = string.IsNullOrWhiteSpace(_vozacPretraga)
+            ? []
+            : [.. _sviVozaci
+                .Where(v =>
+                    ((v.Ime ?? "") + " " + (v.Prezime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    ((v.Prezime ?? "") + " " + (v.Ime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(10)];
+        StateHasChanged();
+    }
+
+    private void IzaberiFilterVozac(Vozac v)
+    {
+        _filterVozac = v;
+        _vozacPretraga = string.Empty;
+        _vozaciPredlozi.Clear();
+    }
+
+    private async Task Izlistaj()
+    {
+        _ucitava = true;
+        _pretrazivano = false;
+        _selektovana = null;
+        StateHasChanged();
+
+        try
+        {
+            var odDate = DateTime.TryParse(_od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+            var doDate = DateTime.TryParse(_do, out var d) ? d.AddDays(1) : DateTime.Today.AddDays(1);
+
+            IQueryable<Plata> q = Db.Plate.AsNoTracking();
+            q = q.Where(x => x.datum >= odDate && x.datum < doDate);
+
+            if (_filterVozac is not null)
+            {
+                q = q.Where(x => x.idVozaca == _filterVozac.Broj.ToString());
+            }
+
+            if (_filterIsplaceno == "placeno")
+            {
+                q = q.Where(x => x.isplaceno == 1);
+            }
+            else if (_filterIsplaceno == "neplaceno")
+            {
+                q = q.Where(x => x.isplaceno == 0);
+            }
+
+            _rezultati = await q.OrderByDescending(x => x.datum).ToListAsync();
+
+            _sumaPeriod = _rezultati.Sum(x => x.zaIsplatu ?? 0);
+            _sumaPoVozacu = _filterVozac is not null
+                ? _rezultati.Sum(x => x.zaIsplatu ?? 0)
+                : 0;
+
+            _pretrazivano = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Plata> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _poslednjaKliknuta?.PlataId == args.Item.PlataId &&
+                  (now - _poslednjiKlik).TotalMilliseconds < 400;
+        _poslednjaKliknuta = args.Item;
+        _poslednjiKlik = now;
+        _selektovana = args.Item;
+        StateHasChanged();
+
+        if (dbl) await IzmeniPlatu();
+    }
+
+    private async Task DodajPlatu()
+    {
+        Snackbar.Add("Otvaram novi unos plate...", Severity.Info);
+        try
+        {
+            var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+            var prms = new DialogParameters<PlataDialog> { { x => x.PlataId, 0 } };
+            var dlg = await Dialog.ShowAsync<PlataDialog>("Nova plata", prms, opts);
+            if (!(await dlg.Result).Canceled) await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri otvaranju dijaloga: {ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task IzmeniPlatu()
+    {
+        if (_selektovana is null) return;
+        Snackbar.Add("Otvaram izmenu plate...", Severity.Info);
+        try
+        {
+            var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+            var prms = new DialogParameters<PlataDialog> { { x => x.PlataId, _selektovana.PlataId } };
+            var dlg = await Dialog.ShowAsync<PlataDialog>("Izmena plate", prms, opts);
+            if (!(await dlg.Result).Canceled) await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri otvaranju dijaloga: {ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task BrisiPlatu()
+    {
+        if (_selektovana is null) return;
+
+        var ok = await Dialog.ShowMessageBox(
+            "Brisanje plate",
+            $"Da li ste sigurni da želite da obrišete platu za {_selektovana.tura ?? "nepoznato"}?",
+            yesText: "Da, obriši", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        var entitet = await Db.Plate.FindAsync(_selektovana.PlataId);
+        if (entitet is not null)
+        {
+            entitet.brisano = 1;
+            await Db.SaveChangesAsync();
+            _selektovana = null;
+            Snackbar.Add("Plata je obrisana.", Severity.Success);
+            await Izlistaj();
+        }
+    }
+
+    private async Task OznaciKaoPlaceno()
+    {
+        if (_selektovana is null) return;
+
+        try
+        {
+            var entitet = await Db.Plate.FindAsync(_selektovana.PlataId);
+            if (entitet is null) return;
+
+            entitet.isplaceno = 1;
+            entitet.datumIsplate = DateTime.Today;
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Plata je označena kao plaćeno.", Severity.Success);
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task OznaciKaoNeplaceno()
+    {
+        if (_selektovana is null) return;
+
+        try
+        {
+            var entitet = await Db.Plate.FindAsync(_selektovana.PlataId);
+            if (entitet is null) return;
+
+            entitet.isplaceno = 0;
+            entitet.datumIsplate = null;
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Plata je označena kao neplaćeno.", Severity.Success);
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task StampaPlate()
+    {
+        var url = $"/osoblje/plate/stampa?od={Uri.EscapeDataString(_od)}&do={Uri.EscapeDataString(_do)}" +
+                  (_filterVozac is not null ? $"&idVozaca={Uri.EscapeDataString(_filterVozac.Broj.ToString())}" : "");
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    private string PrikaziVozaca(string? idVozaca)
+    {
+        if (string.IsNullOrEmpty(idVozaca)) return "—";
+        var vozac = _sviVozaci.FirstOrDefault(v => v.Broj.ToString() == idVozaca);
+        return vozac is null ? idVozaca : $"{vozac.Ime} {vozac.Prezime}";
+    }
+}

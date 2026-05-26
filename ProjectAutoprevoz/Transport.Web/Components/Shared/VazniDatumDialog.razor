@@ -22,23 +22,11 @@
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudTextField T="string"
-                              Value="@_datumIzrade"
-                              ValueChanged="@((string v) => _datumIzrade = v)"
-                              Label="Datum izrade"
-                              InputType="InputType.Date"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true" />
+                <DateInput Label="Datum izrade" @bind-Value="_datumIzrade" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudTextField T="string"
-                              Value="@_datumIsteka"
-                              ValueChanged="@((string v) => _datumIsteka = v)"
-                              Label="Datum isteka *"
-                              InputType="InputType.Date"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true" />
+                <DateInput Label="Datum isteka *" @bind-Value="_datumIsteka" />
             </MudItem>
 
             <MudItem xs="12">

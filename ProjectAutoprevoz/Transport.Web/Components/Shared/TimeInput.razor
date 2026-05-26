@@ -1,0 +1,22 @@
+<input type="text" value="@Value" maxlength="5" placeholder="HH:mm"
+       @onchange="OnChanged"
+       style="@_baseStyle @Style" />
+
+@code {
+    [Parameter] public string Value { get; set; } = "00:00";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public EventCallback AfterChange { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private const string _baseStyle =
+        "width:110px; height:38px; padding:4px 10px; border:1px solid rgba(0,0,0,0.23); " +
+        "border-radius:4px; font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); " +
+        "outline:none; font-family:inherit;";
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? Value;
+        await ValueChanged.InvokeAsync(Value);
+        await AfterChange.InvokeAsync();
+    }
+}

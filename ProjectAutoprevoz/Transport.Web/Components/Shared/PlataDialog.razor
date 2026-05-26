@@ -1,0 +1,569 @@
+@using Microsoft.Data.SqlClient
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@implements IDisposable
+@inject IConfiguration Configuration
+@inject ITenantService TenantService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Wallet" Class="mr-2" />
+            @(PlataId > 0 ? "Izmena plate" : "Novi unos plate")
+        </MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+            <MudItem xs="12">
+                @if (_selectedVozac is null)
+                {
+                    <div style="position:relative;">
+                        <MudTextField Value="@_vozacPretraga"
+                                      ValueChanged="@((string v) => { _vozacPretraga = v; AzurirajVozacePredloge(); })"
+                                      Label="Vozač *"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="Kucaj ime/prezime..."
+                                      Immediate="true"
+                                      Margin="Margin.Dense"
+                                      T="string"
+                                      Style="background:#fff8dc;" />
+                        @if (!string.IsNullOrWhiteSpace(_vozacPretraga) && _vozaciPredlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto;">
+                                @foreach (var vozac in _vozaciPredlozi)
+                                {
+                                    <div @onclick="() => IzaberiVozaca(vozac)"
+                                         style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.9rem;">
+                                        <span style="font-weight:600;">@vozac.Ime @vozac.Prezime</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.75rem; color:rgba(0,0,0,0.6); margin-bottom:2px;">Vozač</div>
+                            <span style="font-weight:600;">@_selectedVozac.Ime @_selectedVozac.Prezime</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="@(() => { _selectedVozac = null; _vozacPretraga = string.Empty; _model.idVozaca = null; _vozaciPredlozi.Clear(); })" />
+                    </MudPaper>
+                }
+            </MudItem>
+
+            <MudItem xs="12">
+                @if (_selectedVozilo is null)
+                {
+                    <div style="position:relative;">
+                        <MudTextField Value="@_voziloPretraga"
+                                      ValueChanged="@((string v) => { _voziloPretraga = v; AzurirajVozilaPredloge(); })"
+                                      Label="Vozilo"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="Kucaj reg. oznaku ili marku..."
+                                      Immediate="true"
+                                      Margin="Margin.Dense"
+                                      T="string"
+                                      Style="background:#fff8dc;" />
+                        @if (!string.IsNullOrWhiteSpace(_voziloPretraga) && _vozilaPredlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto;">
+                                @foreach (var vozilo in _vozilaPredlozi)
+                                {
+                                    <div @onclick="() => IzaberiVozilo(vozilo)"
+                                         style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.9rem;">
+                                        <span style="font-weight:600;">@vozilo.registarskaOznaka</span>
+                                        <span style="color:#666; margin-left:10px;">@vozilo.marka</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.75rem; color:rgba(0,0,0,0.6); margin-bottom:2px;">Vozilo</div>
+                            <span style="font-weight:600;">@_selectedVozilo.registarskaOznaka - @_selectedVozilo.marka</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="@(() => { _selectedVozilo = null; _voziloPretraga = string.Empty; _model.idVozila = null; _vozilaPredlozi.Clear(); })" />
+                    </MudPaper>
+                }
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.tura"
+                              Label="Tura / Opis"
+                              Variant="Variant.Outlined"
+                              Lines="3" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">
+                    Tip isplate
+                </MudText>
+                <select @onchange="OnTipIsplateChanged"
+                        value="@_model.tipIsplate"
+                        style="width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
+                               font-size:0.95rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer; outline:none; height:38px;">
+                    <option value="DNEVNICA">Dnevnica</option>
+                    <option value="PROCENAT">Procenat</option>
+                    <option value="FIXNO">Fixna plata</option>
+                    <option value="PO_KM">Po kilometru</option>
+                </select>
+            </MudItem>
+
+            @if (_model.tipIsplate == "PROCENAT")
+            {
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.vrednostTure"
+                                     ValueChanged="@(async (decimal? v) => { _model.vrednostTure = v; UpdateCalculation(); })"
+                                     Label="Vrednost ture"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.procenat"
+                                     ValueChanged="@(async (decimal? v) => { _model.procenat = v; UpdateCalculation(); })"
+                                     Label="Procenat %"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+            }
+            else if (_model.tipIsplate == "FIXNO")
+            {
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.fixnoPlata"
+                                     ValueChanged="@(async (decimal? v) => { _model.fixnoPlata = v; UpdateCalculation(); })"
+                                     Label="Fiksna plata"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+            }
+            else if (_model.tipIsplate == "PO_KM")
+            {
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.km"
+                                     ValueChanged="@(async (decimal? v) => { _model.km = v; UpdateCalculation(); })"
+                                     Label="Kilometri"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.cenaPoKm"
+                                     ValueChanged="@(async (decimal? v) => { _model.cenaPoKm = v; UpdateCalculation(); })"
+                                     Label="Cena po km"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+            }
+            else if (_model.tipIsplate == "DNEVNICA")
+            {
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?"
+                                     Value="@_model.dnevnica"
+                                     ValueChanged="@(async (decimal? v) => { _model.dnevnica = v; UpdateCalculation(); })"
+                                     Label="Iznos dnevnica"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+            }
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal?"
+                                 Value="@_model.avans"
+                                 ValueChanged="@(async (decimal? v) => { _model.avans = v; UpdateCalculation(); })"
+                                 Label="Avans"
+                                 Variant="Variant.Outlined"
+                                 Format="N2"
+                                 HideSpinButtons="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal?"
+                                 Value="@_model.vracenAvans"
+                                 ValueChanged="@(async (decimal? v) => { _model.vracenAvans = v; UpdateCalculation(); })"
+                                 Label="Vraćen avans"
+                                 Variant="Variant.Outlined"
+                                 Format="N2"
+                                 HideSpinButtons="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField Value="@_model.iznosPlate?.ToString("N2")"
+                              Label="Iznos plate"
+                              Variant="Variant.Outlined"
+                              Disabled="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Value="@_model.zaIsplatu?.ToString("N2")"
+                              Label="Za isplatu"
+                              Variant="Variant.Outlined"
+                              Disabled="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <DateInput Label="Datum" Value="@_datum" ValueChanged="OnDatumChanged" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudCheckBox T="bool"
+                             @bind-Value="_isplaceno"
+                             Label="Isplaćeno" />
+            </MudItem>
+            @if (_isplaceno)
+            {
+                <MudItem xs="12" sm="6">
+                    <DateInput Label="Datum isplate" Value="@_datumIsplate" ValueChanged="OnDatumIsplateChanged" />
+                </MudItem>
+            }
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.Napomena"
+                              Label="Napomena"
+                              Variant="Variant.Outlined"
+                              Lines="2" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj"
+                   Disabled="_cuva">
+            @if (_cuva)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+            }
+            Sačuvaj
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int PlataId { get; set; }
+
+    private TransportDbContext? _db;
+    private Plata _model = new();
+    private Vozac? _selectedVozac;
+    private Vozilo? _selectedVozilo;
+    private List<Vozac> _sviVozaci = [];
+    private List<Vozilo> _svaVozila = [];
+    private string _vozacPretraga = string.Empty;
+    private List<Vozac> _vozaciPredlozi = [];
+    private string _voziloPretraga = string.Empty;
+    private List<Vozilo> _vozilaPredlozi = [];
+    private string _datum = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _datumIsplate = DateTime.Today.ToString("yyyy-MM-dd");
+    private bool _isplaceno;
+    private bool _cuva;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _db = CreateDbContext();
+        _sviVozaci = await _db.Vozaci
+            .OrderBy(v => v.Ime).ThenBy(v => v.Prezime)
+            .AsNoTracking()
+            .ToListAsync();
+
+        _svaVozila = await _db.Vozila
+            .OrderBy(v => v.registarskaOznaka)
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (PlataId > 0)
+        {
+            var ent = await _db.Plate.AsNoTracking().FirstOrDefaultAsync(p => p.PlataId == PlataId);
+            if (ent is not null)
+            {
+                _model = ent;
+                _model.tipIsplate ??= "PROCENAT";
+                _selectedVozac = _sviVozaci.FirstOrDefault(v => v.Broj.ToString() == ent.idVozaca);
+                _selectedVozilo = _svaVozila.FirstOrDefault(v => v.VoziloId.ToString() == ent.idVozila);
+                _datum = ent.datum?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
+                _isplaceno = ent.isplaceno == 1;
+                _datumIsplate = ent.datumIsplate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
+                UpdateCalculation();
+            }
+        }
+        else
+        {
+            _model.tipIsplate = "PROCENAT";
+            _model.avans = 0;
+            _model.vracenAvans = 0;
+            UpdateCalculation();
+        }
+    }
+
+    private void AzurirajVozacePredloge()
+    {
+        _vozaciPredlozi = string.IsNullOrWhiteSpace(_vozacPretraga)
+            ? []
+            : [.. _sviVozaci
+                .Where(v =>
+                    ((v.Ime ?? "") + " " + (v.Prezime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    ((v.Prezime ?? "") + " " + (v.Ime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(10)];
+    }
+
+    private void IzaberiVozaca(Vozac vozac)
+    {
+        _selectedVozac = vozac;
+        _model.idVozaca = vozac.Broj.ToString();
+        _vozacPretraga = string.Empty;
+        _vozaciPredlozi.Clear();
+        _model.tipIsplate = vozac.tipIsplate ?? _model.tipIsplate ?? "PROCENAT";
+        _model.procenat = vozac.procenatZaPlatu ?? _model.procenat;
+        _model.fixnoPlata = vozac.fixnoPlata ?? _model.fixnoPlata;
+        _model.cenaPoKm = vozac.cenaPoKm ?? _model.cenaPoKm;
+        _model.dnevnica = vozac.dnevnica ?? _model.dnevnica;
+        UpdateCalculation();
+    }
+
+    private void AzurirajVozilaPredloge()
+    {
+        _vozilaPredlozi = string.IsNullOrWhiteSpace(_voziloPretraga)
+            ? []
+            : [.. _svaVozila
+                .Where(v =>
+                    ((v.registarskaOznaka ?? "") + " " + (v.marka ?? "")).Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    ((v.marka ?? "") + " " + (v.registarskaOznaka ?? "")).Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(10)];
+    }
+
+    private void IzaberiVozilo(Vozilo vozilo)
+    {
+        _selectedVozilo = vozilo;
+        _model.idVozila = vozilo.VoziloId.ToString();
+        _voziloPretraga = string.Empty;
+        _vozilaPredlozi.Clear();
+    }
+
+    private Task OnVozacSelected(Vozac? vozac)
+    {
+        _selectedVozac = vozac;
+        if (vozac is not null)
+        {
+            _model.idVozaca = vozac.Broj.ToString();
+            _model.tipIsplate = vozac.tipIsplate ?? _model.tipIsplate ?? "PROCENAT";
+            _model.procenat = vozac.procenatZaPlatu ?? _model.procenat;
+            _model.fixnoPlata = vozac.fixnoPlata ?? _model.fixnoPlata;
+            _model.cenaPoKm = vozac.cenaPoKm ?? _model.cenaPoKm;
+            _model.dnevnica = vozac.dnevnica ?? _model.dnevnica;
+        }
+        else
+        {
+            _model.idVozaca = null;
+        }
+        UpdateCalculation();
+        return Task.CompletedTask;
+    }
+
+    private Task OnVoziloSelected(Vozilo? vozilo)
+    {
+        _selectedVozilo = vozilo;
+        _model.idVozila = vozilo?.VoziloId.ToString();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTipIsplateChanged(ChangeEventArgs args)
+    {
+        _model.tipIsplate = args.Value?.ToString() ?? _model.tipIsplate;
+        UpdateCalculation();
+        return Task.CompletedTask;
+    }
+
+    private static readonly string[] _tipoviIsplate =
+    {
+        "PROCENAT",
+        "FIXNO",
+        "PO_KM",
+        "DNEVNICA"
+    };
+
+    private void UpdateCalculation()
+    {
+        _model.iznosPlate = 0;
+        _model.zaIsplatu = 0;
+
+        var avans = _model.avans ?? 0;
+        var vracen = _model.vracenAvans ?? 0;
+
+        switch (_model.tipIsplate)
+        {
+            case "PROCENAT":
+                var vrednost = _model.vrednostTure ?? 0;
+                var procenat = _model.procenat ?? 0;
+                _model.iznosPlate = vrednost * procenat / 100;
+                _model.zaIsplatu = (_model.iznosPlate ?? 0) - avans + vracen;
+                break;
+            case "FIXNO":
+                _model.iznosPlate = _model.fixnoPlata ?? 0;
+                _model.zaIsplatu = (_model.iznosPlate ?? 0) - avans + vracen;
+                break;
+            case "PO_KM":
+                _model.iznosPlate = (_model.km ?? 0) * (_model.cenaPoKm ?? 0);
+                _model.zaIsplatu = (_model.iznosPlate ?? 0) - avans + vracen;
+                break;
+            case "DNEVNICA":
+                _model.iznosPlate = _model.dnevnica ?? 0;
+                _model.zaIsplatu = (_model.iznosPlate ?? 0) - avans + vracen;
+                break;
+            default:
+                _model.iznosPlate = 0;
+                _model.zaIsplatu = 0;
+                break;
+        }
+
+        if (_model.iznosPlate < 0) _model.iznosPlate = 0;
+        if (_model.zaIsplatu < 0) _model.zaIsplatu = 0;
+    }
+
+    private Task OnDatumChanged(string value)
+    {
+        _datum = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnDatumIsplateChanged(string value)
+    {
+        _datumIsplate = value;
+        return Task.CompletedTask;
+    }
+
+    private TransportDbContext CreateDbContext()
+    {
+        var raw = TenantService.IsAuthenticated()
+            ? TenantService.GetConnectionString()
+            : Configuration.GetConnectionString("Transport") ?? string.Empty;
+
+        var csb = new SqlConnectionStringBuilder(raw)
+        {
+            TrustServerCertificate = true,
+            Encrypt = false
+        };
+
+        var opts = new DbContextOptionsBuilder<TransportDbContext>()
+            .UseSqlServer(csb.ConnectionString)
+            .Options;
+
+        return new TransportDbContext(opts);
+    }
+
+    public void Dispose()
+    {
+        _db?.Dispose();
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (_selectedVozac is null)
+        {
+            Snackbar.Add("Vozač je obavezan.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.tipIsplate))
+        {
+            Snackbar.Add("Tip isplate je obavezan.", Severity.Warning);
+            return;
+        }
+
+        _cuva = true;
+        try
+        {
+            _model.datum = DateTime.TryParse(_datum, out var d) ? d : DateTime.Today;
+            _model.isplaceno = _isplaceno ? 1 : 0;
+            _model.datumIsplate = _isplaceno && DateTime.TryParse(_datumIsplate, out var dp) ? dp : null;
+            _model.uneo = TenantService.GetNazivFirme();
+
+            UpdateCalculation();
+
+            if (PlataId == 0)
+            {
+                _model.datumUnosa = DateTime.Now;
+                _model.brisano = 0;
+                _db!.Plate.Add(_model);
+            }
+            else
+            {
+                var ent = await _db!.Plate.FindAsync(PlataId);
+                if (ent is null)
+                {
+                    Snackbar.Add("Nije pronađena plata za izmenu.", Severity.Error);
+                    return;
+                }
+
+                ent.idVozaca = _model.idVozaca;
+                ent.idVozila = _model.idVozila;
+                ent.tura = _model.tura;
+                ent.vrednostTure = _model.vrednostTure;
+                ent.avans = _model.avans;
+                ent.dnevnica = _model.dnevnica;
+                ent.procenat = _model.procenat;
+                ent.vracenAvans = _model.vracenAvans;
+                ent.iznosPlate = _model.iznosPlate;
+                ent.zaIsplatu = _model.zaIsplatu;
+                ent.Napomena = _model.Napomena;
+                ent.datum = _model.datum;
+                ent.tipIsplate = _model.tipIsplate;
+                ent.km = _model.km;
+                ent.cenaPoKm = _model.cenaPoKm;
+                ent.fixnoPlata = _model.fixnoPlata;
+                ent.izvorObracuna = _model.izvorObracuna;
+                ent.isplaceno = _model.isplaceno;
+                ent.datumIsplate = _model.datumIsplate;
+                ent.uneo = _model.uneo;
+            }
+
+            await _db!.SaveChangesAsync();
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _cuva = false;
+        }
+    }
+}
+
+
+
+
+

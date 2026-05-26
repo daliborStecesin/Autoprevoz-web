@@ -1,0 +1,255 @@
+@page "/osoblje/dnevnice/stampa-cekirano"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Čekirane dnevnice — Štampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 24px 32px; }
+
+    .two-col { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .two-col .left .naziv { font-size: 13pt; font-weight: bold; }
+    .two-col .left .adresa { font-size: 9pt; color: #333; }
+    .two-col .right { border: 1px solid #333; padding: 10px 16px; min-width: 240px; text-align: center; }
+    .two-col .right .naslov { font-size: 10pt; font-weight: bold; margin-bottom: 6px; }
+    .two-col .right .vozac-name { font-size: 13pt; font-weight: bold; color: #1a237e; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8px; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 6px 8px; border: 1px solid #aaa; white-space: nowrap; }
+    tbody td { padding: 5px 8px; border: 1px solid #ccc; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    .right-align { text-align: right; }
+
+    .footer-sums { margin-top: 20px; }
+    .footer-sums table { width: auto; margin-left: auto; }
+    .footer-sums td { padding: 4px 12px; border: 1px solid #aaa; font-weight: bold; }
+    .footer-sums td:first-child { background: #e8e8e8; text-align: left; min-width: 180px; }
+    .footer-sums td:last-child { text-align: right; min-width: 120px; }
+
+    .potpisi { display: flex; justify-content: space-between; margin-top: 40px; font-size: 9.5pt; }
+    .potpisi .blok { min-width: 200px; text-align: center; }
+    .potpisi .linija { border-top: 1px solid #333; margin-top: 24px; padding-top: 4px; }
+
+    .no-print { margin-top: 24px; text-align: center; padding-bottom: 20px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button.green { background: #4CAF50; color: white; border-color: #388E3C; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 9pt; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr { page-break-inside: avoid; }
+        @@page { margin: 1.5cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else if (_greska is not null)
+{
+    <div class="loading" style="color:#c62828;">
+        <b>Greška pri učitavanju:</b><br />@_greska
+        <br /><br /><button onclick="window.close()">Zatvori</button>
+    </div>
+}
+else
+{
+    <div class="wrap">
+        <div class="two-col">
+            <div class="left">
+                @if (_firma is not null)
+                {
+                    <div class="naziv">@_firma.NazivFirme</div>
+                    <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                    <div class="adresa">PIB: @_firma.PIB</div>
+                    <div class="adresa">Matični br: @_firma.MaticniBroj</div>
+                }
+            </div>
+            <div class="right">
+                <div class="naslov">Obračun dnevnica i gotovinskih troškova</div>
+                <div>Vozač:</div>
+                @if (!string.IsNullOrEmpty(_vozacIme))
+                {
+                    <div class="vozac-name">@_vozacIme</div>
+                }
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>R.b</th>
+                    <th>Tip dnevnice</th>
+                    <th>Relacija</th>
+                    <th>Nalog</th>
+                    <th>Datum polaska</th>
+                    <th>Datum dolaska</th>
+                    <th class="right-align">Br. dnevnica</th>
+                    <th class="right-align">Vrednost dnevnice</th>
+                    <th class="right-align">Ukupno</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int rb = 1;
+                    foreach (var d in _dnevnice)
+                    {
+                        <tr>
+                            <td>@(rb++)</td>
+                            <td>@d.tipDnevnice</td>
+                            <td>@d.relacija</td>
+                            <td>@d.brNaloga</td>
+                            <td style="white-space:nowrap;">@d.datumPolaska?.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td style="white-space:nowrap;">@d.datumDolaska?.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td class="right-align">@d.brojDnevnica?.ToString("N2")</td>
+                            <td class="right-align">@d.dnevnica?.ToString("N2")</td>
+                            <td class="right-align" style="font-weight:600;">@d.Ukupno?.ToString("N2")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="footer-sums">
+            <table>
+                <tr>
+                    <td>Domaće dnevnice:</td>
+                    <td>@_sumaDomaciRSD.ToString("N2") RSD</td>
+                </tr>
+                <tr>
+                    <td>Inostrane dnevnice:</td>
+                    <td>@_sumaInoEUR.ToString("N2") EUR</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="potpisi">
+            <div class="blok"><div class="linija">Zaposleni:</div></div>
+            <div class="blok"><div class="linija">Obračunao:</div></div>
+        </div>
+
+        <div class="no-print">
+            <button onclick="window.print()">🖨 Štampaj</button>
+            @if (!_isplaceno)
+            {
+                <button class="green" @onclick="OznaciIsplacene">✓ Označi kao isplaćene</button>
+            }
+            else
+            {
+                <span style="color:green; font-weight:bold; padding:0 12px;">✓ Označene kao isplaćene</span>
+            }
+            <button onclick="window.close()">✕ Zatvori</button>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "ids")]      public string? Ids      { get; set; }
+    [SupplyParameterFromQuery(Name = "idVozaca")] public string? IdVozaca { get; set; }
+
+    private List<Dnevnica> _dnevnice      = [];
+    private PodaciFirme?   _firma;
+    private string?        _vozacIme;
+    private decimal        _sumaDomaciRSD;
+    private decimal        _sumaInoEUR;
+    private bool           _ucitava   = true;
+    private bool           _isplaceno = false;
+    private string?        _greska;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+            var ids = (Ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(x => int.TryParse(x.Trim(), out var n) ? n : 0)
+                                 .Where(n => n > 0)
+                                 .ToList();
+
+            if (ids.Count > 0)
+            {
+                // EF Core 9 generise CTE za Contains() sto puca na starijim SQL Server verzijama
+                var idsCsv = string.Join(",", ids);
+                _dnevnice = await Db.Dnevnice
+                    .FromSqlRaw($"SELECT * FROM tbl_dnevnice WHERE idDnevnica IN ({idsCsv})")
+                    .AsNoTracking()
+                    .OrderBy(x => x.datumPolaska)
+                    .ToListAsync();
+            }
+
+            if (!string.IsNullOrEmpty(IdVozaca) && int.TryParse(IdVozaca, out var idV))
+            {
+                var vozac = await Db.Vozaci.AsNoTracking()
+                    .Where(v => v.Broj == idV)
+                    .Select(v => new { v.Ime, v.Prezime })
+                    .FirstOrDefaultAsync();
+                if (vozac is not null)
+                    _vozacIme = $"{vozac.Ime} {vozac.Prezime}";
+            }
+
+            if (string.IsNullOrEmpty(_vozacIme) && _dnevnice.Count > 0)
+                _vozacIme = _dnevnice.First().vozac;
+
+            _sumaDomaciRSD = _dnevnice.Where(x => x.tipDnevnice == "DOMACA").Sum(x => x.Ukupno ?? 0);
+            _sumaInoEUR    = _dnevnice.Where(x => x.tipDnevnice == "INOSTRANA").Sum(x => x.Ukupno ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _greska = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+
+        if (_greska is null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+
+    private async Task OznaciIsplacene()
+    {
+        try
+        {
+            var danas = DateTime.Today;
+            foreach (var d in _dnevnice)
+                await Db.Database.ExecuteSqlAsync(
+                    $"UPDATE tbl_dnevnice SET isplaceno = 1, datumIsplate = {danas} WHERE idDnevnica = {d.IdDnevnica}");
+            _isplaceno = true;
+            Snackbar.Add($"Označeno kao isplaćeno: {_dnevnice.Count} dnevnica.", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+}

@@ -44,11 +44,7 @@
                         <MudTextField @bind-Value="_brMotora" Label="Broj motora" Variant="Variant.Outlined" ShrinkLabel="true" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
-                        <MudTextField T="string" Value="@_godProizvodnje"
-                                      ValueChanged="@((string v) => _godProizvodnje = v)"
-                                      Label="Godina proizvodnje"
-                                      InputType="InputType.Date"
-                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                        <DateInput Label="Godina proizvodnje" @bind-Value="_godProizvodnje" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
                         <MudTextField @bind-Value="_boja" Label="Boja" Variant="Variant.Outlined" ShrinkLabel="true" />
@@ -60,25 +56,13 @@
                     <MudItem xs="12"><MudDivider Class="my-1" /></MudItem>
 
                     <MudItem xs="12" sm="4">
-                        <MudTextField T="string" Value="@_datumKupovine"
-                                      ValueChanged="@((string v) => _datumKupovine = v)"
-                                      Label="Datum kupovine"
-                                      InputType="InputType.Date"
-                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                        <DateInput Label="Datum kupovine" @bind-Value="_datumKupovine" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
-                        <MudTextField T="string" Value="@_datumRegistracije"
-                                      ValueChanged="@((string v) => _datumRegistracije = v)"
-                                      Label="Datum registracije"
-                                      InputType="InputType.Date"
-                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                        <DateInput Label="Datum registracije" @bind-Value="_datumRegistracije" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
-                        <MudTextField T="string" Value="@_datumSledeceReg"
-                                      ValueChanged="@((string v) => _datumSledeceReg = v)"
-                                      Label="Sledeća registracija"
-                                      InputType="InputType.Date"
-                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                        <DateInput Label="Sledeća registracija" @bind-Value="_datumSledeceReg" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
                         <MudTextField @bind-Value="_pocKilometraza" Label="Početna km" Variant="Variant.Outlined" ShrinkLabel="true" Format="F0" />
@@ -120,11 +104,7 @@
                         <MudTextField @bind-Value="_serBrSaobracajne" Label="Serijski br. saobraćajne" Variant="Variant.Outlined" ShrinkLabel="true" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudTextField T="string" Value="@_datumIstekaSD"
-                                      ValueChanged="@((string v) => _datumIstekaSD = v)"
-                                      Label="Datum isteka SD"
-                                      InputType="InputType.Date"
-                                      Variant="Variant.Outlined" ShrinkLabel="true" />
+                        <DateInput Label="Datum isteka SD" @bind-Value="_datumIstekaSD" />
                     </MudItem>
                 </MudGrid>
             </MudTabPanel>

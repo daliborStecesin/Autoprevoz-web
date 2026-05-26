@@ -1,0 +1,556 @@
+@page "/osoblje/dnevnice"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+@inject IJSRuntime        JS
+
+<PageTitle>Dnevnice — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.Money" Class="mr-2" />
+    Dnevnice
+</MudText>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri ─────────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3">
+
+            @* Vozač *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač:</MudText>
+            <div style="position:relative; margin-bottom:12px; margin-top:4px;">
+                @if (_filterVozac is null)
+                {
+                    <MudTextField Value="_vozacPretraga"
+                                  ValueChanged="@((string v) => { _vozacPretraga = v; AzurirajVozacePredloge(); })"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="Svi vozači..."
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.Person"
+                                  Immediate="true"
+                                  Margin="Margin.Dense"
+                                  T="string" />
+                    @if (!string.IsNullOrWhiteSpace(_vozacPretraga) && _vozaciPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                    max-height:200px; overflow-y:auto;">
+                            @foreach (var v in _vozaciPredlozi)
+                            {
+                                var vozac = v;
+                                <div @onclick="() => IzaberiFilterVozac(vozac)"
+                                     style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                    <span style="font-weight:600;">@v.Ime @v.Prezime</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0"
+                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="color:#666; font-size:0.78rem;">Vozač</div>
+                            <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_filterVozac.Ime @_filterVozac.Prezime</span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       OnClick="@(() => { _filterVozac = null; _vozacPretraga = string.Empty; })" />
+                    </MudPaper>
+                }
+            </div>
+
+            @* Tip dnevnice *@
+            <div class="mb-2">
+                <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">Tip dnevnice:</label>
+                <select @onchange="OnTipChanged"
+                        style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
+                               font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer;
+                               outline:none; height:36px;">
+                    <option value="KOMBINOVANO" selected="@(_filterTip == "KOMBINOVANO")">KOMBINOVANO</option>
+                    <option value="DOMACA"      selected="@(_filterTip == "DOMACA")">DOMAĆA</option>
+                    <option value="INOSTRANA"   selected="@(_filterTip == "INOSTRANA")">INOSTRANA</option>
+                </select>
+            </div>
+
+            @* Datum za selekciju *@
+            <div class="mb-2">
+                <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">Datum za selekciju:</label>
+                <select @onchange="OnTipDatumaChanged"
+                        style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
+                               font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer;
+                               outline:none; height:36px;">
+                    <option value="DATUM POLASKA"    selected="@(_filterTipDatuma == "DATUM POLASKA")">DATUM POLASKA</option>
+                    <option value="DATUM EVIDENCIJE" selected="@(_filterTipDatuma == "DATUM EVIDENCIJE")">DATUM EVIDENCIJE</option>
+                </select>
+            </div>
+
+            @* Period OD — DO *@
+            <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
+            <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Izlistaj" Disabled="_ucitava" FullWidth="true" Class="mb-3">
+                @if (_ucitava)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Izlistaj
+            </MudButton>
+
+            @* Sumarni prikaz *@
+            @if (_pretrazivano)
+            {
+                <MudDivider Class="mb-3" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Ukupne vrednosti dnevnica</MudText>
+                <div Class="mb-1">
+                    <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:700;">Domaće dnevnice:</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#c62828;">@_sumaDomaciRSD.ToString("N2") RSD</MudText>
+                </div>
+                <div Class="mb-3">
+                    <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:700;">Inostrane dnevnice:</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#c62828;">@_sumaInoEUR.ToString("N2") EUR</MudText>
+                </div>
+                <MudDivider Class="mb-3" />
+            }
+
+            @* Štampa *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">Štampa</MudText>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print"
+                       FullWidth="true" Class="mb-1" OnClick="StampaDnevnica">
+                Štampa dnevnica
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print"
+                       FullWidth="true" Class="mb-1" OnClick="StampaCekirano"
+                       Disabled="@(_cekiraniIds.Count == 0)">
+                Štampa čekirano (@_cekiraniIds.Count)
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print"
+                       FullWidth="true" Class="mb-1" OnClick="StampaZbirno">
+                Štampa zbirno
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Description"
+                       FullWidth="true" Class="mb-3" OnClick="StampaOdluka"
+                       Disabled="@(_selektovana is null)">
+                Odluka
+            </MudButton>
+
+            @* Akcije *@
+            <MudDivider Class="mb-2" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">Akcije</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       FullWidth="true" Class="mb-1"
+                       Disabled="@(_cekiraniIds.Count == 0)"
+                       OnClick="OznaciKaoPlaćeno">
+                Označi kao plaćeno
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Cancel"
+                       FullWidth="true"
+                       Disabled="@(_cekiraniIds.Count == 0)"
+                       OnClick="OznaciKaoNeplaceno">
+                Označi kao neplaćeno
+            </MudButton>
+
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Toolbar + Grid ─────────────── *@
+    <MudItem xs="12" md="9">
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="DodajDnevnicu">
+                Nova evidencija
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       Disabled="@(_selektovana is null)"
+                       OnClick="BrisiDnevnicu">
+                Brisanje
+            </MudButton>
+        </div>
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_pretrazivano)
+        {
+            <MudDataGrid T="Dnevnica"
+                         Items="_rezultati"
+                         Dense="true" Striped="true" Hover="true"
+                         RowClick="NaKlikReda"
+                         RowStyleFunc="@((item, _) => item.IdDnevnica == _selektovana?.IdDnevnica
+                             ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
+                             : string.Empty)">
+                <Columns>
+                    <TemplateColumn Title="" SortBy="x => x.IdDnevnica" HeaderStyle="width:40px; padding:4px; text-align:center;">
+                        <CellTemplate>
+                            <input type="checkbox"
+                                   checked="@_cekiraniIds.Contains(context.Item.IdDnevnica)"
+                                   @onclick="@(() => ToggleCekira(context.Item.IdDnevnica))"
+                                   @onclick:stopPropagation="true"
+                                   @onclick:preventDefault="true"
+                                   style="width:16px; height:16px; cursor:pointer; accent-color:#2D3E50;" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Isplaćeno" SortBy="x => x.isplaceno" HeaderStyle="width:60px; text-align:center;">
+                        <CellTemplate>
+                            @if (context.Item.isplaceno == 1)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.brNaloga" Title="Br. naloga" />
+                    <TemplateColumn Title="Vozač" SortBy="x => x.vozac">
+                        <CellTemplate>@(context.Item.vozac ?? "—")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Reg. oznaka" SortBy="x => x.regOznaka">
+                        <CellTemplate>@(context.Item.regOznaka ?? "—")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Relacija" SortBy="x => x.relacija">
+                        <CellTemplate>
+                            <span style="max-width:200px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                                  title="@context.Item.relacija">
+                                @(context.Item.relacija ?? "—")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum polaska" SortBy="x => x.datumPolaska">
+                        <CellTemplate>@context.Item.datumPolaska?.ToString("dd.MM.yy HH:mm")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum dolaska" SortBy="x => x.datumDolaska">
+                        <CellTemplate>@context.Item.datumDolaska?.ToString("dd.MM.yy HH:mm")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Br. dnevnica" SortBy="x => x.brojDnevnica">
+                        <CellTemplate>
+                            <span style="text-align:right; display:block;">
+                                @context.Item.brojDnevnica?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Dnevnica" SortBy="x => x.dnevnica">
+                        <CellTemplate>
+                            <span style="text-align:right; display:block;">
+                                @context.Item.dnevnica?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Ukupno" SortBy="x => x.Ukupno">
+                        <CellTemplate>
+                            <span style="text-align:right; display:block; font-weight:600;">
+                                @context.Item.Ukupno?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Tip" SortBy="x => x.tipDnevnice">
+                        <CellTemplate>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@(context.Item.tipDnevnice == "DOMACA" ? Color.Primary : Color.Warning)"
+                                     Style="height:20px; font-size:0.7rem;">
+                                @context.Item.tipDnevnice
+                            </MudChip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Dnevnica" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_rezultati.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema dnevnica za izabrane filtere.
+                </MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">
+                    Ukupno zapisa: @_rezultati.Count
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Podesite filtere i kliknite <b>Izlistaj</b>.
+            </MudAlert>
+        }
+
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<Vozac>    _sviVozaci      = [];
+    private List<Vozac>    _vozaciPredlozi = [];
+    private Vozac?         _filterVozac;
+    private string         _vozacPretraga  = string.Empty;
+
+    private string _filterTip       = "KOMBINOVANO";
+    private string _filterTipDatuma = "DATUM POLASKA";
+    private string _od = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string _do = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private List<Dnevnica> _rezultati    = [];
+    private HashSet<int>   _cekiraniIds  = [];
+    private Dnevnica?      _selektovana;
+
+    private decimal _sumaDomaciRSD;
+    private decimal _sumaInoEUR;
+
+    private bool _ucitava;
+    private bool _pretrazivano;
+
+    private DateTime _poslednjKlik  = DateTime.MinValue;
+    private Dnevnica? _poslednjKlikD;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviVozaci = await Db.Vozaci
+            .OrderBy(v => v.Ime).ThenBy(v => v.Prezime)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private void OnTipChanged(ChangeEventArgs e)
+    {
+        _filterTip = e.Value?.ToString() ?? "KOMBINOVANO";
+        StateHasChanged();
+    }
+
+    private void OnTipDatumaChanged(ChangeEventArgs e)
+    {
+        _filterTipDatuma = e.Value?.ToString() ?? "DATUM POLASKA";
+        StateHasChanged();
+    }
+
+    private void AzurirajVozacePredloge()
+    {
+        _vozaciPredlozi = string.IsNullOrWhiteSpace(_vozacPretraga)
+            ? []
+            : [.. _sviVozaci
+                .Where(v =>
+                    ((v.Ime ?? "") + " " + (v.Prezime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase) ||
+                    ((v.Prezime ?? "") + " " + (v.Ime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(10)];
+        StateHasChanged();
+    }
+
+    private void IzaberiFilterVozac(Vozac v)
+    {
+        _filterVozac    = v;
+        _vozacPretraga  = string.Empty;
+        _vozaciPredlozi = [];
+        StateHasChanged();
+    }
+
+    private void ToggleCekira(int id)
+    {
+        if (_cekiraniIds.Contains(id)) _cekiraniIds.Remove(id);
+        else                           _cekiraniIds.Add(id);
+        StateHasChanged();
+    }
+
+    private async Task Izlistaj()
+    {
+        _ucitava = true; _pretrazivano = false; _cekiraniIds.Clear(); _selektovana = null;
+        StateHasChanged();
+
+        try
+        {
+            var odDate = DateTime.TryParse(_od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+            var doDate = DateTime.TryParse(_do, out var d)  ? d.AddDays(1) : DateTime.Today.AddDays(1);
+
+            IQueryable<Dnevnica> q = Db.Dnevnice.AsNoTracking();
+
+            if (_filterTipDatuma == "DATUM POLASKA")
+                q = q.Where(x => x.datumPolaska >= odDate && x.datumPolaska < doDate);
+            else
+                q = q.Where(x => x.datumDokumenta >= odDate && x.datumDokumenta < doDate);
+
+            if (_filterVozac is not null)
+            {
+                var idStr = _filterVozac.Broj.ToString();
+                q = q.Where(x => x.idVozaca == idStr);
+            }
+
+            if (_filterTip != "KOMBINOVANO")
+                q = q.Where(x => x.tipDnevnice == _filterTip);
+
+            _rezultati = await q.OrderByDescending(x => x.datumPolaska).ToListAsync();
+
+            _sumaDomaciRSD = _rezultati
+                .Where(x => x.tipDnevnice == "DOMACA")
+                .Sum(x => x.Ukupno ?? 0);
+
+            _sumaInoEUR = _rezultati
+                .Where(x => x.tipDnevnice == "INOSTRANA")
+                .Sum(x => x.Ukupno ?? 0);
+
+            _pretrazivano = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task NaKlikReda(DataGridRowClickEventArgs<Dnevnica> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _poslednjKlikD?.IdDnevnica == args.Item.IdDnevnica &&
+                  (now - _poslednjKlik).TotalMilliseconds < 400;
+        _poslednjKlikD = args.Item;
+        _poslednjKlik  = now;
+        _selektovana   = args.Item;
+        StateHasChanged();
+
+        if (dbl) await IzmeniDnevnicu();
+    }
+
+    private async Task DodajDnevnicu()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<DnevnicaDialog> { { x => x.IdDnevnica, 0 } };
+        var dlg  = await Dialog.ShowAsync<DnevnicaDialog>("Nova evidencija dnevnica", prms, opts);
+        if (!(await dlg.Result).Canceled) await Izlistaj();
+    }
+
+    private async Task IzmeniDnevnicu()
+    {
+        if (_selektovana is null) return;
+        var brNaloga = _selektovana.brNaloga;
+        var idVozaca = _selektovana.idVozaca;
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<DnevnicaDialog>
+        {
+            { x => x.IdDnevnica,  _selektovana.IdDnevnica },
+            { x => x.BrNalogaEdit, brNaloga },
+            { x => x.IdVozacaStrEdit, idVozaca }
+        };
+        var dlg  = await Dialog.ShowAsync<DnevnicaDialog>("Izmena dnevnice", prms, opts);
+        if (!(await dlg.Result).Canceled) await Izlistaj();
+    }
+
+    private async Task BrisiDnevnicu()
+    {
+        if (_selektovana is null) return;
+
+        var ok = await Dialog.ShowMessageBox(
+            "Brisanje dnevnice",
+            $"Da li ste sigurni da želite da obrišete dnevnicu\n{_selektovana.vozac} — {_selektovana.brNaloga} ({_selektovana.tipDnevnice})?",
+            yesText: "Da, obriši", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        var entitet = await Db.Dnevnice.FindAsync(_selektovana.IdDnevnica);
+        if (entitet is not null)
+        {
+            Db.Dnevnice.Remove(entitet);
+            await Db.SaveChangesAsync();
+            _selektovana = null;
+            Snackbar.Add("Dnevnica obrisana.", Severity.Success);
+            await Izlistaj();
+        }
+    }
+
+    private async Task OznaciKaoPlaćeno()
+    {
+        if (_cekiraniIds.Count == 0) return;
+        try
+        {
+            var ids   = _cekiraniIds.ToList();
+            var danas = DateTime.Today;
+            foreach (var id in ids)
+                await Db.Database.ExecuteSqlAsync(
+                    $"UPDATE tbl_dnevnice SET isplaceno = 1, datumIsplate = {danas} WHERE idDnevnica = {id}");
+            _cekiraniIds.Clear();
+            Snackbar.Add($"Označeno kao plaćeno: {ids.Count} dnevnica.", Severity.Success);
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task OznaciKaoNeplaceno()
+    {
+        if (_cekiraniIds.Count == 0) return;
+        try
+        {
+            var ids = _cekiraniIds.ToList();
+            foreach (var id in ids)
+                await Db.Database.ExecuteSqlAsync(
+                    $"UPDATE tbl_dnevnice SET isplaceno = 0, datumIsplate = NULL WHERE idDnevnica = {id}");
+            _cekiraniIds.Clear();
+            Snackbar.Add($"Označeno kao neplaćeno: {ids.Count} dnevnica.", Severity.Success);
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 10000);
+        }
+    }
+
+    private async Task StampaDnevnica()
+    {
+        var url = $"/osoblje/dnevnice/stampa?od={Uri.EscapeDataString(_od)}&do={Uri.EscapeDataString(_do)}" +
+                  $"&tipDatuma={Uri.EscapeDataString(_filterTipDatuma)}" +
+                  (_filterVozac is not null ? $"&idVozaca={_filterVozac.Broj}" : "") +
+                  (_filterTip != "KOMBINOVANO" ? $"&tipDnevnice={Uri.EscapeDataString(_filterTip)}" : "");
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    private async Task StampaCekirano()
+    {
+        if (_cekiraniIds.Count == 0) return;
+        var ids = string.Join(",", _cekiraniIds);
+        var idVozacaParam = _filterVozac is not null ? $"&idVozaca={Uri.EscapeDataString(_filterVozac.Broj.ToString())}" : "";
+        var url = $"/osoblje/dnevnice/stampa-cekirano?ids={Uri.EscapeDataString(ids)}{idVozacaParam}";
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    private async Task StampaZbirno()
+    {
+        var url = $"/osoblje/dnevnice/stampa-zbirno?od={Uri.EscapeDataString(_od)}&do={Uri.EscapeDataString(_do)}" +
+                  $"&tipDatuma={Uri.EscapeDataString(_filterTipDatuma)}" +
+                  (_filterVozac is not null ? $"&idVozaca={_filterVozac.Broj}" : "") +
+                  (_filterTip != "KOMBINOVANO" ? $"&tipDnevnice={Uri.EscapeDataString(_filterTip)}" : "");
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    private async Task StampaOdluka()
+    {
+        if (_selektovana is null) return;
+        var url = $"/osoblje/dnevnice/odluka?id={_selektovana.IdDnevnica}";
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+}

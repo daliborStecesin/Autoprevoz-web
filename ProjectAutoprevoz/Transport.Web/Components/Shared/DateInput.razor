@@ -1,0 +1,43 @@
+@inject IJSRuntime JS
+
+@if (!string.IsNullOrEmpty(Label))
+{
+    <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">@Label</label>
+}
+<div style="position:relative; flex:1; @ContainerStyle">
+    <input type="text" value="@FmtDate(Value)" readonly
+           @onclick="OpenPicker"
+           style="@_baseStyle cursor:pointer; @Style" />
+    <input id="@_id" type="date" value="@Value"
+           @onchange="OnChanged"
+           style="position:absolute;opacity:0;width:0;height:0;top:0;left:0;pointer-events:none;" />
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public EventCallback AfterChange { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public string? ContainerStyle { get; set; }
+
+    private readonly string _id = "dp-" + Guid.NewGuid().ToString("N")[..8];
+
+    private const string _baseStyle =
+        "width:100%; height:38px; padding:4px 10px; border:1px solid rgba(0,0,0,0.23); " +
+        "border-radius:4px; font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); " +
+        "outline:none; font-family:inherit;";
+
+    private static string FmtDate(string iso) =>
+        DateTime.TryParse(iso, out var d) ? d.ToString("dd/MM/yyyy") : iso;
+
+    private async Task OpenPicker() =>
+        await JS.InvokeVoidAsync("autoprevoz.showPicker", _id);
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? Value;
+        await ValueChanged.InvokeAsync(Value);
+        await AfterChange.InvokeAsync();
+    }
+}

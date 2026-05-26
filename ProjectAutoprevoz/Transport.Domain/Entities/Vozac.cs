@@ -66,7 +66,4 @@ public class Vozac
     public decimal? cenaPoKm { get; set; }
 
     public int? aktivan { get; set; }
-
-    public virtual ICollection<Dnevnica> Dnevnice { get; set; } = [];
-    public virtual ICollection<Plata>    Plate    { get; set; } = [];
 }

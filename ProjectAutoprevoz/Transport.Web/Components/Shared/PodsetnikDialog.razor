@@ -11,16 +11,53 @@
         <MudGrid Spacing="2" Class="mt-1">
 
             <MudItem xs="12">
-                <MudSelect @bind-Value="_vrsta"
-                           Label="Vrsta"
-                           Variant="Variant.Outlined"
-                           FullWidth="true">
-                    @foreach (var v in _vrste)
-                    {
-                        <MudSelectItem Value="@v">@v</MudSelectItem>
-                    }
-                </MudSelect>
+                <div class="d-flex align-center gap-1">
+                    <div style="flex:1;">
+                        <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">Vrsta</label>
+                        <select value="@_vrsta"
+                                @onchange="e => _vrsta = e.Value?.ToString() ?? _vrsta"
+                                style="width:100%; height:42px; padding:4px 10px; border:1px solid rgba(0,0,0,0.23);
+                                       border-radius:4px; font-size:0.875rem; background:white;
+                                       color:rgba(0,0,0,0.87); outline:none; cursor:pointer; font-family:inherit;">
+                            @foreach (var v in _vrste)
+                            {
+                                <option value="@v" selected="@(_vrsta == v)">@v</option>
+                            }
+                        </select>
+                    </div>
+                    <MudTooltip Text="Dodaj novu vrstu">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddCircle"
+                                       Color="Color.Success"
+                                       Size="Size.Medium"
+                                       Style="margin-top:18px;"
+                                       OnClick="() => _dodajeVrstu = !_dodajeVrstu" />
+                    </MudTooltip>
+                </div>
             </MudItem>
+
+            @if (_dodajeVrstu)
+            {
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Class="pa-2"
+                              Style="border:1px solid #4CAF50; border-radius:4px;">
+                        <div class="d-flex align-center gap-2">
+                            <MudTextField @bind-Value="_novaVrsta"
+                                          Label="Naziv nove vrste"
+                                          Variant="Variant.Outlined"
+                                          Immediate="true"
+                                          Style="flex:1;" />
+                            <MudButton Color="Color.Success" Variant="Variant.Filled"
+                                       Size="Size.Small" OnClick="SacuvajNovuVrstu">
+                                Dodaj
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Size="Size.Small"
+                                       OnClick="() => { _dodajeVrstu = false; _novaVrsta = string.Empty; }">
+                                Otkaži
+                            </MudButton>
+                        </div>
+                    </MudPaper>
+                </MudItem>
+            }
 
             <MudItem xs="12">
                 <MudTextField @bind-Value="_opis"
@@ -31,28 +68,44 @@
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudDatePicker @bind-Date="_datumIzrade"
-                               Label="Datum izrade"
-                               Variant="Variant.Outlined"
-                               DateFormat="dd.MM.yyyy" />
+                <DateInput Label="Datum izrade"
+                           Value="@_datumIzrade" ValueChanged="v => _datumIzrade = v"
+                           ContainerStyle="flex:unset;" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
                 <div class="d-flex align-center gap-3">
-                    <MudNumericField @bind-Value="_ponavljanje"
+                    <MudNumericField Value="_ponavljanje"
+                                     ValueChanged="@((int v) => { _ponavljanje = v < 0 ? 0 : v; StateHasChanged(); })"
                                      Label="Ponavljanje na svakih"
                                      Variant="Variant.Outlined"
                                      Min="0"
                                      Style="flex:1" />
-                    <MudText Class="mt-4 text-nowrap">Meseci</MudText>
+                    @if (_ponavljanje == 0)
+                    {
+                        <MudText Class="mt-4 text-nowrap" Style="color:#c62828; font-size:0.78rem; font-weight:600;">
+                            ne ponavlja se
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Class="mt-4 text-nowrap">
+                            @(_ponavljanje == 1 ? "Mesec" : "Meseci")
+                        </MudText>
+                    }
                 </div>
+                @if (_ponavljanje == 0)
+                {
+                    <MudText Typo="Typo.caption" Style="color:#e65100; margin-top:2px; display:block;">
+                        ⚠ Ako se označi kao urađen, podsetnik će biti obrisan.
+                    </MudText>
+                }
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudDatePicker @bind-Date="_datumPotsenika"
-                               Label="Datum podsetnika"
-                               Variant="Variant.Outlined"
-                               DateFormat="dd.MM.yyyy" />
+                <DateInput Label="Datum podsetnika"
+                           Value="@_datumPotsenika" ValueChanged="v => _datumPotsenika = v"
+                           ContainerStyle="flex:unset;" />
             </MudItem>
 
         </MudGrid>
@@ -86,56 +139,92 @@
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
     [Parameter]          public int        PodsetnikId { get; set; }
 
-    private static readonly string[] _vrste =
-    [
-        "IZLAZNI RACUN", "REGISTRACIJA VOZILA", "SERVIS VOZILA",
-        "TEHNICKI PREGLED", "OSTALO"
-    ];
+    private List<string> _vrste        = [];
+    private bool         _dodajeVrstu = false;
+    private string       _novaVrsta   = string.Empty;
 
-    private string    _vrsta          = "OSTALO";
-    private string    _opis           = string.Empty;
-    private DateTime? _datumIzrade    = DateTime.Today;
-    private int       _ponavljanje    = 0;
-    private DateTime? _datumPotsenika = DateTime.Today;
+    private string _vrsta          = string.Empty;
+    private string _opis           = string.Empty;
+    private string _datumIzrade    = DateTime.Today.ToString("yyyy-MM-dd");
+    private int    _ponavljanje    = 0;
+    private string _datumPotsenika = DateTime.Today.ToString("yyyy-MM-dd");
 
     private Potsetnik? _entitet;
 
     protected override async Task OnInitializedAsync()
     {
+        _vrste = await Db.Sifarnici
+            .Where(s => s.kategorija == "PODSETNICI" && s.aktivan == 1)
+            .OrderBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .Where(n => n != null)
+            .ToListAsync();
+
+        if (_vrste.Count > 0 && string.IsNullOrEmpty(_vrsta))
+            _vrsta = _vrste[0];
+
         if (PodsetnikId > 0)
         {
             _entitet = await Db.Podsetnici.FindAsync(PodsetnikId);
             if (_entitet is not null)
             {
-                _vrsta          = _entitet.Vrsta         ?? "OSTALO";
-                _opis           = _entitet.Opis          ?? string.Empty;
-                _ponavljanje    = _entitet.Ponavljanje    ?? 0;
-                _datumIzrade    = _entitet.DatumIzrade?.ToDateTime(TimeOnly.MinValue);
-                _datumPotsenika = _entitet.DatumPotsenika?.ToDateTime(TimeOnly.MinValue);
+                _vrsta          = _entitet.Vrsta      ?? "OSTALO";
+                _opis           = _entitet.Opis       ?? string.Empty;
+                _ponavljanje    = _entitet.Ponavljanje ?? 0;
+                _datumIzrade    = _entitet.DatumIzrade?.ToString("yyyy-MM-dd")
+                                  ?? DateTime.Today.ToString("yyyy-MM-dd");
+                _datumPotsenika = _entitet.DatumPotsenika?.ToString("yyyy-MM-dd")
+                                  ?? DateTime.Today.ToString("yyyy-MM-dd");
             }
         }
     }
 
+    private async Task SacuvajNovuVrstu()
+    {
+        if (string.IsNullOrWhiteSpace(_novaVrsta))
+        {
+            Snackbar.Add("Unesite naziv vrste.", Severity.Warning);
+            return;
+        }
+
+        var naziv = _novaVrsta.Trim().ToUpper();
+        if (!_vrste.Contains(naziv))
+        {
+            Db.Sifarnici.Add(new Sifarnik { kategorija = "PODSETNICI", naziv = naziv, aktivan = 1 });
+            await Db.SaveChangesAsync();
+            _vrste.Add(naziv);
+            _vrste.Sort();
+        }
+
+        _vrsta       = naziv;
+        _dodajeVrstu = false;
+        _novaVrsta   = string.Empty;
+        Snackbar.Add("Vrsta podsetnika dodata.", Severity.Success);
+    }
+
     private async Task Sacuvaj()
     {
+        var datIzrade    = DateTime.TryParse(_datumIzrade,    out var di) ? DateOnly.FromDateTime(di) : (DateOnly?)null;
+        var datPodsetnik = DateTime.TryParse(_datumPotsenika, out var dp) ? DateOnly.FromDateTime(dp) : (DateOnly?)null;
+
         if (_entitet is null)
         {
             Db.Podsetnici.Add(new Potsetnik
             {
                 Vrsta          = _vrsta,
                 Opis           = _opis,
-                DatumIzrade    = _datumIzrade.HasValue    ? DateOnly.FromDateTime(_datumIzrade.Value)    : null,
+                DatumIzrade    = datIzrade,
                 Ponavljanje    = _ponavljanje,
-                DatumPotsenika = _datumPotsenika.HasValue ? DateOnly.FromDateTime(_datumPotsenika.Value) : null
+                DatumPotsenika = datPodsetnik
             });
         }
         else
         {
             _entitet.Vrsta          = _vrsta;
             _entitet.Opis           = _opis;
-            _entitet.DatumIzrade    = _datumIzrade.HasValue    ? DateOnly.FromDateTime(_datumIzrade.Value)    : null;
+            _entitet.DatumIzrade    = datIzrade;
             _entitet.Ponavljanje    = _ponavljanje;
-            _entitet.DatumPotsenika = _datumPotsenika.HasValue ? DateOnly.FromDateTime(_datumPotsenika.Value) : null;
+            _entitet.DatumPotsenika = datPodsetnik;
         }
 
         await Db.SaveChangesAsync();

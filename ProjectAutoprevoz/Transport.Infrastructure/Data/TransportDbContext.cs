@@ -166,18 +166,11 @@ public class TransportDbContext : DbContext
             .HasForeignKey(n => n.VoziloId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Vozac ← Dnevnice, Plate
-        modelBuilder.Entity<Vozac>()
-            .HasMany(v => v.Dnevnice)
-            .WithOne(d => d.Vozac)
-            .HasForeignKey(d => d.VozacId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Vozac>()
-            .HasMany(v => v.Plate)
-            .WithOne(p => p.Vozac)
-            .HasForeignKey(p => p.VozacId)
-            .OnDelete(DeleteBehavior.Restrict);
+        // Plate (tbl_plate)
+        modelBuilder.Entity<Plata>(e =>
+        {
+            e.HasQueryFilter(p => p.brisano == 0);
+        });
 
         // ============================================================================
         // KEYLESS ENTITETI — Bez primarnog ključa

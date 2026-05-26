@@ -1,0 +1,21 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd c:\\\\Users\\\\Computer\\\\source\\\\repos\\\\Autoprevoz\\\\ProjectAutoprevoz ; powershell -NoProfile -Command \"\\(Get-Content \\.\\\\Transport\\.Web\\\\Components\\\\Shared\\\\PlataDialog\\.razor\\)\\.Count \\| Write-Output\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd c:\\\\Users\\\\Computer\\\\source\\\\repos\\\\Autoprevoz\\\\ProjectAutoprevoz ; powershell -NoProfile -Command \"\\(Get-Content \\.\\\\Transport\\.Web\\\\Components\\\\Shared\\\\PlataDialog\\.razor \\| Select-Object -Skip 117 -First 8 \\| Out-String\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd c:\\\\Users\\\\Computer\\\\source\\\\repos\\\\Autoprevoz\\\\ProjectAutoprevoz\\\\Transport\\.Web ; cmd /c dir /s /b obj\\\\Debug\\\\net9\\.0 \\| findstr /i \"PlataDialog\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd c:\\\\Users\\\\Computer\\\\source\\\\repos\\\\Autoprevoz\\\\ProjectAutoprevoz ; powershell -NoProfile -Command \"\\(Get-Content \\.\\\\Transport\\.Web\\\\Components\\\\Shared\\\\PlataDialog\\.razor \\| Select-Object -Index 121\\) \\| Format-Hex\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Set-Content": true
+    }
+}

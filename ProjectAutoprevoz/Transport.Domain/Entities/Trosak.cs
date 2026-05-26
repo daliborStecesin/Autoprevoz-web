@@ -20,8 +20,9 @@ public class Trosak
     [MaxLength(45)]  public string?  tip           { get; set; }
     [MaxLength(500)] public string?  opis          { get; set; }
 
-    public int? racunId   { get; set; }   // int NULL
-    public int? idNaloga  { get; set; }   // int NULL
+    public int? racunId    { get; set; }
+    public int? idNaloga  { get; set; }
+    public int? idDnevnice { get; set; }
     public int? idVozaca  { get; set; }
     public int? idVozila  { get; set; }
 

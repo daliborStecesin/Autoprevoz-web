@@ -185,13 +185,7 @@
 
             @* Datum + Tip *@
             <MudItem xs="12" sm="6">
-                <MudTextField T="string"
-                              Value="@_datum"
-                              ValueChanged="OnDatumChanged"
-                              Label="Datum *"
-                              InputType="InputType.Date"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true" />
+                <DateInput Label="Datum *" Value="@_datum" ValueChanged="OnDatumChanged" />
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudSelect T="string"

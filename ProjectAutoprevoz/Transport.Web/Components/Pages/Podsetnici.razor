@@ -145,11 +145,7 @@
     private DateTime _posledniKlik = DateTime.MinValue;
     private int      _posledniId;
 
-    private static readonly string[] _vrste =
-    [
-        "IZLAZNI RACUN", "REGISTRACIJA VOZILA", "SERVIS VOZILA",
-        "TEHNICKI PREGLED", "OSTALO"
-    ];
+    private List<string> _vrste = [];
 
     protected override void OnInitialized()
     {
@@ -170,6 +166,13 @@
     {
         _ucitava = true;
         StateHasChanged();
+
+        _vrste = await Db.Sifarnici
+            .Where(s => s.kategorija == "PODSETNICI" && s.aktivan == 1)
+            .OrderBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .Where(n => n != null)
+            .ToListAsync();
 
         _svi = await Db.Podsetnici
             .OrderBy(p => p.DatumPotsenika)
