@@ -1,0 +1,516 @@
+@page "/dozvole"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService         TenantService
+@inject IDefaultValuesService  DefaultValues
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IDialogService         Dialog
+@inject ISnackbar              Snackbar
+@inject IJSRuntime             JS
+
+<PageTitle>Dozvole MUP — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.CardMembership" Class="mr-2" />
+    Dozvole MUP
+</MudText>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri ─────────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3">
+
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Pojedinačne pretrage</MudText>
+
+            <MudTextField @bind-Value="_filterBrDozvole"
+                          Label="Br. dozvole"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          ShrinkLabel="true"
+                          Class="mt-2 mb-1" />
+
+            <MudTextField @bind-Value="_filterBrResenja"
+                          Label="Br. rešenja"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          ShrinkLabel="true"
+                          Class="mb-3" />
+
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Pretrage po parametrima</MudText>
+
+            @{
+                void DaNeSel(string label, string value, EventCallback<ChangeEventArgs> changed)
+                {
+                    <div class="mt-2 mb-1">
+                        <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">@label</label>
+                        <select value="@value" @onchange="changed"
+                                style="@_selStyle">
+                            <option value="SVE">SVE</option>
+                            <option value="DA">DA</option>
+                            <option value="NE">NE</option>
+                        </select>
+                    </div>;
+                }
+            }
+
+            <div class="mt-2 mb-1">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Izdata vozaču</label>
+                <select value="@_filterIzdata" @onchange='e => _filterIzdata = e.Value?.ToString() ?? "SVE"' style="@_selStyle">
+                    <option value="SVE">SVE</option><option value="DA">DA</option><option value="NE">NE</option>
+                </select>
+            </div>
+            <div class="mb-1">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Vraćena u kanc.</label>
+                <select value="@_filterVracena" @onchange='e => _filterVracena = e.Value?.ToString() ?? "SVE"' style="@_selStyle">
+                    <option value="SVE">SVE</option><option value="DA">DA</option><option value="NE">NE</option>
+                </select>
+            </div>
+            <div class="mb-1">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Poslata na razduženje</label>
+                <select value="@_filterPoslata" @onchange='e => _filterPoslata = e.Value?.ToString() ?? "SVE"' style="@_selStyle">
+                    <option value="SVE">SVE</option><option value="DA">DA</option><option value="NE">NE</option>
+                </select>
+            </div>
+            <div class="mb-2">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Razdužena</label>
+                <select value="@_filterRazduzena" @onchange='e => _filterRazduzena = e.Value?.ToString() ?? "SVE"' style="@_selStyle">
+                    <option value="SVE">SVE</option><option value="DA">DA</option><option value="NE">NE</option>
+                </select>
+            </div>
+
+            <div class="mb-1">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Država</label>
+                <select value="@_filterDrzava" @onchange="OnDrzavaChanged" style="@_selStyle">
+                    <option value="">SVE</option>
+                    @foreach (var d in _drzave)
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-2">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Vrsta dozvole</label>
+                <select value="@_filterVrsta" @onchange="OnVrstaChanged" style="@_selStyle">
+                    <option value="">SVE</option>
+                    @foreach (var v in _vrsteDozvole)
+                    {
+                        <option value="@v">@v</option>
+                    }
+                </select>
+            </div>
+
+            @* Vozač filter *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač:</MudText>
+            <div style="position:relative;margin-top:4px;margin-bottom:8px;">
+                @if (_filterVozac is null)
+                {
+                    <MudTextField Value="_vozacPretraga"
+                                  ValueChanged="@((string v) => { _vozacPretraga = v; FilterVozaci(); })"
+                                  Variant="Variant.Outlined" Placeholder="Svi vozači..."
+                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Person"
+                                  Immediate="true" Margin="Margin.Dense" T="string" />
+                    @if (_vozaciPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute;z-index:9999;left:0;right:0;background:white;border:1px solid #ccc;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;">
+                            @foreach (var v in _vozaciPredlozi)
+                            {
+                                var vv = v;
+                                <div @onclick="() => IzaberiFilterVozac(vv)"
+                                     style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:0.85rem;font-weight:600;">
+                                    @v.Ime @v.Prezime
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid rgba(0,0,0,0.23);border-radius:4px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:600;color:#1565C0;font-size:0.9rem;">@_filterVozac.Ime @_filterVozac.Prezime</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(() => { _filterVozac = null; _vozacPretraga = ""; })" />
+                    </MudPaper>
+                }
+            </div>
+
+            @* Vozilo filter *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozilo:</MudText>
+            <div style="position:relative;margin-top:4px;margin-bottom:12px;">
+                @if (_filterVozilo is null)
+                {
+                    <MudTextField Value="_voziloPretraga"
+                                  ValueChanged="@((string v) => { _voziloPretraga = v; FilterVozila(); })"
+                                  Variant="Variant.Outlined" Placeholder="Sva vozila..."
+                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.DirectionsCar"
+                                  Immediate="true" Margin="Margin.Dense" T="string" />
+                    @if (_vozilaPredlozi.Count > 0)
+                    {
+                        <div style="position:absolute;z-index:9999;left:0;right:0;background:white;border:1px solid #ccc;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;">
+                            @foreach (var v in _vozilaPredlozi)
+                            {
+                                var vv = v;
+                                <div @onclick="() => IzaberiFilterVozilo(vv)"
+                                     style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:0.85rem;">
+                                    <b>@v.registarskaOznaka</b>
+                                    <span style="color:#666;margin-left:6px;">@v.marka @v.oznaka</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid rgba(0,0,0,0.23);border-radius:4px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:600;color:#1565C0;font-size:0.9rem;">@_filterVozilo.registarskaOznaka</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(() => { _filterVozilo = null; _voziloPretraga = ""; })" />
+                    </MudPaper>
+                }
+            </div>
+
+            <MudDivider Class="mb-2" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Datum za analizu</MudText>
+            <div class="mb-1">
+                <label style="font-size:0.72rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:3px;">Tip datuma</label>
+                <select @bind="_filterTipDatuma" style="@_selStyle">
+                    <option value="DATUM IZDAVANJA">DATUM IZDAVANJA</option>
+                    <option value="DATUM ISTEKA">DATUM ISTEKA</option>
+                </select>
+            </div>
+            <div class="mb-1"><DateInput Label="OD" @bind-Value="_od" /></div>
+            <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="Izlistaj" Disabled="_ucitava" FullWidth="true">
+                @if (_ucitava)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                IZLISTAJ
+            </MudButton>
+
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Toolbar + Grid ─────────────────────── *@
+    <MudItem xs="12" md="9">
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="DodajDozvolu">
+                NOVI UNOS
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.SwapHoriz"
+                       Disabled="_selektovana is null"
+                       OnClick="ZaduziRazduri">
+                ZADUŽENJE / RAZDUŽENJE
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       Disabled="_selektovana is null"
+                       OnClick="BrisiDozvolu">
+                BRISANJE
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Style="background:#607D8B;color:white;"
+                       StartIcon="@Icons.Material.Filled.Print"
+                       Disabled="_selektovana is null"
+                       OnClick="StampaDozvola">
+                ŠTAMPA
+            </MudButton>
+        </div>
+
+        @if (_ucitava)
+        {
+            <div class="d-flex justify-center pa-8"><MudProgressCircular Indeterminate="true" /></div>
+        }
+        else if (!_pretrazivano)
+        {
+            <MudAlert Severity="Severity.Info">Postavite filtere i kliknite IZLISTAJ.</MudAlert>
+        }
+        else if (_rezultati.Count == 0)
+        {
+            <MudAlert Severity="Severity.Warning">Nema dozvola za izabrane filtere.</MudAlert>
+        }
+        else
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">
+                Pronađeno: <b>@_rezultati.Count</b> dozvola
+            </MudText>
+            <MudDataGrid T="DozvolaMinistarstva"
+                         Items="_rezultati"
+                         SelectedItem="_selektovana"
+                         SelectedItemChanged="@((DozvolaMinistarstva d) => { _selektovana = d; StateHasChanged(); })"
+                         Dense="true" Hover="true" Striped="true"
+                         SelectionMode="DataGridSelectionMode.Single"
+                         RowClick="NaKlikReda"
+                         ColumnResizeMode="ResizeMode.Column"
+                         Style="font-size:0.8rem;">
+                <Columns>
+                    <PropertyColumn Property="d => d.brojResenja"   Title="Br.rešenja" />
+                    <TemplateColumn Title="Dat.rešenja">
+                        <CellTemplate>@context.Item.datumResenja?.ToString("dd.MM.yy")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="d => d.drzava"        Title="Država" />
+                    <PropertyColumn Property="d => d.vrstaDozvole"  Title="Vrsta" />
+                    <PropertyColumn Property="d => d.brojDozvole"   Title="Br.dozvole" />
+                    <TemplateColumn Title="Dat.isteka">
+                        <CellTemplate>@context.Item.datumIsteka?.ToString("dd.MM.yy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Izdata" CellStyle="text-align:center;">
+                        <CellTemplate>
+                            <span style="color:@(context.Item.izdataVozacu=="DA"?"#2e7d32":"#c62828");font-weight:600;">
+                                @(context.Item.izdataVozacu ?? "NE")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Izdata dana">
+                        <CellTemplate>@context.Item.datumIzdavanjaVozacu?.ToString("dd.MM.yy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vraćena" CellStyle="text-align:center;">
+                        <CellTemplate>
+                            <span style="color:@(context.Item.vracenoUkanc=="DA"?"#2e7d32":"#c62828");font-weight:600;">
+                                @(context.Item.vracenoUkanc ?? "NE")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vraćena dana">
+                        <CellTemplate>@context.Item.datumVracanjaUKanc?.ToString("dd.MM.yy")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="d => d.vozilo"        Title="Vozilo" />
+                    <PropertyColumn Property="d => d.Vozac"         Title="Vozač" />
+                    <PropertyColumn Property="d => d.brojNaloga"    Title="Br.naloga" />
+                    <TemplateColumn Title="Razdužena" CellStyle="text-align:center;">
+                        <CellTemplate>
+                            <span style="color:@(context.Item.razduzeno=="DA"?"#2e7d32":"#c62828");font-weight:600;">
+                                @(context.Item.razduzeno ?? "NE")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudItem>
+
+</MudGrid>
+
+@code {
+    private const string _selStyle = "width:100%;padding:7px 8px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:0.875rem;background:white;outline:none;height:36px;";
+
+    private List<string> _drzave       = [];
+    private List<string> _vrsteDozvole = [];
+    private List<Vozac>  _sviVozaci    = [];
+    private List<Vozilo> _svaVozila    = [];
+
+    private string  _filterBrDozvole  = "";
+    private string  _filterBrResenja  = "";
+    private string  _filterIzdata     = "SVE";
+    private string  _filterVracena    = "SVE";
+    private string  _filterPoslata    = "SVE";
+    private string  _filterRazduzena  = "SVE";
+    private string  _filterDrzava     = "";
+    private string  _filterVrsta      = "";
+    private string  _filterTipDatuma  = "DATUM IZDAVANJA";
+    private string  _od = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string  _do = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private Vozac?  _filterVozac;
+    private string  _vozacPretraga  = "";
+    private List<Vozac> _vozaciPredlozi = [];
+
+    private Vozilo? _filterVozilo;
+    private string  _voziloPretraga = "";
+    private List<Vozilo> _vozilaPredlozi = [];
+
+    private List<DozvolaMinistarstva> _rezultati  = [];
+    private DozvolaMinistarstva?      _selektovana;
+    private bool _ucitava;
+    private bool _pretrazivano;
+
+    private DateTime _poslednjKlik  = DateTime.MinValue;
+    private DozvolaMinistarstva? _poslednjKlikD;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _drzave = await Db.Sifarnici
+            .Where(s => s.kategorija == "DRZAVA_DOZVOLE" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
+            .Select(s => s.naziv!).ToListAsync();
+
+        _vrsteDozvole = await Db.Sifarnici
+            .Where(s => s.kategorija == "VRSTA_DOZVOLE_MUP" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
+            .Select(s => s.naziv!).ToListAsync();
+
+        _sviVozaci = await Db.Vozaci.AsNoTracking()
+            .OrderBy(v => v.Ime).ThenBy(v => v.Prezime).ToListAsync();
+
+        _svaVozila = await Db.Vozila.AsNoTracking()
+            .OrderBy(v => v.registarskaOznaka).ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+        var drzavaDefault = await DefaultValues.GetDefault("dozvole", "drzava", uid);
+        if (drzavaDefault is not null) _filterDrzava = drzavaDefault;
+
+        var vrstaDefault = await DefaultValues.GetDefault("dozvole", "vrstaDozvole", uid);
+        if (vrstaDefault is not null) _filterVrsta = vrstaDefault;
+    }
+
+    private void OnDrzavaChanged(ChangeEventArgs e)
+    {
+        _filterDrzava = e.Value?.ToString() ?? "";
+        _ = DefaultValues.SaveDefault("dozvole", "drzava", _filterDrzava, TenantService.GetIdKorisnika());
+    }
+
+    private void OnVrstaChanged(ChangeEventArgs e)
+    {
+        _filterVrsta = e.Value?.ToString() ?? "";
+        _ = DefaultValues.SaveDefault("dozvole", "vrstaDozvole", _filterVrsta, TenantService.GetIdKorisnika());
+    }
+
+    private void FilterVozaci()
+    {
+        _vozaciPredlozi = string.IsNullOrWhiteSpace(_vozacPretraga) ? [] :
+            [.. _sviVozaci.Where(v =>
+                ((v.Ime ?? "") + " " + (v.Prezime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase) ||
+                ((v.Prezime ?? "") + " " + (v.Ime ?? "")).Contains(_vozacPretraga, StringComparison.OrdinalIgnoreCase))
+            .Take(10)];
+        StateHasChanged();
+    }
+
+    private void IzaberiFilterVozac(Vozac v)
+    {
+        _filterVozac = v; _vozacPretraga = ""; _vozaciPredlozi = [];
+        StateHasChanged();
+    }
+
+    private void FilterVozila()
+    {
+        _vozilaPredlozi = string.IsNullOrWhiteSpace(_voziloPretraga) ? [] :
+            [.. _svaVozila.Where(v =>
+                (v.registarskaOznaka ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase) ||
+                (v.marka ?? "").Contains(_voziloPretraga, StringComparison.OrdinalIgnoreCase))
+            .Take(10)];
+        StateHasChanged();
+    }
+
+    private void IzaberiFilterVozilo(Vozilo v)
+    {
+        _filterVozilo = v; _voziloPretraga = ""; _vozilaPredlozi = [];
+        StateHasChanged();
+    }
+
+    private async Task Izlistaj()
+    {
+        _ucitava = true; _pretrazivano = false; _selektovana = null;
+        StateHasChanged();
+        try
+        {
+            IQueryable<DozvolaMinistarstva> q = Db.DozvoleMinistarstva.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(_filterBrDozvole))
+                q = q.Where(d => d.brojDozvole!.Contains(_filterBrDozvole));
+            if (!string.IsNullOrWhiteSpace(_filterBrResenja))
+                q = q.Where(d => d.brojResenja!.Contains(_filterBrResenja));
+            if (_filterIzdata    != "SVE") q = q.Where(d => d.izdataVozacu  == _filterIzdata);
+            if (_filterVracena   != "SVE") q = q.Where(d => d.vracenoUkanc  == _filterVracena);
+            if (_filterPoslata   != "SVE") q = q.Where(d => d.poslatoNaRazd == _filterPoslata);
+            if (_filterRazduzena != "SVE") q = q.Where(d => d.razduzeno     == _filterRazduzena);
+            if (!string.IsNullOrEmpty(_filterDrzava)) q = q.Where(d => d.drzava       == _filterDrzava);
+            if (!string.IsNullOrEmpty(_filterVrsta))  q = q.Where(d => d.vrstaDozvole == _filterVrsta);
+
+            if (_filterVozac  is not null) q = q.Where(d => d.idVozaca == _filterVozac.Broj);
+            if (_filterVozilo is not null) q = q.Where(d => d.idVozila == _filterVozilo.VoziloId);
+
+            var odDate = DateOnly.TryParse(_od, out var od) ? od : new DateOnly(DateTime.Today.Year, 1, 1);
+            var doDate = DateOnly.TryParse(_do, out var dd) ? dd : DateOnly.FromDateTime(DateTime.Today);
+
+            if (_filterTipDatuma == "DATUM ISTEKA")
+                q = q.Where(d => d.datumIsteka >= odDate && d.datumIsteka <= doDate);
+            else
+                q = q.Where(d => d.datumResenja >= odDate && d.datumResenja <= doDate);
+
+            _rezultati = await q.OrderBy(d => d.brojResenja).ThenBy(d => d.rbVrste).ToListAsync();
+            _pretrazivano = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NaKlikReda(DataGridRowClickEventArgs<DozvolaMinistarstva> args)
+    {
+        var now = DateTime.Now;
+        var dbl = _poslednjKlikD?.idDozvole == args.Item.idDozvole &&
+                  (now - _poslednjKlik).TotalMilliseconds < 400;
+        _poslednjKlikD = args.Item;
+        _poslednjKlik  = now;
+        _selektovana   = args.Item;
+        StateHasChanged();
+
+        if (dbl) _ = ZaduziRazduri();
+    }
+
+    private async Task DodajDozvolu()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<DozvolaDialog> { { x => x.IdDozvole, 0 } };
+        var dlg  = await Dialog.ShowAsync<DozvolaDialog>("Nova dozvola", prms, opts);
+        if (!(await dlg.Result).Canceled) await Izlistaj();
+    }
+
+    private async Task ZaduziRazduri()
+    {
+        if (_selektovana is null) return;
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<DozvolaZaduzenjeDialog> { { x => x.IdDozvole, _selektovana.idDozvole } };
+        var dlg  = await Dialog.ShowAsync<DozvolaZaduzenjeDialog>("Zaduženje / Razduženje", prms, opts);
+        if (!(await dlg.Result).Canceled) await Izlistaj();
+    }
+
+    private async Task BrisiDozvolu()
+    {
+        if (_selektovana is null) return;
+
+        var ok = await Dialog.ShowMessageBox(
+            "Brisanje dozvole",
+            $"Da li ste sigurni da želite da obrišete dozvolu br. {_selektovana.brojDozvole} ({_selektovana.drzava})?",
+            yesText: "Da, obriši", cancelText: "Ne");
+        if (ok != true) return;
+
+        var entitet = await Db.DozvoleMinistarstva.FindAsync(_selektovana.idDozvole);
+        if (entitet is not null)
+        {
+            entitet.aktivan = 0;
+            await Db.SaveChangesAsync();
+            _selektovana = null;
+            Snackbar.Add("Dozvola obrisana.", Severity.Success);
+            await Izlistaj();
+        }
+    }
+
+    private async Task StampaDozvola()
+    {
+        if (_selektovana?.brojResenja is null) return;
+        var url = $"/dozvole/stampa?brojResenja={Uri.EscapeDataString(_selektovana.brojResenja)}";
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+}

@@ -1,0 +1,244 @@
+@page "/dozvole/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+
+<PageTitle>Dozvole MUP — Štampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 24px 32px; }
+
+    .firm-header { margin-bottom: 16px; }
+    .firm-header .naziv { font-size: 13pt; font-weight: bold; }
+    .firm-header .adresa { font-size: 9pt; color: #333; }
+
+    .doc-title { font-size: 12pt; font-weight: bold; margin-bottom: 14px; border-bottom: 2px solid #333; padding-bottom: 6px; }
+
+    .zaglavlje { margin-bottom: 14px; font-size: 9.5pt; }
+    .zaglavlje .row { margin-bottom: 4px; }
+    .zaglavlje .lbl { color: #555; min-width: 220px; display: inline-block; }
+    .zaglavlje .val { font-weight: bold; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-top: 8px; table-layout: fixed; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 5px 6px; border: 1px solid #aaa; word-wrap: break-word; overflow-wrap: break-word; text-align: center; }
+    tbody td { padding: 4px 6px; border: 1px solid #ccc; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    .center { text-align: center; }
+
+    .footer-row { margin-top: 14px; font-size: 9.5pt; font-weight: bold; }
+
+    .no-print { margin-top: 24px; text-align: center; padding-bottom: 20px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 8pt; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else
+{
+    <div class="wrap">
+
+        @* ── Zaglavlje firme ───────────────────────────────── *@
+        <div class="firm-header">
+            <div class="naziv">@_nazivFirme</div>
+            @if (!string.IsNullOrEmpty(_adresaFirme))
+            {
+                <div class="adresa">@_adresaFirme</div>
+            }
+        </div>
+
+        <div class="doc-title">Dozvole MUP — Pregled po rešenju</div>
+
+        @* ── Zaglavlje dokumenta ───────────────────────────── *@
+        <div class="zaglavlje">
+            <div class="row">
+                <span class="lbl">Broj rešenja:</span>
+                <span class="val">@_brojResenja</span>
+            </div>
+            @if (_datumResenja.HasValue)
+            {
+                <div class="row">
+                    <span class="lbl">Datum izdavanja rešenja:</span>
+                    <span class="val">@_datumResenja.Value.ToString("dd.MM.yyyy")</span>
+                </div>
+            }
+            @if (_datumDobijanja.HasValue)
+            {
+                <div class="row">
+                    <span class="lbl">Datum dobijanja rešenja:</span>
+                    <span class="val">@_datumDobijanja.Value.ToString("dd.MM.yyyy")</span>
+                </div>
+            }
+        </div>
+
+        @* ── Tabela dozvola ────────────────────────────────── *@
+        <table>
+            <colgroup>
+                <col style="width:4%"  />  @* R.br *@
+                <col style="width:10%" />  @* Država *@
+                <col style="width:9%"  />  @* Br.dozvole *@
+                <col style="width:9%"  />  @* Izdata vozaču *@
+                <col style="width:16%" />  @* Vozač *@
+                <col style="width:11%" />  @* Vozilo *@
+                <col style="width:9%"  />  @* Br.ture *@
+                <col style="width:9%"  />  @* Vraćena u kanc *@
+                <col style="width:9%"  />  @* Datum isteka *@
+                <col style="width:7%"  />  @* Poslata na razd *@
+                <col style="width:7%"  />  @* Datum razduženja *@
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="center">R.br</th>
+                    <th>Država</th>
+                    <th class="center">Br.dozvole</th>
+                    <th class="center">Izdata vozaču</th>
+                    <th>Vozač</th>
+                    <th>Vozilo</th>
+                    <th class="center">Br.ture</th>
+                    <th class="center">Vraćena u kanc</th>
+                    <th class="center">Datum isteka</th>
+                    <th class="center">Poslata na razd</th>
+                    <th class="center">Datum razduženja</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int rb = 1; }
+                @foreach (var d in _dozvole)
+                {
+                    <tr>
+                        <td class="center">@rb</td>
+                        <td>@d.drzava</td>
+                        <td class="center">@d.brojDozvole</td>
+                        <td class="center">
+                            @if (d.datumIzdavanjaVozacu.HasValue)
+                            {
+                                @d.datumIzdavanjaVozacu.Value.ToString("dd.MM.yyyy")
+                            }
+                            else if (d.izdataVozacu == "DA")
+                            {
+                                <span>DA</span>
+                            }
+                        </td>
+                        <td>@d.Vozac</td>
+                        <td>@d.vozilo</td>
+                        <td class="center">@d.brojNaloga</td>
+                        <td class="center">
+                            @if (d.datumVracanjaUKanc.HasValue)
+                            {
+                                @d.datumVracanjaUKanc.Value.ToString("dd.MM.yyyy")
+                            }
+                            else if (d.vracenoUkanc == "DA")
+                            {
+                                <span>DA</span>
+                            }
+                        </td>
+                        <td class="center">
+                            @if (d.datumIsteka.HasValue)
+                            {
+                                @d.datumIsteka.Value.ToString("dd.MM.yyyy")
+                            }
+                        </td>
+                        <td class="center">
+                            @if (d.datumSlanjaNaRazd.HasValue)
+                            {
+                                @d.datumSlanjaNaRazd.Value.ToString("dd.MM.yyyy")
+                            }
+                            else if (d.poslatoNaRazd == "DA")
+                            {
+                                <span>DA</span>
+                            }
+                        </td>
+                        <td class="center">
+                            @if (d.datumRazduzenja.HasValue)
+                            {
+                                @d.datumRazduzenja.Value.ToString("dd.MM.yyyy")
+                            }
+                        </td>
+                    </tr>
+                    rb++;
+                }
+            </tbody>
+        </table>
+
+        <div class="footer-row">
+            Ukupno dozvola: @_dozvole.Count
+        </div>
+
+        <div class="no-print">
+            <button onclick="window.print()">Štampaj</button>
+            <button onclick="window.close()">Zatvori</button>
+        </div>
+
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "brojResenja")] public string? BrojResenja { get; set; }
+
+    private bool   _ucitava     = true;
+    private string _brojResenja = "";
+    private string _nazivFirme  = "";
+    private string _adresaFirme = "";
+
+    private DateOnly? _datumResenja;
+    private DateOnly? _datumDobijanja;
+
+    private List<DozvolaMinistarstva> _dozvole = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _brojResenja = BrojResenja ?? "";
+
+        var podaci = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+        if (podaci is not null)
+        {
+            _nazivFirme  = podaci.NazivFirme ?? "";
+            _adresaFirme = podaci.Adresa     ?? "";
+        }
+
+        if (!string.IsNullOrWhiteSpace(_brojResenja))
+        {
+            _dozvole = await Db.DozvoleMinistarstva
+                .AsNoTracking()
+                .Where(d => d.brojResenja == _brojResenja)
+                .OrderBy(d => d.rbVrste)
+                .ThenBy(d => d.brojDozvole)
+                .ToListAsync();
+
+            if (_dozvole.Count > 0)
+            {
+                _datumResenja  = _dozvole[0].datumResenja;
+                _datumDobijanja = _dozvole[0].datumDobijanjaResenje;
+            }
+        }
+
+        _ucitava = false;
+        StateHasChanged();
+
+        await Task.Delay(400);
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

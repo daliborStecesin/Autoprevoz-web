@@ -1,0 +1,260 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:480px;">
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_brojResenja"
+                              Label="Broj rešenja *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <label style="font-size:0.75rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:4px;">Datum rešenja</label>
+                <DateInput @bind-Value="_datumResenja" AfterChange="OnDatumResenjaChanged" />
+            </MudItem>
+            <MudItem xs="6">
+                <label style="font-size:0.75rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:4px;">Datum dobijanja rešenja</label>
+                <DateInput @bind-Value="_datumDobijanja" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <label style="font-size:0.75rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:4px;">Država</label>
+                <select @bind="_drzava"
+                        style="width:100%;padding:8px 10px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:0.875rem;background:white;outline:none;height:36px;">
+                    <option value="">— izaberi —</option>
+                    @foreach (var d in _drzave)
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+            </MudItem>
+
+            <MudItem xs="6">
+                <label style="font-size:0.75rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:4px;">Datum isteka</label>
+                <DateInput @bind-Value="_datumIsteka" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <label style="font-size:0.75rem;color:rgba(0,0,0,0.54);display:block;margin-bottom:4px;">Vrsta dozvole</label>
+                <select @bind="_vrstaDozvole"
+                        style="width:100%;padding:8px 10px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:0.875rem;background:white;outline:none;height:36px;">
+                    <option value="">— izaberi —</option>
+                    @foreach (var v in _vrsteDozvole)
+                    {
+                        <option value="@v">@v</option>
+                    }
+                </select>
+            </MudItem>
+
+            @if (!_viseDozvola)
+            {
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_brojDozvole"
+                                  Label="Broj dozvole"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel="true" />
+                </MudItem>
+            }
+
+            <MudItem xs="12">
+                <MudCheckBox T="bool" @bind-Value="_viseDozvola"
+                             Disabled="@(IdDozvole > 0)"
+                             Color="Color.Primary"
+                             Label="Dodaj više dozvola istovremeno" />
+            </MudItem>
+
+            @if (_viseDozvola)
+            {
+                <MudItem xs="6">
+                    <MudNumericField T="int?" @bind-Value="_odBroja"
+                                     Label="Od broja"
+                                     Variant="Variant.Outlined"
+                                     ShrinkLabel="true"
+                                     Min="1" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="int?" @bind-Value="_doBroja"
+                                     Label="Do broja"
+                                     Variant="Variant.Outlined"
+                                     ShrinkLabel="true"
+                                     Min="1" />
+                </MudItem>
+            }
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            SAČUVAJ
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            ODUSTANI
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int IdDozvole { get; set; }
+
+    private List<string> _drzave       = [];
+    private List<string> _vrsteDozvole = [];
+
+    private string  _brojResenja  = "";
+    private string  _datumResenja = DateTime.Today.ToString("yyyy-MM-dd");
+    private string  _datumDobijanja = DateTime.Today.ToString("yyyy-MM-dd");
+    private string? _drzava;
+    private string  _datumIsteka  = DateTime.Today.ToString("yyyy-MM-dd");
+    private string? _vrstaDozvole;
+    private string? _brojDozvole;
+    private bool    _viseDozvola;
+    private int?    _odBroja;
+    private int?    _doBroja;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _drzave = await Db.Sifarnici
+            .Where(s => s.kategorija == "DRZAVA_DOZVOLE" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .ToListAsync();
+
+        _vrsteDozvole = await Db.Sifarnici
+            .Where(s => s.kategorija == "VRSTA_DOZVOLE_MUP" && (s.aktivan == 1 || s.aktivan == null))
+            .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
+            .Select(s => s.naziv!)
+            .ToListAsync();
+
+        if (IdDozvole > 0)
+        {
+            var d = await Db.DozvoleMinistarstva.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.idDozvole == IdDozvole);
+            if (d is not null)
+            {
+                _brojResenja    = d.brojResenja    ?? "";
+                _datumResenja   = d.datumResenja?.ToString("yyyy-MM-dd")        ?? DateTime.Today.ToString("yyyy-MM-dd");
+                _datumDobijanja = d.datumDobijanjaResenje?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
+                _drzava         = d.drzava;
+                _datumIsteka    = d.datumIsteka?.ToString("yyyy-MM-dd")         ?? DateTime.Today.ToString("yyyy-MM-dd");
+                _vrstaDozvole   = d.vrstaDozvole;
+                _brojDozvole    = d.brojDozvole;
+            }
+        }
+    }
+
+    private void OnDatumResenjaChanged()
+    {
+        // Auto-popuni datumDobijanja ako nije ručno menjano
+        if (_datumDobijanja == DateTime.Today.ToString("yyyy-MM-dd") || string.IsNullOrEmpty(_datumDobijanja))
+            _datumDobijanja = _datumResenja;
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_brojResenja))
+        {
+            Snackbar.Add("Broj rešenja je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        if (_viseDozvola)
+        {
+            if (_odBroja is null || _doBroja is null)
+            {
+                Snackbar.Add("Unesite Od broja i Do broja.", Severity.Warning);
+                return;
+            }
+            if (_doBroja <= _odBroja)
+            {
+                Snackbar.Add("Do broja mora biti veći od Od broja.", Severity.Warning);
+                return;
+            }
+        }
+
+        var datumR    = DateOnly.TryParse(_datumResenja,   out var dr)  ? dr  : (DateOnly?)null;
+        var datumDob  = DateOnly.TryParse(_datumDobijanja, out var dd)  ? dd  : (DateOnly?)null;
+        var datumIstek = DateOnly.TryParse(_datumIsteka,   out var di)  ? di  : (DateOnly?)null;
+
+        if (IdDozvole > 0)
+        {
+            var entitet = await Db.DozvoleMinistarstva.FindAsync(IdDozvole);
+            if (entitet is not null)
+            {
+                entitet.brojResenja           = _brojResenja.Trim();
+                entitet.datumResenja          = datumR;
+                entitet.datumDobijanjaResenje = datumDob;
+                entitet.drzava                = _drzava;
+                entitet.datumIsteka           = datumIstek;
+                entitet.vrstaDozvole          = _vrstaDozvole;
+                entitet.brojDozvole           = _brojDozvole?.Trim();
+            }
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Dozvola izmenjena.", Severity.Success);
+        }
+        else if (_viseDozvola && _odBroja.HasValue && _doBroja.HasValue)
+        {
+            int rb = 1;
+            for (int i = _odBroja.Value; i <= _doBroja.Value; i++)
+            {
+                Db.DozvoleMinistarstva.Add(new DozvolaMinistarstva
+                {
+                    brojResenja           = _brojResenja.Trim(),
+                    datumResenja          = datumR,
+                    datumDobijanjaResenje = datumDob,
+                    drzava                = _drzava,
+                    datumIsteka           = datumIstek,
+                    vrstaDozvole          = _vrstaDozvole,
+                    rbVrste               = rb.ToString(),
+                    brojDozvole           = i.ToString(),
+                    razduzeno             = "NE",
+                    vracenoUkanc          = "NE",
+                    poslatoNaRazd         = "NE",
+                    izdataVozacu          = "NE",
+                    aktivan               = 1,
+                    datumUnosa            = DateTime.Now
+                });
+                rb++;
+            }
+            await Db.SaveChangesAsync();
+            Snackbar.Add($"{_doBroja.Value - _odBroja.Value + 1} dozvola je sačuvano.", Severity.Success);
+        }
+        else
+        {
+            Db.DozvoleMinistarstva.Add(new DozvolaMinistarstva
+            {
+                brojResenja           = _brojResenja.Trim(),
+                datumResenja          = datumR,
+                datumDobijanjaResenje = datumDob,
+                drzava                = _drzava,
+                datumIsteka           = datumIstek,
+                vrstaDozvole          = _vrstaDozvole,
+                rbVrste               = "1",
+                brojDozvole           = _brojDozvole?.Trim(),
+                razduzeno             = "NE",
+                vracenoUkanc          = "NE",
+                poslatoNaRazd         = "NE",
+                izdataVozacu          = "NE",
+                aktivan               = 1,
+                datumUnosa            = DateTime.Now
+            });
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Dozvola sačuvana.", Severity.Success);
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

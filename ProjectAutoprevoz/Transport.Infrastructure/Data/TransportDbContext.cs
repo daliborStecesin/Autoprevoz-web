@@ -33,6 +33,9 @@ public class TransportDbContext : DbContext
     public DbSet<PutniNalogKamion> PutniNalozi { get; set; }
     public DbSet<SacuvaniNalog> SacuvaniNalozi { get; set; }
 
+    // Dozvole MUP
+    public DbSet<DozvolaMinistarstva> DozvoleMinistarstva { get; set; }
+
     // Vozni park i osoblje
     public DbSet<Vozilo>    Vozila     { get; set; }
     public DbSet<VazniDatum> VazniDatumi { get; set; }
@@ -117,6 +120,9 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Banka>()
             .HasQueryFilter(b => b.aktivan == 1 || b.aktivan == null);
+
+        modelBuilder.Entity<DozvolaMinistarstva>()
+            .HasQueryFilter(d => d.aktivan == 1);
 
         // PartnerRacun relacija
         modelBuilder.Entity<PartnerRacun>(e =>
