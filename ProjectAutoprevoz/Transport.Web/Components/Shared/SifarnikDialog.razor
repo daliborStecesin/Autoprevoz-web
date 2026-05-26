@@ -1,0 +1,126 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject ISnackbar          Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="3" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_naziv"
+                              Label="Naziv *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true"
+                              Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudNumericField T="int" @bind-Value="_redosled"
+                                 Label="Redosled"
+                                 Variant="Variant.Outlined"
+                                 ShrinkLabel="true"
+                                 Min="0" />
+            </MudItem>
+
+            <MudItem xs="6" Class="d-flex align-center">
+                <MudCheckBox T="bool" @bind-Value="_aktivan"
+                             Color="Color.Primary"
+                             Label="Aktivna stavka" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Kategorija: <b>@Kategorija</b>
+                </MudText>
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj">
+            SAČUVAJ
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            ODUSTANI
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int    IdStavke   { get; set; }
+    [Parameter] public string Kategorija { get; set; } = "";
+
+    private string _naziv    = "";
+    private int    _redosled = 0;
+    private bool   _aktivan  = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IdStavke > 0)
+        {
+            var stavka = await Db.Sifarnici.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.idStavke == IdStavke);
+            if (stavka is not null)
+            {
+                _naziv    = stavka.naziv    ?? "";
+                _redosled = stavka.redosled ?? 0;
+                _aktivan  = stavka.aktivan  != 0;
+            }
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_naziv))
+        {
+            Snackbar.Add("Naziv je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        var duplikat = await Db.Sifarnici
+            .AnyAsync(s => s.kategorija == Kategorija
+                        && s.naziv == _naziv.Trim()
+                        && s.idStavke != IdStavke);
+
+        if (duplikat)
+        {
+            Snackbar.Add($"Stavka \"{_naziv.Trim()}\" već postoji u kategoriji {Kategorija}.", Severity.Warning);
+            return;
+        }
+
+        if (IdStavke == 0)
+        {
+            Db.Sifarnici.Add(new Sifarnik
+            {
+                kategorija = Kategorija,
+                naziv      = _naziv.Trim(),
+                redosled   = _redosled,
+                aktivan    = _aktivan ? 1 : 0
+            });
+        }
+        else
+        {
+            var stavka = await Db.Sifarnici.FindAsync(IdStavke);
+            if (stavka is not null)
+            {
+                stavka.naziv    = _naziv.Trim();
+                stavka.redosled = _redosled;
+                stavka.aktivan  = _aktivan ? 1 : 0;
+            }
+        }
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Stavka sačuvana.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

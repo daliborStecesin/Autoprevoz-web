@@ -1,0 +1,227 @@
+@page "/podesavanja/sifarnici"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IDialogService    Dialog
+@inject ISnackbar         Snackbar
+
+<PageTitle>Šifarnici — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+    Šifarnici
+</MudText>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Kategorije ─────────────────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-2">
+            <MudText Typo="Typo.caption" Class="mud-text-secondary pa-2 d-block">
+                Kategorija:
+            </MudText>
+            <MudList T="string" @bind-SelectedValue="_aktivnaKategorija"
+                     Dense="true" Color="Color.Primary">
+                @foreach (var kat in _kategorije)
+                {
+                    <MudListItem Value="@kat.Kljuc" OnClick="@(() => IzaberiKategoriju(kat.Kljuc))">
+                        <MudIcon Icon="@kat.Ikonica" Size="Size.Small" Class="mr-2" />
+                        @kat.Naziv
+                    </MudListItem>
+                }
+            </MudList>
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Stavke kategorije ─────────────────────── *@
+    <MudItem xs="12" md="9">
+        <MudPaper Elevation="1" Class="pa-3">
+
+            @* Toolbar *@
+            <div class="d-flex align-center justify-space-between mb-3 flex-wrap gap-2">
+                <MudText Typo="Typo.h6">
+                    @(_kategorije.FirstOrDefault(k => k.Kljuc == _aktivnaKategorija)?.Naziv ?? "—")
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="DodajStavku">
+                    DODAJ STAVKU
+                </MudButton>
+            </div>
+
+            @if (_ucitava)
+            {
+                <div class="d-flex justify-center pa-8">
+                    <MudProgressCircular Indeterminate="true" />
+                </div>
+            }
+            else if (_stavke.Count == 0)
+            {
+                <MudText Class="pa-4 mud-text-secondary">
+                    Nema stavki u ovoj kategoriji.
+                </MudText>
+            }
+            else
+            {
+                <MudDataGrid T="Sifarnik"
+                             Items="_stavke"
+                             Dense="true"
+                             Hover="true"
+                             Striped="true"
+                             SortMode="SortMode.Single"
+                             ColumnResizeMode="ResizeMode.Column">
+                    <Columns>
+
+                        <PropertyColumn Property="s => s.redosled" Title="Redosled" InitialDirection="SortDirection.Ascending" />
+
+                        <PropertyColumn Property="s => s.naziv" Title="Naziv" />
+
+                        <TemplateColumn Title="Status" CellStyle="width:80px; text-align:center;">
+                            <CellTemplate>
+                                @if (context.Item.aktivan == 1)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                             Color="Color.Success" Title="Aktivan" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Cancel"
+                                             Color="Color.Error" Title="Neaktivan" />
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <TemplateColumn Title="" CellStyle="width:200px;">
+                            <CellTemplate>
+                                <div class="d-flex gap-1">
+                                    <MudButton Size="Size.Small"
+                                               Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.Edit"
+                                               OnClick="@(() => IzmeniStavku(context.Item))">
+                                        IZMENI
+                                    </MudButton>
+                                    @if (context.Item.aktivan == 1)
+                                    {
+                                        <MudButton Size="Size.Small"
+                                                   Variant="Variant.Outlined"
+                                                   Color="Color.Warning"
+                                                   StartIcon="@Icons.Material.Filled.Block"
+                                                   OnClick="@(() => ToggleAktivan(context.Item))">
+                                            DEAKTIVIRAJ
+                                        </MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton Size="Size.Small"
+                                                   Variant="Variant.Outlined"
+                                                   Color="Color.Success"
+                                                   StartIcon="@Icons.Material.Filled.CheckCircle"
+                                                   OnClick="@(() => ToggleAktivan(context.Item))">
+                                            AKTIVIRAJ
+                                        </MudButton>
+                                    }
+                                </div>
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                    </Columns>
+                </MudDataGrid>
+            }
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@code {
+    private record KategorijaInfo(string Kljuc, string Naziv, string Ikonica);
+
+    private readonly List<KategorijaInfo> _kategorije =
+    [
+        new("DOZVOLE",         "Dozvole / Dokumenti vozila", Icons.Material.Filled.CardMembership),
+        new("TROSKOVI",        "Vrste troškova",              Icons.Material.Filled.AccountBalance),
+        new("VRSTA_VOZILA",    "Vrste vozila",                Icons.Material.Filled.DirectionsCar),
+        new("STATUS_PARTNERA", "Statusi partnera",            Icons.Material.Filled.Business),
+        new("TIP_ISPLATE",     "Tipovi isplate",              Icons.Material.Filled.Payments),
+    ];
+
+    private string         _aktivnaKategorija = "TROSKOVI";
+    private List<Sifarnik> _stavke            = [];
+    private bool           _ucitava;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        await UcitajStavke();
+    }
+
+    private async Task IzaberiKategoriju(string kljuc)
+    {
+        _aktivnaKategorija = kljuc;
+        await UcitajStavke();
+    }
+
+    private async Task UcitajStavke()
+    {
+        _ucitava = true;
+        StateHasChanged();
+        try
+        {
+            _stavke = await Db.Sifarnici
+                .AsNoTracking()
+                .Where(s => s.kategorija == _aktivnaKategorija)
+                .OrderBy(s => s.redosled)
+                .ThenBy(s => s.naziv)
+                .ToListAsync();
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DodajStavku()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<SifarnikDialog>
+        {
+            { x => x.IdStavke,   0                   },
+            { x => x.Kategorija, _aktivnaKategorija   }
+        };
+        var dlg = await Dialog.ShowAsync<SifarnikDialog>("Nova stavka", prms, opts);
+        if (!(await dlg.Result).Canceled) await UcitajStavke();
+    }
+
+    private async Task IzmeniStavku(Sifarnik s)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<SifarnikDialog>
+        {
+            { x => x.IdStavke,   s.idStavke           },
+            { x => x.Kategorija, _aktivnaKategorija   }
+        };
+        var dlg = await Dialog.ShowAsync<SifarnikDialog>("Izmena stavke", prms, opts);
+        if (!(await dlg.Result).Canceled) await UcitajStavke();
+    }
+
+    private async Task ToggleAktivan(Sifarnik s)
+    {
+        var entitet = await Db.Sifarnici.FindAsync(s.idStavke);
+        if (entitet is null) return;
+
+        entitet.aktivan = entitet.aktivan == 1 ? 0 : 1;
+        await Db.SaveChangesAsync();
+
+        var poruka = entitet.aktivan == 1 ? "Stavka aktivirana." : "Stavka deaktivirana.";
+        Snackbar.Add(poruka, Severity.Success);
+        await UcitajStavke();
+    }
+}

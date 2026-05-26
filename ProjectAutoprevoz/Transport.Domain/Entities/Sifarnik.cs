@@ -11,5 +11,6 @@ public class Sifarnik
 
     [MaxLength(50)]  public string? kategorija { get; set; }
     [MaxLength(100)] public string? naziv      { get; set; }
-    public int? aktivan { get; set; }
+    public int? aktivan  { get; set; }
+    public int? redosled { get; set; }
 }
