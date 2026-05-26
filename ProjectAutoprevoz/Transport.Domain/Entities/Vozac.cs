@@ -66,4 +66,6 @@ public class Vozac
     public decimal? cenaPoKm { get; set; }
 
     public int? aktivan { get; set; }
+
+    public List<VozacRacun> Racuni { get; set; } = [];
 }

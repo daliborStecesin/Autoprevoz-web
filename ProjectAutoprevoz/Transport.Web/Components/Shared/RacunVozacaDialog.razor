@@ -1,0 +1,125 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject TransportDbContext Db
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="3" Class="mt-2">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_nazivBanke"
+                              Label="Naziv banke"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_racunBroj"
+                              Label="Broj računa"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_iban"
+                              Label="IBAN"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <label style="font-size:12px;color:rgba(0,0,0,0.6);display:block;margin-bottom:4px;">Valuta</label>
+                <select @bind="_valuta" style="width:100%;padding:14px 12px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:16px;background:#fff;outline:none;">
+                    <option value="RSD">RSD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="CHF">CHF</option>
+                    <option value="USD">USD</option>
+                </select>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <label style="font-size:12px;color:rgba(0,0,0,0.6);display:block;margin-bottom:4px;">Tip računa</label>
+                <select @bind="_tipRacuna" style="width:100%;padding:14px 12px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:16px;background:#fff;outline:none;">
+                    <option value="DOMACI">DOMAĆI</option>
+                    <option value="DEVIZNI">DEVIZNI</option>
+                </select>
+            </MudItem>
+            <MudItem xs="12">
+                <MudCheckBox T="bool" @bind-Value="_glavniRacun"
+                             Color="Color.Primary"
+                             Label="Glavni račun" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+             <MudButton Variant="Variant.Filled"
+                 Color="Color.Primary"
+                 StartIcon="@Icons.Material.Filled.Save"
+                 OnClick="@(async () => await Sacuvaj())">
+             SAČUVAJ
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            ODUSTANI
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter]          public int        VozacId  { get; set; }
+
+    private string? _nazivBanke;
+    private string? _racunBroj;
+    private string? _iban;
+    private string  _valuta   = "RSD";
+    private string  _tipRacuna = "DOMACI";
+    private bool    _glavniRacun;
+
+    private async Task Sacuvaj()
+    {
+        if (VozacId == 0)
+        {
+            Snackbar.Add("Nije izabran vozač.", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_racunBroj))
+        {
+            Snackbar.Add("Broj računa je obavezno polje.", Severity.Warning);
+            return;
+        }
+
+        var novi = new VozacRacun
+        {
+            idVozaca    = VozacId,
+            nazivBanke  = _nazivBanke,
+            racun       = _racunBroj,
+            IBAN        = _iban,
+            valuta      = _valuta,
+            tipRacuna   = _tipRacuna,
+            glavniRacun = _glavniRacun ? 1 : 0,
+            aktivan     = 1
+        };
+
+        if (_glavniRacun)
+        {
+            var stari = await Db.VozacRacuni.Where(r => r.idVozaca == VozacId && r.glavniRacun == 1).ToListAsync();
+            foreach (var r in stari)
+            {
+                r.glavniRacun = 0;
+            }
+        }
+
+        Db.VozacRacuni.Add(novi);
+        await Db.SaveChangesAsync();
+
+        Snackbar.Add("Račun vozača je sačuvan.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}
+
+
+
+
+

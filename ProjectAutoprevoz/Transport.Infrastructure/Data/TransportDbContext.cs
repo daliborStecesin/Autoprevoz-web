@@ -38,6 +38,7 @@ public class TransportDbContext : DbContext
     public DbSet<VazniDatum> VazniDatumi { get; set; }
     public DbSet<Trosak>    Troskovi   { get; set; }
     public DbSet<Vozac>     Vozaci     { get; set; }
+    public DbSet<VozacRacun> VozacRacuni { get; set; }
     public DbSet<Dnevnica> Dnevnice { get; set; }
     public DbSet<Plata> Plate { get; set; }
 
@@ -78,6 +79,17 @@ public class TransportDbContext : DbContext
 
         modelBuilder.Entity<Vozac>()
             .HasQueryFilter(v => v.aktivan == 1 || v.aktivan == null);
+
+        modelBuilder.Entity<VozacRacun>(e =>
+        {
+            e.ToTable("tbl_vozac_racuni");
+            e.HasKey(r => r.idRacuna);
+            e.HasQueryFilter(r => r.aktivan == 1);
+            e.HasOne(r => r.Vozac)
+             .WithMany(v => v.Racuni)
+             .HasForeignKey(r => r.idVozaca)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Vozilo>()
             .HasQueryFilter(v => v.aktivan == 1);

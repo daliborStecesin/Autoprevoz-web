@@ -89,6 +89,30 @@ else
                 {
                     <div class="vozac-name">@_vozacIme</div>
                 }
+                @if (_imaDomacih && _racunDomaci is not null)
+                {
+                    <div style="margin-top:10px; font-size:8.5pt; color:#000; text-align:left; line-height:1.6;">
+                        <div>Žiro račun: <b>@_racunDomaci.racun</b></div>
+                        @if (!string.IsNullOrWhiteSpace(_racunDomaci.nazivBanke))
+                        {
+                            <div>Banka: @_racunDomaci.nazivBanke</div>
+                        }
+                    </div>
+                }
+                @if (_imaInostranih && _racunDevizni is not null)
+                {
+                    <div style="margin-top:8px; font-size:8.5pt; color:#000; text-align:left; line-height:1.6;">
+                        <div>Devizni račun: <b>@_racunDevizni.racun</b></div>
+                        @if (!string.IsNullOrWhiteSpace(_racunDevizni.IBAN))
+                        {
+                            <div>IBAN: @_racunDevizni.IBAN</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_racunDevizni.nazivBanke))
+                        {
+                            <div>Banka: @_racunDevizni.nazivBanke</div>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
@@ -167,6 +191,10 @@ else
     private List<Dnevnica> _dnevnice      = [];
     private PodaciFirme?   _firma;
     private string?        _vozacIme;
+    private VozacRacun?    _racunDomaci;
+    private VozacRacun?    _racunDevizni;
+    private bool           _imaDomacih;
+    private bool           _imaInostranih;
     private decimal        _sumaDomaciRSD;
     private decimal        _sumaInoEUR;
     private bool           _ucitava   = true;
@@ -210,10 +238,19 @@ else
                     .FirstOrDefaultAsync();
                 if (vozac is not null)
                     _vozacIme = $"{vozac.Ime} {vozac.Prezime}";
+
+                var racuni = await Db.VozacRacuni.AsNoTracking()
+                    .Where(r => r.idVozaca == idV && r.aktivan == 1 && r.glavniRacun == 1)
+                    .ToListAsync();
+                _racunDomaci  = racuni.FirstOrDefault(r => r.tipRacuna == "DOMACI");
+                _racunDevizni = racuni.FirstOrDefault(r => r.tipRacuna == "DEVIZNI");
             }
 
             if (string.IsNullOrEmpty(_vozacIme) && _dnevnice.Count > 0)
                 _vozacIme = _dnevnice.First().vozac;
+
+            _imaDomacih    = _dnevnice.Any(x => x.tipDnevnice == "DOMACA");
+            _imaInostranih = _dnevnice.Any(x => x.tipDnevnice == "INOSTRANA");
 
             _sumaDomaciRSD = _dnevnice.Where(x => x.tipDnevnice == "DOMACA").Sum(x => x.Ukupno ?? 0);
             _sumaInoEUR    = _dnevnice.Where(x => x.tipDnevnice == "INOSTRANA").Sum(x => x.Ukupno ?? 0);

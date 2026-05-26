@@ -191,6 +191,63 @@
                 </MudGrid>
             </MudTabPanel>
 
+            @* ── TAB 3 — Bankovni podaci ─────────────────────────────── *@
+            <MudTabPanel Text="Bankovni podaci" Icon="@Icons.Material.Filled.AccountBalance">
+                <MudGrid Spacing="3" Class="mt-2">
+                    <MudItem xs="12">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="() => OtvoriDodajRacun()">
+                            DODAJ RAČUN
+                        </MudButton>
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        @if (_racuni.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                Nema bankovnih računa.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudDataGrid T="VozacRacun"
+                                         @key="_racuni"
+                                         Items="_racuni"
+                                         Dense="true"
+                                         Striped="true"
+                                         Hover="true"
+                                         Bordered="true">
+                                <Columns>
+                                    <PropertyColumn Property="x => x.nazivBanke" Title="Naziv banke" />
+                                    <PropertyColumn Property="x => x.racun" Title="Broj računa" />
+                                    <PropertyColumn Property="x => x.IBAN" Title="IBAN" />
+                                    <PropertyColumn Property="x => x.valuta" Title="Valuta" />
+                                    <PropertyColumn Property="x => x.tipRacuna" Title="Tip" />
+                                    <TemplateColumn Title="Glavni" Width="110px">
+                                        <CellTemplate>
+                                            @if (context.Item.glavniRacun == 1)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" />
+                                            }
+                                        </CellTemplate>
+                                    </TemplateColumn>
+                                    <TemplateColumn Title="" Width="70px">
+                                        <CellTemplate>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                           Color="Color.Error"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => UkloniRacun(context.Item))" />
+                                        </CellTemplate>
+                                    </TemplateColumn>
+                                </Columns>
+                            </MudDataGrid>
+                        }
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+
         </MudTabs>
     </DialogContent>
 
@@ -198,7 +255,7 @@
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
-                   OnClick="Sacuvaj">
+                   OnClick="@(async () => await Sacuvaj())">
             Sačuvaj
         </MudButton>
 
@@ -219,11 +276,14 @@
     </DialogActions>
 </MudDialog>
 
+@implements IDisposable
+
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
     [Parameter]          public int        VozacId  { get; set; }
 
     private Vozac? _entitet;
+    private bool    _disposed;
 
     // Tab 1
     private string    _ime          = string.Empty;
@@ -249,6 +309,8 @@
     private decimal? _procenat;
     private decimal? _fixnoPlata;
     private decimal? _cenaPoKm;
+
+    private List<VozacRacun> _racuni = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -280,16 +342,18 @@
                 _istekPasosa     = ToDateTime(_entitet.istekPasosa);
                 _datumZaposlenja = ToDateTime(_entitet.datumZaposlenja);
                 _datumRodjenja   = ToDateTime(_entitet.datumRodjenja);
+
+                await UcitajRacune();
             }
         }
     }
 
-    private async Task Sacuvaj()
+    private async Task<bool> Sacuvaj(bool closeDialog = true)
     {
         if (string.IsNullOrWhiteSpace(_ime))
         {
             Snackbar.Add("Ime je obavezno polje.", Severity.Warning);
-            return;
+            return false;
         }
 
         if (_entitet is null)
@@ -321,13 +385,103 @@
         _entitet.datumRodjenja   = ToDateOnly(_datumRodjenja);
 
         await Db.SaveChangesAsync();
+        if (_disposed) return false;
+
         Snackbar.Add("Vozač sačuvan.", Severity.Success);
-        MudDialog.Close(DialogResult.Ok(true));
+
+        if (closeDialog && !_disposed)
+        {
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+
+        return true;
+    }
+
+    private void OtvoriDodajRacun()
+    {
+        if (_disposed) return;
+        _ = OtvoriDodajRacunAsync();
+    }
+
+    private async Task OtvoriDodajRacunAsync()
+    {
+        if (_disposed) return;
+
+        if (_entitet is null || _entitet.Broj == 0)
+        {
+            var sacuvano = await Sacuvaj(false);
+            if (!sacuvano || _disposed) return;
+        }
+
+        if (_entitet is null) return;
+
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var parameters = new DialogParameters<RacunVozacaDialog> { { x => x.VozacId, _entitet.Broj } };
+        var dialog = await Dialog.ShowAsync<RacunVozacaDialog>("Novi račun", parameters, opts);
+
+        try
+        {
+            var result = await dialog.Result;
+            if (_disposed) return;
+            if (!result.Canceled)
+            {
+                await UcitajRacune();
+                if (!_disposed)
+                {
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            if (!_disposed)
+            {
+                Snackbar.Add("Dialog je zatvoren pre nego što je rezultat mogao da se obradi.", Severity.Error);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed)
+            {
+                Snackbar.Add($"Greška pri otvaranju računa: {ex.Message}", Severity.Error);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task UcitajRacune()
+    {
+        if (_disposed) return;
+
+        if (_entitet is null || _entitet.Broj == 0)
+        {
+            _racuni.Clear();
+            return;
+        }
+
+        _racuni = await Db.VozacRacuni
+            .Where(r => r.idVozaca == _entitet.Broj)
+            .OrderByDescending(r => r.glavniRacun)
+            .ThenBy(r => r.nazivBanke)
+            .ToListAsync();
+    }
+
+    private async Task UkloniRacun(VozacRacun racun)
+    {
+        if (_disposed || racun is null) return;
+
+        racun.aktivan = 0;
+        await Db.SaveChangesAsync();
+        if (_disposed) return;
+
+        Snackbar.Add("Račun je uklonjen.", Severity.Info);
+        await UcitajRacune();
     }
 
     private async Task Deaktiviraj()
     {
-        if (_entitet is null) return;
+        if (_disposed || _entitet is null) return;
 
         var potvrda = await Dialog.ShowMessageBox(
             "Potvrda deaktivacije",
@@ -335,10 +489,12 @@
             yesText: "Da, deaktiviraj",
             cancelText: "Odustani");
 
-        if (potvrda != true) return;
+        if (_disposed || potvrda != true) return;
 
         _entitet.aktivan = 0;
         await Db.SaveChangesAsync();
+        if (_disposed) return;
+
         Snackbar.Add("Vozač deaktiviran.", Severity.Info);
         MudDialog.Close(DialogResult.Ok(true));
     }
@@ -348,4 +504,9 @@
 
     private static DateOnly? ToDateOnly(DateTime? d)
         => d.HasValue ? DateOnly.FromDateTime(d.Value) : null;
+
+    public void Dispose()
+    {
+        _disposed = true;
+    }
 }
