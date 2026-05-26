@@ -6,6 +6,7 @@ public interface ITenantService
     string GetConnectionString();
     string GetNazivFirme();
     int GetPrivilegija();
+    int GetIdKorisnika();
     bool IsAuthenticated();
     void Logout();
 }

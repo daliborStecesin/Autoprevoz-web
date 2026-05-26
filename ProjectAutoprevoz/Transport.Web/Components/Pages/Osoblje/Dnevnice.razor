@@ -5,12 +5,13 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService    TenantService
-@inject NavigationManager Nav
-@inject TransportDbContext Db
-@inject IDialogService    Dialog
-@inject ISnackbar         Snackbar
-@inject IJSRuntime        JS
+@inject ITenantService         TenantService
+@inject IDefaultValuesService  DefaultValues
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IDialogService         Dialog
+@inject ISnackbar              Snackbar
+@inject IJSRuntime             JS
 
 <PageTitle>Dnevnice — Autoprevoz</PageTitle>
 
@@ -329,11 +330,21 @@
             .OrderBy(v => v.Ime).ThenBy(v => v.Prezime)
             .AsNoTracking()
             .ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+
+        var tipDefault = await DefaultValues.GetDefault("dnevnice", "tipDnevnice", uid);
+        if (tipDefault is not null) _filterTip = tipDefault;
+
+        var idVDefault = await DefaultValues.GetDefault("dnevnice", "idVozaca", uid);
+        if (idVDefault is not null && int.TryParse(idVDefault, out var idV))
+            _filterVozac = _sviVozaci.FirstOrDefault(v => v.Broj == idV);
     }
 
     private void OnTipChanged(ChangeEventArgs e)
     {
         _filterTip = e.Value?.ToString() ?? "KOMBINOVANO";
+        _ = DefaultValues.SaveDefault("dnevnice", "tipDnevnice", _filterTip, TenantService.GetIdKorisnika());
         StateHasChanged();
     }
 
@@ -360,6 +371,7 @@
         _filterVozac    = v;
         _vozacPretraga  = string.Empty;
         _vozaciPredlozi = [];
+        _ = DefaultValues.SaveDefault("dnevnice", "idVozaca", v.Broj.ToString(), TenantService.GetIdKorisnika());
         StateHasChanged();
     }
 

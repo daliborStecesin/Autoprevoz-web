@@ -5,12 +5,13 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService    TenantService
-@inject NavigationManager Nav
-@inject TransportDbContext Db
-@inject IDialogService    Dialog
-@inject ISnackbar         Snackbar
-@inject IJSRuntime        JS
+@inject ITenantService         TenantService
+@inject IDefaultValuesService  DefaultValues
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IDialogService         Dialog
+@inject ISnackbar              Snackbar
+@inject IJSRuntime             JS
 
 <PageTitle>Troškovi — Autoprevoz</PageTitle>
 
@@ -48,7 +49,7 @@
                             @foreach (var v in _voziloPredlozi)
                             {
                                 var vozilo = v;
-                                <div @onclick="() => IzaberiFilterVozilo(vozilo)"
+                                <div @onclick="async () => await IzaberiFilterVozilo(vozilo)"
                                      style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
                                     <span style="font-weight:600;">@v.registarskaOznaka</span>
                                     <span style="color:#666; margin-left:6px;">@v.marka @v.oznaka</span>
@@ -97,7 +98,7 @@
                             @foreach (var v in _vrstePredlozi)
                             {
                                 var vrsta = v;
-                                <div @onclick="@(async () => { _filterVrsta = vrsta; _vrstaPretraga = string.Empty; _vrstePredlozi = []; await Izlistaj(); })"
+                                <div @onclick="@(() => IzaberiVrstu(vrsta))"
                                      style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
                                     @vrsta
                                 </div>
@@ -325,6 +326,16 @@
             _vrste = ["GORIVO", "SERVIS", "PUTARINE DOM", "PUTARINE EUR",
                       "TERMINAL INO", "DNEVNICA DOM", "DNEVNICA INO", "OSTALO"];
 
+        var uid = TenantService.GetIdKorisnika();
+
+        var idVozilaDefault = await DefaultValues.GetDefault("troskovi", "idVozila", uid);
+        if (idVozilaDefault is not null && int.TryParse(idVozilaDefault, out var idVoz))
+            _filterVozilo = _svaVozila.FirstOrDefault(v => v.VoziloId == idVoz);
+
+        var vrstaDefault = await DefaultValues.GetDefault("troskovi", "vrstaTroska", uid);
+        if (vrstaDefault is not null && _vrste.Contains(vrstaDefault))
+            _filterVrsta = vrstaDefault;
+
         await Izlistaj();
     }
 
@@ -340,12 +351,22 @@
         StateHasChanged();
     }
 
-    private void IzaberiFilterVozilo(Vozilo v)
+    private async Task IzaberiFilterVozilo(Vozilo v)
     {
         _filterVozilo   = v;
         _voziloPretraga = string.Empty;
         _voziloPredlozi = [];
+        await DefaultValues.SaveDefault("troskovi", "idVozila", v.VoziloId.ToString(), TenantService.GetIdKorisnika());
         StateHasChanged();
+    }
+
+    private async Task IzaberiVrstu(string vrsta)
+    {
+        _filterVrsta   = vrsta;
+        _vrstaPretraga = string.Empty;
+        _vrstePredlozi = [];
+        await DefaultValues.SaveDefault("troskovi", "vrstaTroska", vrsta, TenantService.GetIdKorisnika());
+        await Izlistaj();
     }
 
     private void AzurirajVrstePredloge()

@@ -7,22 +7,21 @@ namespace Transport.Domain.Entities;
 public class DefaultValue
 {
     [Key]
-    [Column("DefaultId")]
     public int DefaultId { get; set; }
 
-    [MaxLength(50)]
-    public string? Forma { get; set; }
+    [Required, MaxLength(100)]
+    public string FormName { get; set; } = "";
+
+    [Required, MaxLength(150)]
+    public string ControlName { get; set; } = "";
 
     [MaxLength(50)]
-    public string? Kontrola { get; set; }
-
-    [MaxLength(100)]
-    public string? Korisnik { get; set; }
+    public string? ControlType { get; set; }
 
     [MaxLength(500)]
-    public string? Vrednost { get; set; }
+    public string? ValueText { get; set; }
 
-    public DateTime? DatumUnosa { get; set; }
+    public int UserId { get; set; }
 
-    public DateTime? DatumIzmene { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }

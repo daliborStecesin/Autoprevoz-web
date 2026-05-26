@@ -8,13 +8,15 @@ public class TenantService : ITenantService
 
     private string? _cachedConn;
     private string? _cachedFirma;
+    private int?    _cachedUserId;
 
     public TenantService(IHttpContextAccessor http) => _http = http;
 
     public void SetTenant(string connectionString, string nazivFirme, int idKorisnika, int privilegija)
     {
-        _cachedConn  = connectionString;
-        _cachedFirma = nazivFirme;
+        _cachedConn   = connectionString;
+        _cachedFirma  = nazivFirme;
+        _cachedUserId = idKorisnika;
     }
 
     public string GetConnectionString()
@@ -37,11 +39,20 @@ public class TenantService : ITenantService
         return int.TryParse(val, out var p) ? p : 0;
     }
 
+    public int GetIdKorisnika()
+    {
+        if (_cachedUserId.HasValue) return _cachedUserId.Value;
+        var val = _http.HttpContext?.Request.Cookies["ap_user"] ?? "0";
+        _cachedUserId = int.TryParse(val, out var id) ? id : 0;
+        return _cachedUserId.Value;
+    }
+
     public bool IsAuthenticated() => !string.IsNullOrEmpty(GetConnectionString());
 
     public void Logout()
     {
-        _cachedConn  = string.Empty;
-        _cachedFirma = string.Empty;
+        _cachedConn   = string.Empty;
+        _cachedFirma  = string.Empty;
+        _cachedUserId = 0;
     }
 }

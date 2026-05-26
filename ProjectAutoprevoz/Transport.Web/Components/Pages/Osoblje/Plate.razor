@@ -5,12 +5,13 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService    TenantService
-@inject NavigationManager Nav
-@inject TransportDbContext Db
-@inject IDialogService    Dialog
-@inject ISnackbar         Snackbar
-@inject IJSRuntime        JS
+@inject ITenantService         TenantService
+@inject IDefaultValuesService  DefaultValues
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IDialogService         Dialog
+@inject ISnackbar              Snackbar
+@inject IJSRuntime             JS
 
 <PageTitle>Plate — Autoprevoz</PageTitle>
 
@@ -68,7 +69,7 @@
             <div class="mb-2"><DateInput Label="DO" @bind-Value="_do" /></div>
             <div class="mb-3">
                 <label style="font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;">Status isplate</label>
-                <select @bind="_filterIsplaceno"
+                <select value="@_filterIsplaceno" @onchange="OnIsplacenoChanged"
                         style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
                                font-size:0.875rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer;
                                outline:none; height:36px;">
@@ -245,6 +246,15 @@
             .OrderBy(v => v.Ime).ThenBy(v => v.Prezime)
             .AsNoTracking()
             .ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+
+        var isplacenoDefault = await DefaultValues.GetDefault("plate", "filterIsplaceno", uid);
+        if (isplacenoDefault is not null) _filterIsplaceno = isplacenoDefault;
+
+        var idVDefault = await DefaultValues.GetDefault("plate", "idVozaca", uid);
+        if (idVDefault is not null && int.TryParse(idVDefault, out var idV))
+            _filterVozac = _sviVozaci.FirstOrDefault(v => v.Broj == idV);
     }
 
     private void AzurirajVozacePredloge()
@@ -259,11 +269,18 @@
         StateHasChanged();
     }
 
+    private void OnIsplacenoChanged(ChangeEventArgs e)
+    {
+        _filterIsplaceno = e.Value?.ToString() ?? "all";
+        _ = DefaultValues.SaveDefault("plate", "filterIsplaceno", _filterIsplaceno, TenantService.GetIdKorisnika());
+    }
+
     private void IzaberiFilterVozac(Vozac v)
     {
         _filterVozac = v;
         _vozacPretraga = string.Empty;
         _vozaciPredlozi.Clear();
+        _ = DefaultValues.SaveDefault("plate", "idVozaca", v.Broj.ToString(), TenantService.GetIdKorisnika());
     }
 
     private async Task Izlistaj()

@@ -48,6 +48,7 @@ builder.Services.AddScoped<IRacunService, RacunService>();
 builder.Services.AddScoped<ITransportService, TransportService>();
 builder.Services.AddScoped<IDnevnicaService, DnevnicaService>();
 builder.Services.AddScoped<IPdvService, PdvService>();
+builder.Services.AddScoped<IDefaultValuesService, DefaultValuesService>();
 
 // ============================================================================
 // INFRASTRUCTURE
@@ -118,9 +119,10 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
         Expires   = DateTimeOffset.UtcNow.AddHours(8)
     };
 
-    ctx.Response.Cookies.Append("ap_conn",  licenca.ConnectionString ?? string.Empty, opts);
-    ctx.Response.Cookies.Append("ap_firma", licenca.Naziv            ?? string.Empty, opts);
-    ctx.Response.Cookies.Append("ap_priv",  korisnik.Privilegija.ToString(),          opts);
+    ctx.Response.Cookies.Append("ap_conn",  licenca.ConnectionString      ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_firma", licenca.Naziv                ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_priv",  korisnik.Privilegija.ToString(),              opts);
+    ctx.Response.Cookies.Append("ap_user",  korisnik.IdKorisnika.ToString(),              opts);
 
     return Results.Ok(new
     {
@@ -139,6 +141,7 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
     ctx.Response.Cookies.Delete("ap_conn");
     ctx.Response.Cookies.Delete("ap_firma");
     ctx.Response.Cookies.Delete("ap_priv");
+    ctx.Response.Cookies.Delete("ap_user");
     return Results.Redirect("/login");
 });
 
