@@ -27,14 +27,14 @@
     .two-col .right .naslov { font-size: 10pt; font-weight: bold; margin-bottom: 6px; }
     .two-col .right .vozac-name { font-size: 13pt; font-weight: bold; color: #1a237e; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8px; }
-    thead th { background: #e8e8e8; font-weight: bold; padding: 6px 8px; border: 1px solid #aaa; white-space: nowrap; }
-    tbody td { padding: 5px 8px; border: 1px solid #ccc; vertical-align: top; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8px; table-layout: fixed; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 6px 8px; border: 1px solid #aaa; word-wrap: break-word; overflow-wrap: break-word; }
+    tbody td { padding: 5px 8px; border: 1px solid #ccc; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
     tbody tr:nth-child(even) td { background: #f8f8f8; }
     .right-align { text-align: right; }
 
     .footer-sums { margin-top: 20px; }
-    .footer-sums table { width: auto; margin-left: auto; }
+    .footer-sums table { width: auto; margin-left: auto; table-layout: auto; }
     .footer-sums td { padding: 4px 12px; border: 1px solid #aaa; font-weight: bold; }
     .footer-sums td:first-child { background: #e8e8e8; text-align: left; min-width: 180px; }
     .footer-sums td:last-child { text-align: right; min-width: 120px; }
@@ -117,16 +117,27 @@ else
         </div>
 
         <table>
+            <colgroup>
+                <col style="width:3%" />
+                <col style="width:5%" />
+                <col style="width:28%" />
+                <col style="width:6%" />
+                <col style="width:11%" />
+                <col style="width:11%" />
+                <col style="width:7%" />
+                <col style="width:9%" />
+                <col style="width:10%" />
+            </colgroup>
             <thead>
                 <tr>
                     <th>R.b</th>
-                    <th>Tip dnevnice</th>
+                    <th>Tip</th>
                     <th>Relacija</th>
                     <th>Nalog</th>
-                    <th>Datum polaska</th>
-                    <th>Datum dolaska</th>
-                    <th class="right-align">Br. dnevnica</th>
-                    <th class="right-align">Vrednost dnevnice</th>
+                    <th>Datum pol.</th>
+                    <th>Datum dol.</th>
+                    <th class="right-align">Br. dnevn.</th>
+                    <th class="right-align">Vrednost</th>
                     <th class="right-align">Ukupno</th>
                 </tr>
             </thead>
@@ -137,11 +148,11 @@ else
                     {
                         <tr>
                             <td>@(rb++)</td>
-                            <td>@d.tipDnevnice</td>
+                            <td>@(d.tipDnevnice == "INOSTRANA" ? "INO" : d.tipDnevnice == "DOMACA" ? "DOM" : d.tipDnevnice)</td>
                             <td>@d.relacija</td>
                             <td>@d.brNaloga</td>
-                            <td style="white-space:nowrap;">@d.datumPolaska?.ToString("dd.MM.yyyy HH:mm")</td>
-                            <td style="white-space:nowrap;">@d.datumDolaska?.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td style="white-space:nowrap;">@d.datumPolaska?.ToString("dd.MM.yy HH:mm")</td>
+                            <td style="white-space:nowrap;">@d.datumDolaska?.ToString("dd.MM.yy HH:mm")</td>
                             <td class="right-align">@d.brojDnevnica?.ToString("N2")</td>
                             <td class="right-align">@d.dnevnica?.ToString("N2")</td>
                             <td class="right-align" style="font-weight:600;">@d.Ukupno?.ToString("N2")</td>
@@ -151,22 +162,24 @@ else
             </tbody>
         </table>
 
-        <div class="footer-sums">
-            <table>
-                <tr>
-                    <td>Domaće dnevnice:</td>
-                    <td>@_sumaDomaciRSD.ToString("N2") RSD</td>
-                </tr>
-                <tr>
-                    <td>Inostrane dnevnice:</td>
-                    <td>@_sumaInoEUR.ToString("N2") EUR</td>
-                </tr>
-            </table>
-        </div>
+        <div style="page-break-inside: avoid;">
+            <div class="footer-sums">
+                <table>
+                    <tr>
+                        <td>Domaće dnevnice:</td>
+                        <td>@_sumaDomaciRSD.ToString("N2") RSD</td>
+                    </tr>
+                    <tr>
+                        <td>Inostrane dnevnice:</td>
+                        <td>@_sumaInoEUR.ToString("N2") EUR</td>
+                    </tr>
+                </table>
+            </div>
 
-        <div class="potpisi">
-            <div class="blok"><div class="linija">Zaposleni:</div></div>
-            <div class="blok"><div class="linija">Obračunao:</div></div>
+            <div class="potpisi">
+                <div class="blok"><div class="linija">Zaposleni:</div></div>
+                <div class="blok"><div class="linija">Obračunao:</div></div>
+            </div>
         </div>
 
         <div class="no-print">
