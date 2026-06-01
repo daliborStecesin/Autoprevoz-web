@@ -44,4 +44,8 @@ public class PodaciFirme
     // Trajne napomene na računu
     [Column("Napomena_3")]      public string? NapomenaTrajne1       { get; set; }
     [Column("Napomena_4")]      public string? NapomenaTrajne2       { get; set; }
+
+    // Logo firme (binary storage)
+    public byte[]? logoData     { get; set; }
+    [MaxLength(100)] public string? logoMimeType { get; set; }
 }

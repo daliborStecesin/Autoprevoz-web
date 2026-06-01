@@ -2,6 +2,31 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* Native <select> stilizovan poput MudTextField Outlined */
+.ap-select-label {
+    display: block;
+    font-size: .75rem;
+    color: rgba(0,0,0,.6);
+    padding-left: 4px;
+    margin-bottom: 4px;
+}
+.ap-select {
+    width: 100%;
+    height: 56px;
+    padding: 0 12px;
+    border: 1px solid rgba(0,0,0,.23);
+    border-radius: 4px;
+    font-size: 1rem;
+    color: rgba(0,0,0,.87);
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+}
+.ap-select:focus {
+    border-color: #2D3E50;
+    border-width: 2px;
+}
+
 a, .btn-link {
     color: #006bb7;
 }

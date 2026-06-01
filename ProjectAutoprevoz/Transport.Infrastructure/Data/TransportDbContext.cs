@@ -58,6 +58,7 @@ public class TransportDbContext : DbContext
     public DbSet<Sifarnik>      Sifarnici      { get; set; }
     public DbSet<PodaciFirme>   PodaciFirme    { get; set; }
     public DbSet<Banka>         Banke          { get; set; }
+    public DbSet<Podesavanja>   Podesavanja    { get; set; }
 
     // Podsetnici
     public DbSet<Potsetnik> Podsetnici { get; set; }
@@ -216,6 +217,11 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<ObavestenjePP>()
             .Property(o => o.Status)
             .HasColumnName("statust");
+
+        // kursEur zahteva 4 decimale
+        modelBuilder.Entity<Podesavanja>()
+            .Property(p => p.kursEur)
+            .HasPrecision(18, 4);
 
         // ============================================================================
         // DECIMALNA PRECIZNOST

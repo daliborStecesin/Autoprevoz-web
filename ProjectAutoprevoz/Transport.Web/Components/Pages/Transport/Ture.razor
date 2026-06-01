@@ -4,6 +4,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
+@using Transport.Application.Services
 @using ClosedXML.Excel
 
 @inject ITenantService          TenantService
@@ -656,27 +657,58 @@ else if (_ture.Count > 0)
 
     private async Task NovaTura()
     {
+        var tipTure = _filterVrsta == "AGENCIJSKI" ? "AGENCIJSKI" : "SOPSTVENI";
+
+        var pod     = await Db.Podesavanja.FirstOrDefaultAsync();
+        bool agenc  = tipTure == "AGENCIJSKI" && pod?.koristiOdvojeneBrojeve == 1;
+
+        int    brojac   = agenc ? (pod?.brTureAgencijski ?? 1) : (pod?.Broj_Kalkulacije ?? 1);
+        string format   = agenc
+            ? (pod?.formatBrojaTureAgencijski ?? "broj-godina4")
+            : (pod?.formatBrojaTure           ?? "broj-godina4");
+        int minCifara   = pod?.minCifaraBroja ?? 0;
+
+        string noviBroj = BrojDokumentaService.Formatiraj(brojac, format, minCifara, DateTime.Today);
+
+        // Provera duplikata
+        bool postoji = await Db.PutniNalozi
+            .AnyAsync(t => t.BrNaloga == noviBroj && t.Brisano == 0);
+
+        if (postoji)
+        {
+            var izbor = await Dialog.ShowMessageBox(
+                "Duplikat broja",
+                $"Dokument sa brojem '{noviBroj}' već postoji. Šta želite?",
+                yesText: "OSVEŽI BROJ",
+                noText:  "IPAK SAČUVAJ",
+                cancelText: "OTKAŽI");
+
+            if (izbor == null) return; // OTKAŽI
+
+            if (izbor == true) // OSVEŽI BROJ — skoči na sledeći
+            {
+                brojac  += 1;
+                noviBroj = BrojDokumentaService.Formatiraj(brojac, format, minCifara, DateTime.Today);
+            }
+            // false → IPAK SAČUVAJ sa istim brojem
+        }
+
+        await KreirajTuru(noviBroj, brojac, agenc, tipTure, pod);
+    }
+
+    private async Task KreirajTuru(string brTure, int brojac, bool agencijski,
+        string tipTure, Transport.Domain.Entities.Podesavanja? pod)
+    {
+        using var transaction = await Db.Database.BeginTransactionAsync();
         try
         {
-            var godina = DateTime.Today.ToString("yy");
-            var maxBr = await Db.PutniNalozi
-                .Where(t => t.BrNaloga != null && t.BrNaloga.EndsWith("/" + godina))
-                .ToListAsync();
-
-            int sledeci = 1;
-            foreach (var t in maxBr)
-            {
-                if (t.BrNaloga != null && int.TryParse(t.BrNaloga.Split('/')[0], out int br))
-                    sledeci = Math.Max(sledeci, br + 1);
-            }
-
             decimal kurs = 1;
             try { kurs = await NbsKurs.GetKursAsync(DateTime.Today); } catch { }
 
             var tura = new PutniNalogKamion
             {
-                BrNaloga       = sledeci + "/" + godina,
-                VrstaPrevoza   = "SOPSTVENI",
+                BrNaloga       = brTure,
+                VrstaPrevoza   = tipTure,
                 Status         = "U TOKU",
                 DatumDokumenta = DateTime.Today,
                 DatumPolaska   = DateTime.Now,
@@ -688,11 +720,24 @@ else if (_ture.Count > 0)
             };
 
             Db.PutniNalozi.Add(tura);
+
+            // Increment brojača (+1 posle upotrebe)
+            if (pod is not null)
+            {
+                if (agencijski)
+                    pod.brTureAgencijski = brojac + 1;
+                else
+                    pod.Broj_Kalkulacije = brojac + 1;
+            }
+
             await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
             Nav.NavigateTo($"/transport/nalozi/{tura.IdNaloga}");
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             Snackbar.Add($"Greška pri kreiranju ture: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
         }
     }

@@ -857,8 +857,8 @@ else if (_tura is not null)
 
         try { _tKurs = await NbsKurs.GetKursAsync(DateTime.Today); } catch { }
 
-        _cenaDomaca = await PovuciScalar("SELECT TOP 1 domacaDnevnica FROM tbl_Podesavanja", 3380m);
-        _cenaIno    = await PovuciScalar("SELECT TOP 1 inoDnevnica    FROM tbl_Podesavanja", 90m);
+        _cenaDomaca = await PovuciScalar("SELECT TOP 1 OpcijaDecimal1 FROM tbl_Podesavanja", 3380m);
+        _cenaIno    = await PovuciScalar("SELECT TOP 1 OpcijaDecimal2 FROM tbl_Podesavanja", 90m);
 
         await UcitajTuru();
     }

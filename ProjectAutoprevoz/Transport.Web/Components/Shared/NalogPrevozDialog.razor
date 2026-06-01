@@ -2,11 +2,13 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 @using Transport.Application.Interfaces
+@using Transport.Application.Services
 
 @inject TransportDbContext Db
 @inject ISnackbar          Snackbar
 @inject INbsKursService    NbsKurs
 @inject IJSRuntime         JS
+@inject IDialogService     Dialog
 
 <MudDialog Style="width:95vw; max-width:95vw; max-height:90vh;" ContentStyle="overflow-x:hidden; overflow-y:auto;">
     <TitleContent>
@@ -142,6 +144,24 @@
                 </select>
             </div>
         </div>
+
+        @* ── Br. naloga preview (samo za novi nalog) ── *@
+        @if (_nalog.IdNaloga == 0)
+        {
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; padding:5px 10px; background:#e8f5e9; border-radius:4px; border:1px solid #a5d6a7;">
+                <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Small" Color="Color.Success" />
+                <span style="font-size:0.78rem; color:rgba(0,0,0,.6); white-space:nowrap;">Br. naloga (automatski):</span>
+                @if (_pod?.automatskiBrojevi == 0)
+                {
+                    <input type="text" @bind="_brNalogaPreview"
+                           style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px; font-size:0.9rem; font-weight:600; color:#1b5e20; width:160px;" />
+                }
+                else
+                {
+                    <strong style="color:#1b5e20; font-size:0.9rem; letter-spacing:.03em;">@_brNalogaPreview</strong>
+                }
+            </div>
+        }
 
         <MudDivider Style="margin-bottom:8px;" />
 
@@ -585,6 +605,9 @@
     [Parameter] public PutniNalogKamion? Tura { get; set; }
 
     private NalogPrevoz _nalog = new();
+    private Transport.Domain.Entities.Podesavanja? _pod;
+    private string _brNalogaPreview = "";
+    private int    _sledeciBrojNaloga;
     private List<Partner> _sviPartneri = [];
 
     private string  _nPretraga  = "";
@@ -686,14 +709,39 @@
             .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
             .AsNoTracking().ToListAsync();
 
+        _pod = await Db.Podesavanja.FirstOrDefaultAsync();
+
         if (IdNaloga > 0)
             await UcitajZaIzmenu();
         else
+        {
+            var tipNaloga = Tura?.VrstaPrevoza ?? "SOPSTVENI";
+
+            // Izračunaj sledeći broj za preview (uzimamo vrednost iz baze direktno)
+            if (_pod?.koristiOdvojeneBrojeve == 1 && tipNaloga == "AGENCIJSKI")
+            {
+                _sledeciBrojNaloga = _pod.Broj_Dok_4 ?? 1;
+                _brNalogaPreview   = BrojDokumentaService.Formatiraj(
+                    _sledeciBrojNaloga,
+                    _pod.formatBrojaNalogaAgencijski ?? "broj-godina4",
+                    _pod.minCifaraBroja ?? 0,
+                    DateTime.Today);
+            }
+            else
+            {
+                _sledeciBrojNaloga = _pod?.Broj_Gotovinskog ?? 1;
+                _brNalogaPreview   = BrojDokumentaService.Formatiraj(
+                    _sledeciBrojNaloga,
+                    _pod?.formatBrojaNaloga ?? "broj-godina4",
+                    _pod?.minCifaraBroja ?? 0,
+                    DateTime.Today);
+            }
+
             _nalog = new NalogPrevoz
             {
                 IdPutnogNaloga = IdTure,
                 BrTure         = BrTure,
-                TipNaloga      = Tura?.VrstaPrevoza ?? "SOPSTVENI",
+                TipNaloga      = tipNaloga,
                 ValutaTure     = "INO (EUR)",
                 Status         = "U TOKU",
                 DatumDokumenta = DateTime.Today,
@@ -708,6 +756,7 @@
                 KursEUR        = Tura?.KursEUR ?? 1m,
                 Kolicina       = 1m,
             };
+        }
 
         try { _nalog.KursEUR = await NbsKurs.GetKursAsync(DateTime.Today); } catch { }
         await UcitajHistoriju();
@@ -793,31 +842,8 @@
 
         if (_nalog.IdNaloga == 0)
         {
-            try
-            {
-                var godina    = DateTime.Today.Year.ToString();
-                var sviNalozi = await Db.NaloziZaPrevoz
-                    .Where(n => n.BrNaloga != null && n.BrNaloga.StartsWith(godina))
-                    .Select(n => n.BrNaloga).ToListAsync();
-                int sledeci = 1;
-                foreach (var br in sviNalozi)
-                    if (br != null && br.Length > 4 && int.TryParse(br[4..], out int num))
-                        sledeci = Math.Max(sledeci, num + 1);
-                _nalog.BrNaloga = $"{godina}{sledeci:D4}";
-            }
-            catch { _nalog.BrNaloga = DateTime.Today.Year + "0001"; }
-
-            _nalog.IdPutnogNaloga = IdTure;
-            _nalog.BrTure         = BrTure;
-
-            try
-            {
-                _ucitava = true;
-                Db.NaloziZaPrevoz.Add(_nalog);
-                await Db.SaveChangesAsync();
-                MudDialog.Close(DialogResult.Ok(_nalog.IdNaloga));
-            }
-            catch (Exception ex) { _greska = ex.InnerException?.Message ?? ex.Message; }
+            _ucitava = true;
+            try   { await SacuvajNoviNalog(); }
             finally { _ucitava = false; }
         }
         else
@@ -871,6 +897,105 @@
             .AsNoTracking()
             .ToListAsync();
         _ucitavaTemplateove = false;
+    }
+
+    private async Task SacuvajNoviNalog()
+    {
+        var tipNaloga = _nalog.TipNaloga ?? "SOPSTVENI";
+
+        // Svež čitaj iz baze (bypass tracking cache)
+        var pod = _pod;
+        bool agencijski = pod?.koristiOdvojeneBrojeve == 1 && tipNaloga == "AGENCIJSKI";
+
+        string brNaloga;
+        int sledeciBroj;
+
+        if (pod?.automatskiBrojevi == 0)
+        {
+            brNaloga    = _brNalogaPreview;
+            sledeciBroj = 0;
+        }
+        else
+        {
+            sledeciBroj = agencijski ? (pod?.Broj_Dok_4 ?? 1) : (pod?.Broj_Gotovinskog ?? 1);
+            var fmt = agencijski
+                ? (pod?.formatBrojaNalogaAgencijski ?? "broj-godina4")
+                : (pod?.formatBrojaNaloga           ?? "broj-godina4");
+            brNaloga = BrojDokumentaService.Formatiraj(
+                sledeciBroj, fmt, pod?.minCifaraBroja ?? 0, DateTime.Today);
+        }
+
+        // Provera duplikata
+        bool postoji = await Db.NaloziZaPrevoz
+            .AnyAsync(n => n.BrNaloga == brNaloga && n.Brisano == 0);
+
+        if (postoji)
+        {
+            var izbor = await Dialog.ShowMessageBox(
+                "Duplikat broja",
+                $"Dokument sa brojem '{brNaloga}' već postoji. Šta želite?",
+                yesText: "OSVEŽI BROJ",
+                noText: "IPAK SAČUVAJ",
+                cancelText: "OTKAŽI");
+
+            if (izbor == null) return; // OTKAŽI
+
+            if (izbor == true) // OSVEŽI BROJ
+            {
+                await OsveziPodPreviewNaloga(agencijski, sledeciBroj + 1);
+                return;
+            }
+            // false → IPAK SAČUVAJ — nastaviti sa istim brojem
+        }
+
+        // Čuvanje u transakciji
+        using var transaction = await Db.Database.BeginTransactionAsync();
+        try
+        {
+            _nalog.BrNaloga       = brNaloga;
+            _nalog.IdPutnogNaloga = IdTure;
+            _nalog.BrTure         = BrTure;
+            Db.NaloziZaPrevoz.Add(_nalog);
+
+            // Increment brojača (+1 posle upotrebe)
+            if (pod is not null && sledeciBroj > 0)
+            {
+                if (agencijski)
+                    pod.Broj_Dok_4 = sledeciBroj + 1;
+                else
+                    pod.Broj_Gotovinskog = sledeciBroj + 1;
+            }
+
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            MudDialog.Close(DialogResult.Ok(_nalog.IdNaloga));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _greska = ex.InnerException?.Message ?? ex.Message;
+        }
+    }
+
+    // Osveži preview: skip duplikat → increment in-memory + save counter → prikaži novi broj
+    private async Task OsveziPodPreviewNaloga(bool agencijski, int noviBrojac)
+    {
+        if (_pod is null) return;
+
+        var fmt = agencijski
+            ? (_pod.formatBrojaNalogaAgencijski ?? "broj-godina4")
+            : (_pod.formatBrojaNaloga           ?? "broj-godina4");
+        int min = _pod.minCifaraBroja ?? 0;
+
+        if (agencijski)
+            _pod.Broj_Dok_4 = noviBrojac;
+        else
+            _pod.Broj_Gotovinskog = noviBrojac;
+
+        _brNalogaPreview = BrojDokumentaService.Formatiraj(noviBrojac, fmt, min, DateTime.Today);
+
+        await Db.SaveChangesAsync(); // sačuvaj skip counter odmah
+        StateHasChanged();
     }
 
     private async Task SacuvajTemplate()
