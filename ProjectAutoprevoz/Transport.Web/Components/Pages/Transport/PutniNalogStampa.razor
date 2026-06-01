@@ -1,0 +1,291 @@
+@page "/transport/putni-nalog/{Id:int}"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject TransportDbContext Db
+@inject NavigationManager  Nav
+@inject IJSRuntime         JS
+
+<PageTitle>Putni nalog @(_tura?.BrNaloga ?? "...") — Stampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 20px 32px; }
+
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .firm-block { font-size: 9pt; line-height: 1.6; }
+    .firm-block .naziv { font-size: 12pt; font-weight: bold; }
+
+    .doc-box { border: 2px solid #333; padding: 12px 20px; text-align: center; min-width: 240px; }
+    .doc-box .naslov { font-size: 11pt; font-weight: bold; letter-spacing: 1px; }
+    .doc-box .br-ture { font-size: 18pt; font-weight: bold; color: #1a237e; margin-top: 4px; }
+    .doc-box .datum { font-size: 9pt; color: #555; margin-top: 4px; }
+
+    .sekcija { margin: 10px 0; }
+    .sekcija .naslov { font-size: 8.5pt; font-weight: bold; background: #ebebeb;
+                       padding: 3px 8px; margin-bottom: 5px; border-left: 3px solid #333; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 5px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; }
+    .row { border-bottom: 1px solid #ddd; padding: 4px 6px; font-size: 9pt; }
+    .row .lbl { color: #555; font-size: 8pt; display: block; }
+    .row .val { font-weight: bold; }
+    .row.full { grid-column: 1 / -1; }
+    .row.highlight { background: #f0f4ff; }
+
+    table.troskovi { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 5px 0; }
+    table.troskovi thead th { background: #ebebeb; font-weight: bold; padding: 4px 6px; border: 1px solid #aaa; }
+    table.troskovi tbody td { padding: 3px 6px; border: 1px solid #ccc; }
+    table.troskovi tbody tr:nth-child(even) td { background: #f9f9f9; }
+    .ra { text-align: right; }
+
+    .potpisi { display: flex; justify-content: space-between; margin-top: 36px; }
+    .potpisi .blok { min-width: 160px; text-align: center; }
+    .potpisi .linija { border-top: 1px solid #333; margin-top: 28px; padding-top: 4px; font-size: 8.5pt; }
+
+    .no-print { margin-top: 20px; text-align: center; padding-bottom: 16px; }
+    .no-print button { padding: 6px 18px; font-size: 10pt; cursor: pointer; border: 1px solid #999;
+                       border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 9pt; }
+        thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .sekcija .naslov { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @@page { margin: 1.5cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje...</div>
+}
+else if (_tura is null)
+{
+    <div class="loading" style="color:#c62828;">Tura nije pronađena.<br /><br /><button onclick="window.history.back()">Nazad</button></div>
+}
+else
+{
+<div class="wrap">
+
+    @* ── Header ── *@
+    <div class="header-row">
+        <div class="firm-block">
+            @if (_firma is not null)
+            {
+                <div class="naziv">@_firma.NazivFirme</div>
+                <div>@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                <div>PIB: @_firma.PIB &nbsp;&nbsp; MB: @_firma.MaticniBroj</div>
+                @if (!string.IsNullOrWhiteSpace(_firma.Telefon)) { <div>Tel: @_firma.Telefon</div> }
+            }
+        </div>
+        <div class="doc-box">
+            <div class="naslov">NALOG ZA VOŽNJU</div>
+            <div class="br-ture">@_tura.BrNaloga</div>
+            <div class="datum">Datum: @_tura.DatumDokumenta?.ToString("dd.MM.yyyy")</div>
+            <div class="datum" style="margin-top:4px; font-weight:bold;">@_tura.VrstaPrevoza</div>
+        </div>
+    </div>
+
+    @* ── Osoblje i vozila ── *@
+    <div class="sekcija">
+        <div class="naslov">OSOBLJE I VOZNI PARK</div>
+        <div class="grid">
+            <div class="row"><span class="lbl">Vozač 1:</span><span class="val">@(_tura.Vozac1 ?? "—")</span></div>
+            <div class="row"><span class="lbl">Vozač 2:</span><span class="val">@(_tura.Vozac2 ?? "—")</span></div>
+            <div class="row"><span class="lbl">Vozilo:</span><span class="val">@(_tura.Vozilo ?? "—")</span></div>
+            <div class="row"><span class="lbl">Prikolica:</span><span class="val">@(_tura.Prikolica ?? "—")</span></div>
+        </div>
+    </div>
+
+    @* ── Relacija i planirano ── *@
+    <div class="sekcija">
+        <div class="naslov">RELACIJA</div>
+        <div class="grid">
+            <div class="row full highlight"><span class="lbl">Relacija:</span><span class="val">@(_tura.Relacija ?? "—")</span></div>
+            <div class="row"><span class="lbl">Planirano dana:</span><span class="val">@(_tura.PlaniranoDana ?? "—")</span></div>
+            <div class="row"><span class="lbl">Tip prevoza:</span><span class="val">@(_tura.TipPrevoza ?? "—")</span></div>
+        </div>
+    </div>
+
+    @* ── Datumi ── *@
+    <div class="sekcija">
+        <div class="naslov">DATUMI</div>
+        <div class="grid">
+            <div class="row"><span class="lbl">Datum polaska:</span><span class="val">@_tura.DatumPolaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="row"><span class="lbl">Datum dolaska:</span><span class="val">@_tura.DatumDolaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="row"><span class="lbl">Izlazak iz zemlje:</span><span class="val">@_tura.DatumIzlaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="row"><span class="lbl">Ulazak u zemlju:</span><span class="val">@_tura.DatumUlaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+        </div>
+    </div>
+
+    @* ── Kilometraža ── *@
+    <div class="sekcija">
+        <div class="naslov">KILOMETRAŽA I GORIVO</div>
+        <div class="grid-3">
+            <div class="row"><span class="lbl">KM početna:</span><span class="val">@_tura.KmPocetna?.ToString("N0")</span></div>
+            <div class="row"><span class="lbl">KM završna:</span><span class="val">@_tura.KmTrenutna?.ToString("N0")</span></div>
+            <div class="row highlight"><span class="lbl">KM pređeno:</span><span class="val">@_tura.Predjeno?.ToString("N0") km</span></div>
+            <div class="row"><span class="lbl">Gorivo start (L):</span><span class="val">@_tura.GorivoStart?.ToString("N1")</span></div>
+            <div class="row"><span class="lbl">Gorivo kraj (L):</span><span class="val">@_tura.GorivoEnd?.ToString("N1")</span></div>
+            <div class="row highlight"><span class="lbl">Utrošeno (L):</span><span class="val">@_tura.GorivoUtroseno?.ToString("N1")</span></div>
+        </div>
+    </div>
+
+    @* ── Akontacije ── *@
+    <div class="sekcija">
+        <div class="naslov">AKONTACIJE</div>
+        <div class="grid">
+            <div class="row"><span class="lbl">Akontacija domaća (RSD):</span><span class="val">@_tura.AkontacijaDom?.ToString("N2")</span></div>
+            <div class="row"><span class="lbl">Akontacija inostrana (EUR):</span><span class="val">@_tura.AkontacijaIno?.ToString("N2")</span></div>
+            <div class="row"><span class="lbl">Kurs EUR:</span><span class="val">@_tura.KursEUR?.ToString("N4")</span></div>
+        </div>
+    </div>
+
+    @* ── Troškovi ── *@
+    @if (_troskovi.Count > 0)
+    {
+        <div class="sekcija">
+            <div class="naslov">PUTNI TROŠKOVI (@_troskovi.Count)</div>
+            <table class="troskovi">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">Datum</th>
+                        <th>Vrsta troška</th>
+                        <th style="width:80px;" class="ra">Vrednost (RSD)</th>
+                        <th style="width:80px;" class="ra">Vrednost (EUR)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in _troskovi)
+                    {
+                        <tr>
+                            <td>@t.datum?.ToString("dd.MM.yy")</td>
+                            <td>@(t.vrstaTroska ?? "—")</td>
+                            <td class="ra">@t.vrednost?.ToString("N2")</td>
+                            <td class="ra">@t.vrednostEUR?.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div style="text-align:right; font-size:8.5pt; margin-top:3px;">
+                Ukupno RSD: <strong>@_troskovi.Sum(t => t.vrednost ?? 0).ToString("N2")</strong> &nbsp;&nbsp;
+                Ukupno EUR: <strong>@_troskovi.Sum(t => t.vrednostEUR ?? 0).ToString("N2")</strong>
+            </div>
+        </div>
+    }
+
+    @* ── Dnevnice ── *@
+    @if (_dnevnice.Count > 0)
+    {
+        <div class="sekcija">
+            <div class="naslov">DNEVNICE</div>
+            <table class="troskovi">
+                <thead>
+                    <tr>
+                        <th>Vozač</th>
+                        <th>Tip</th>
+                        <th class="ra" style="width:70px;">Sati</th>
+                        <th class="ra" style="width:70px;">Br. dn.</th>
+                        <th class="ra" style="width:80px;">Cena (RSD)</th>
+                        <th class="ra" style="width:90px;">Ukupno (RSD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dn in _dnevnice)
+                    {
+                        <tr>
+                            <td>@(dn.vozac ?? "—")</td>
+                            <td>@dn.tipDnevnice</td>
+                            <td class="ra">@dn.brCasova?.ToString("N1")</td>
+                            <td class="ra">@dn.brojDnevnica?.ToString("N2")</td>
+                            <td class="ra">@dn.dnevnica?.ToString("N2")</td>
+                            <td class="ra"><strong>@dn.Ukupno?.ToString("N2")</strong></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @* ── Napomene iz naloga ── *@
+    @{
+        var napomene = string.Join("\n", _nalozi
+            .Where(n => !string.IsNullOrWhiteSpace(n.Napomena1))
+            .Select(n => $"[{n.BrNaloga}] {n.Napomena1}")
+            .Distinct());
+    }
+    @if (!string.IsNullOrWhiteSpace(napomene))
+    {
+        <div class="sekcija">
+            <div class="naslov">NAPOMENE</div>
+            <div style="font-size:8.5pt; padding:6px; border:1px solid #ddd; white-space:pre-wrap;">@napomene</div>
+        </div>
+    }
+
+    @* ── Potpisi ── *@
+    <div class="potpisi">
+        <div class="blok"><div class="linija">Vozač 1: @(_tura.Vozac1 ?? "________________")</div></div>
+        @if (!string.IsNullOrWhiteSpace(_tura.Vozac2))
+        {
+            <div class="blok"><div class="linija">Vozač 2: @_tura.Vozac2</div></div>
+        }
+        <div class="blok"><div class="linija">Dispečer / Ovlašćeni potpis</div></div>
+    </div>
+
+</div>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Štampaj</button>
+    <button onclick="window.close()">✕ Zatvori</button>
+</div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PutniNalogKamion? _tura;
+    private List<NalogPrevoz> _nalozi   = [];
+    private List<Trosak>      _troskovi = [];
+    private List<Dnevnica>    _dnevnice = [];
+    private PodaciFirme?      _firma;
+    private bool              _ucitava  = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        try
+        {
+            _firma = await Db.PodaciFirme.FirstOrDefaultAsync();
+            _tura  = await Db.PutniNalozi.IgnoreQueryFilters()
+                              .FirstOrDefaultAsync(t => t.IdNaloga == Id);
+
+            if (_tura is not null)
+            {
+                var brNaloga = _tura.BrNaloga;
+                _nalozi   = await Db.NaloziZaPrevoz.Where(n => n.IdPutnogNaloga == Id).AsNoTracking().ToListAsync();
+                _troskovi = await Db.Troskovi.Where(t => t.idNaloga == Id).AsNoTracking().ToListAsync();
+                _dnevnice = await Db.Dnevnice.Where(d => d.brNaloga == brNaloga).AsNoTracking().ToListAsync();
+            }
+        }
+        catch { }
+        finally { _ucitava = false; StateHasChanged(); }
+
+        if (_tura is not null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+}

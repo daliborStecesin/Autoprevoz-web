@@ -1,0 +1,305 @@
+@page "/transport/nalog-transport/{IdNaloga:int}"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject TransportDbContext Db
+@inject NavigationManager  Nav
+@inject IJSRuntime         JS
+
+<PageTitle>Nalog za transport @(_nalog?.BrNaloga ?? "...") — Stampa</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 20px 32px; }
+
+    /* ── Strana 1 ── */
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .firm-block { font-size: 9pt; line-height: 1.6; }
+    .firm-block .naziv { font-size: 12pt; font-weight: bold; }
+
+    .doc-naslov { font-size: 14pt; font-weight: bold; text-align: center;
+                  border-top: 2px solid #000; border-bottom: 2px solid #000;
+                  padding: 8px 0; margin: 12px 0; letter-spacing: 1px; }
+    .doc-br { text-align: center; font-size: 10pt; margin-bottom: 16px; color: #333; }
+    .doc-br strong { font-size: 13pt; color: #1a237e; }
+
+    .blok { border: 1px solid #333; padding: 10px 14px; margin-bottom: 10px; }
+    .blok .naslov { font-size: 8pt; color: #555; text-transform: uppercase;
+                    font-weight: bold; margin-bottom: 5px; letter-spacing: 0.5px; }
+    .blok .vrednost { font-size: 10.5pt; font-weight: bold; color: #000; line-height: 1.5; }
+    .blok .sub { font-size: 8.5pt; color: #444; margin-top: 3px; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+    .info-row { font-size: 9pt; margin-bottom: 5px; }
+    .info-row .lbl { color: #555; min-width: 130px; display: inline-block; }
+    .info-row .val { font-weight: bold; }
+
+    .napomena-box { border: 1px dashed #666; padding: 8px 12px; margin-top: 10px;
+                    font-size: 9pt; min-height: 40px; background: #fafafa; }
+
+    .cena-box { border: 2px solid #1a237e; padding: 10px 16px; text-align: center; display: inline-block; min-width: 200px; }
+    .cena-box .lbl { font-size: 8.5pt; color: #555; }
+    .cena-box .iznos { font-size: 16pt; font-weight: bold; color: #1a237e; }
+    .cena-box .valuta { font-size: 9pt; font-weight: normal; }
+
+    .potpisi { display: flex; justify-content: space-between; margin-top: 40px; }
+    .potpisi .blok-p { min-width: 200px; text-align: center; }
+    .potpisi .linija { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 8.5pt; }
+
+    /* ── Strana 2 — Uslovi ── */
+    .page-break { page-break-before: always; padding-top: 20px; }
+    .uslovi-naslov { font-size: 12pt; font-weight: bold; text-align: center;
+                     margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    .uslovi-text { font-size: 8.5pt; line-height: 1.7; color: #222; }
+    .uslovi-text p { margin-bottom: 8px; }
+    .uslovi-text strong { font-weight: bold; }
+
+    .no-print { margin-top: 20px; text-align: center; padding-bottom: 16px; }
+    .no-print button { padding: 6px 18px; font-size: 10pt; cursor: pointer; border: 1px solid #999;
+                       border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 9pt; }
+        @@page { margin: 1.5cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje...</div>
+}
+else if (_nalog is null)
+{
+    <div class="loading" style="color:#c62828;">Nalog nije pronađen.<br /><br /><button onclick="window.history.back()">Nazad</button></div>
+}
+else
+{
+
+@* ══════════════════════════════════════════════
+   STRANA 1: NALOG ZA TRANSPORT
+   ══════════════════════════════════════════════ *@
+<div class="wrap">
+
+    @* Header: firma desno, logo levo *@
+    <div class="header-row">
+        <div></div>
+        <div class="firm-block" style="text-align:right;">
+            @if (_firma is not null)
+            {
+                <div class="naziv">@_firma.NazivFirme</div>
+                <div>@_firma.Adresa, @_firma.PosBroj @_firma.Mesto</div>
+                <div>PIB: @_firma.PIB &nbsp;&nbsp; MB: @_firma.MaticniBroj</div>
+                @if (!string.IsNullOrWhiteSpace(_firma.Telefon))
+                { <div>Tel: @_firma.Telefon</div> }
+                @if (!string.IsNullOrWhiteSpace(_firma.mail))
+                { <div>@_firma.mail</div> }
+            }
+        </div>
+    </div>
+
+    <div class="doc-naslov">NALOG ZA TRANSPORT</div>
+    <div class="doc-br">
+        Broj naloga: <strong>@_nalog.BrNaloga</strong>
+        &nbsp;&nbsp;&nbsp;
+        Br. ture: <strong>@(_nalog.BrTure ?? "—")</strong>
+        &nbsp;&nbsp;&nbsp;
+        Datum: @_nalog.DatumDokumenta?.ToString("dd.MM.yyyy")
+    </div>
+
+    @* Nalogodavac + Prevoznik *@
+    <div class="two-col">
+        <div class="blok">
+            <div class="naslov">Nalogodavac (stranka)</div>
+            <div class="vrednost">@(_nalog.Uvoznik ?? "—")</div>
+        </div>
+        <div class="blok">
+            <div class="naslov">Prevoznik</div>
+            <div class="vrednost">@(_nalog.Napomena2 ?? (_firma?.NazivFirme ?? "SOPSTVENI"))</div>
+            @if (!string.IsNullOrWhiteSpace(_nalog.Vozac))
+            { <div class="sub">Vozač: @_nalog.Vozac</div> }
+            @if (!string.IsNullOrWhiteSpace(_nalog.Vozilo))
+            { <div class="sub">Vozilo: @_nalog.Vozilo</div> }
+        </div>
+    </div>
+
+    @* Utovarna / Istovarna stanica *@
+    <div class="two-col">
+        <div class="blok">
+            <div class="naslov">Mesto utovara</div>
+            <div class="vrednost">@(_nalog.MestoUtovara ?? "—")</div>
+            @if (!string.IsNullOrWhiteSpace(_nalog.AdresaUtovara))
+            { <div class="sub">@_nalog.AdresaUtovara</div> }
+            @if (_nalog.DatumUtovara.HasValue)
+            { <div class="sub">Datum: @_nalog.DatumUtovara.Value.ToString("dd.MM.yyyy HH:mm")</div> }
+            @if (!string.IsNullOrWhiteSpace(_nalog.IzvoznoCarinjenje))
+            { <div class="sub">Carinjenje: @_nalog.IzvoznoCarinjenje</div> }
+        </div>
+        <div class="blok">
+            <div class="naslov">Mesto istovara</div>
+            <div class="vrednost">@(_nalog.MestoIstovara ?? "—")</div>
+            @if (!string.IsNullOrWhiteSpace(_nalog.AdresaIstovara))
+            { <div class="sub">@_nalog.AdresaIstovara</div> }
+            @if (_nalog.DatumIstovara.HasValue)
+            { <div class="sub">Datum: @_nalog.DatumIstovara.Value.ToString("dd.MM.yyyy HH:mm")</div> }
+            @if (!string.IsNullOrWhiteSpace(_nalog.UvoznoCarinjenje))
+            { <div class="sub">Carinjenje: @_nalog.UvoznoCarinjenje</div> }
+        </div>
+    </div>
+
+    @* Podaci o robi *@
+    @if (!string.IsNullOrWhiteSpace(_nalog.PodaciORobi))
+    {
+        <div class="blok" style="margin-bottom:10px;">
+            <div class="naslov">Podaci o robi / Roba</div>
+            <div class="vrednost" style="font-size:9.5pt; font-weight:normal; white-space:pre-wrap;">@_nalog.PodaciORobi</div>
+        </div>
+    }
+
+    @* Finansije + Kontakt *@
+    <div class="two-col">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            @* Cena transporta *@
+            <div style="text-align:center;">
+                <div class="cena-box">
+                    <div class="lbl">Cena transporta</div>
+                    <div class="iznos">@_nalog.CenaTransporta?.ToString("N2") <span class="valuta">@(_nalog.ValutaTure?.Split(' ').LastOrDefault() ?? "EUR")</span></div>
+                    @if (!string.IsNullOrWhiteSpace(_nalog.UsloviPlacanja))
+                    { <div class="lbl" style="margin-top:4px;">@_nalog.UsloviPlacanja</div> }
+                </div>
+            </div>
+            @* CMR / Nalog referentni *@
+            <div>
+                @if (!string.IsNullOrWhiteSpace(_nalog.CMR))
+                {
+                    <div class="info-row"><span class="lbl">CMR broj:</span><span class="val">@_nalog.CMR</span></div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_nalog.Nalog))
+                {
+                    <div class="info-row"><span class="lbl">Ref. nalog klijenta:</span><span class="val">@_nalog.Nalog</span></div>
+                }
+            </div>
+        </div>
+        <div>
+            @* Kontakt *@
+            @if (!string.IsNullOrWhiteSpace(_nalog.Kontakt))
+            {
+                <div class="blok">
+                    <div class="naslov">Kontakt</div>
+                    <div class="vrednost" style="font-weight:normal; font-size:9.5pt;">@_nalog.Kontakt</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Napomena *@
+    @if (!string.IsNullOrWhiteSpace(_nalog.Napomena1))
+    {
+        <div style="margin-bottom:10px;">
+            <div style="font-size:8.5pt; font-weight:bold; color:#555; margin-bottom:3px;">NAPOMENA:</div>
+            <div class="napomena-box">@_nalog.Napomena1</div>
+        </div>
+    }
+
+    @* Klauzule *@
+    <div style="font-size:8pt; color:#555; margin-top:6px; border-top:1px dashed #ccc; padding-top:6px;">
+        Prevoz se vrši prema CMR Konvenciji i opštim uslovima prevoza. Uslovi na poleđini naloga.
+    </div>
+
+    @* Potpisi *@
+    <div class="potpisi">
+        <div class="blok-p">
+            <div class="linija">Nalogodavac</div>
+        </div>
+        <div class="blok-p">
+            <div class="linija">Prevoznik / Dispečer</div>
+        </div>
+        <div class="blok-p">
+            <div class="linija">Vozač</div>
+        </div>
+    </div>
+
+</div>
+
+@* ══════════════════════════════════════════════
+   STRANA 2: USLOVI PREVOZA
+   ══════════════════════════════════════════════ *@
+<div class="wrap page-break">
+
+    <div class="uslovi-naslov">OPŠTI USLOVI PREVOZA ROBE</div>
+
+    <div class="uslovi-text">
+        <p><strong>1. PRIMENA CMR KONVENCIJE</strong><br />
+        Na sve ugovore o međunarodnom prevozu robe primenjuje se Konvencija o ugovoru o međunarodnom prevozu robe (CMR), usvojena u Ženevi 19. maja 1956. godine, sa Protokolom iz 1978. godine. Na domaći prevoz primenjuju se važeći propisi Republike Srbije.</p>
+
+        <p><strong>2. PREUZIMANJE ROBE</strong><br />
+        Prevoznik je dužan da preuzme robu u mestu i vreme utovara označenim u nalogu, u skladu sa uputstvima nalogodavca. Prevoznik mora proveriti tačnost podataka u CMR tovarnom listu u pogledu broja komada, oznaka i stanja ambalaže.</p>
+
+        <p><strong>3. ODGOVORNOST PREVOZNIKA</strong><br />
+        Prevoznik odgovara za potpuni ili delimični gubitak robe ili za njeno oštećenje nastalo u vremenu od preuzimanja robe do isporuke. Odgovornost prevoznika je ograničena u skladu sa CMR Konvencijom na iznos od 8,33 SDR po kilogramu bruto mase nedostajuće robe.</p>
+
+        <p><strong>4. ISPLATA VOZARINE</strong><br />
+        Vozarina i troškovi navedeni u nalogu dospevaju na plaćanje u roku i na način označen u nalogu. U slučaju kašnjenja plaćanja obračunava se zatezna kamata prema važećim propisima. Prevoznik zadržava pravo zaloge na robi do isplate svih dugovanja.</p>
+
+        <p><strong>5. ROKOVI ISPORUKE</strong><br />
+        Prevoznik je dužan da dostavi robu u roku navedenom u nalogu ili u razumnom roku ako rok nije naveden. U slučaju kašnjenja isporuke prouzrokovanog krivicom prevoznika, nalogodavac ima pravo na naknadu štete.</p>
+
+        <p><strong>6. OSIGURANJE</strong><br />
+        Prevoznik je dužan da ima ugovoreno obavezno osiguranje od odgovornosti za štetu pričinjenu trećim licima. Nalogodavac je dužan da osigura robu ukoliko želi dodatnu pokrivenost iznad zakonskog limita.</p>
+
+        <p><strong>7. REKLAMACIJE</strong><br />
+        Vidljive manjkavosti i oštećenja moraju biti naznačena na tovarnom listu pri preuzimanju robe. Primedbe na skrivena oštećenja moraju se podneti pisanim putem u roku od 7 dana od isporuke. Tužba zastareva u roku od jedne godine, a kod namere ili grube nepažnje u roku od tri godine.</p>
+
+        <p><strong>8. NADLEŽNOST</strong><br />
+        Za sve sporove koji mogu nastati iz ovog naloga za prevoz nadležan je sud prema sedištu prevoznika, ukoliko nije drugačije dogovoreno. Merodavno pravo je pravo Republike Srbije, uz primenu CMR Konvencije gde je primenjiva.</p>
+    </div>
+
+</div>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Štampaj</button>
+    <button onclick="window.close()">✕ Zatvori</button>
+</div>
+
+}
+
+@code {
+    [Parameter] public int IdNaloga { get; set; }
+
+    private NalogPrevoz? _nalog;
+    private PodaciFirme? _firma;
+    private bool         _ucitava = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        try
+        {
+            _firma  = await Db.PodaciFirme.FirstOrDefaultAsync();
+            _nalog  = await Db.NaloziZaPrevoz
+                               .IgnoreQueryFilters()
+                               .AsNoTracking()
+                               .FirstOrDefaultAsync(n => n.IdNaloga == IdNaloga);
+        }
+        catch { }
+        finally { _ucitava = false; StateHasChanged(); }
+
+        if (_nalog is not null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+}

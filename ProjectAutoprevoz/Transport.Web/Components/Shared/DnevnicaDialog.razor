@@ -525,9 +525,13 @@
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public int     IdDnevnica      { get; set; }
-    [Parameter] public string? BrNalogaEdit   { get; set; }
-    [Parameter] public string? IdVozacaStrEdit { get; set; }
+    [Parameter] public int       IdDnevnica           { get; set; }
+    [Parameter] public string?  BrNalogaEdit         { get; set; }
+    [Parameter] public string?  IdVozacaStrEdit       { get; set; }
+    [Parameter] public DateTime? DatumPolaskaDefault  { get; set; }
+    [Parameter] public DateTime? DatumIzlaskaDefault  { get; set; }
+    [Parameter] public DateTime? DatumUlaskaDefault   { get; set; }
+    [Parameter] public DateTime? DatumDolaskaDefault  { get; set; }
 
     private const string _lblStyle = "font-size:0.75rem; color:rgba(0,0,0,0.54); display:block; margin-bottom:4px;";
     private const string _selStyle = "width:100%; height:38px; padding:4px 10px; border:1px solid rgba(0,0,0,0.23); " +
@@ -652,7 +656,34 @@
         var dom  = redovi.FirstOrDefault(r => r.tipDnevnice == "DOMACA");
         var ino  = redovi.FirstOrDefault(r => r.tipDnevnice == "INOSTRANA");
         var ref_ = dom ?? ino;
-        if (ref_ is null) return;
+        if (ref_ is null)
+        {
+            _brNaloga = BrNalogaEdit ?? string.Empty;
+            if (!string.IsNullOrEmpty(IdVozacaStrEdit) && int.TryParse(IdVozacaStrEdit, out var vBrNew))
+                _selVozac = _sviVozaci.FirstOrDefault(v => v.Broj == vBrNew);
+            if (DatumPolaskaDefault.HasValue)
+            {
+                _polazakDatum = DatumPolaskaDefault.Value.ToString("yyyy-MM-dd");
+                _polazakVreme = DatumPolaskaDefault.Value.ToString("HH:mm");
+            }
+            if (DatumIzlaskaDefault.HasValue)
+            {
+                _izlazakDatum = DatumIzlaskaDefault.Value.ToString("yyyy-MM-dd");
+                _izlazakVreme = DatumIzlaskaDefault.Value.ToString("HH:mm");
+            }
+            if (DatumUlaskaDefault.HasValue)
+            {
+                _ulazakDatum = DatumUlaskaDefault.Value.ToString("yyyy-MM-dd");
+                _ulazakVreme = DatumUlaskaDefault.Value.ToString("HH:mm");
+            }
+            if (DatumDolaskaDefault.HasValue)
+            {
+                _dolazakDatum = DatumDolaskaDefault.Value.ToString("yyyy-MM-dd");
+                _dolazakVreme = DatumDolaskaDefault.Value.ToString("HH:mm");
+            }
+            ObezbediHronologijuIPreraCunaj();
+            return;
+        }
 
         _brNaloga       = ref_.brNaloga ?? string.Empty;
         _relacija       = ref_.relacija;

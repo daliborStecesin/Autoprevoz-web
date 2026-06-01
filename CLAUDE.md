@@ -56,7 +56,7 @@ MudBlazor tema: Primary `#2D3E50`, Secondary `#3D8EB9`, Background `#F5F7FA`, Dr
 - [x] **FAZA 2 — Dnevnice** (CRUD, obračun po minutima, 4 vrste štampe, označi plaćeno)
 - [ ] Plate
 - [ ] Šifarnici
-- [ ] Transport/Ture
+- [x] **Transport/Ture** (lista tura, detalj+3 taba, nalozi CRUD, troškovi inline, plate/dnevnice, 3 štampe)
 - [ ] Finansije
 - [ ] Fakturisanje
 - [ ] E-fakture

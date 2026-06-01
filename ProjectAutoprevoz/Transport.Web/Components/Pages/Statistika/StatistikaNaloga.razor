@@ -1,0 +1,642 @@
+@page "/statistika/nalozi"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Web.Components.Shared
+@using ClosedXML.Excel
+
+@inject ITenantService        TenantService
+@inject IDefaultValuesService DefaultValues
+@inject TransportDbContext    Db
+@inject IDialogService        Dialog
+@inject NavigationManager     Nav
+@inject IJSRuntime            JS
+@inject ISnackbar             Snackbar
+
+<PageTitle>Statistika naloga — Autoprevoz</PageTitle>
+
+<div class="d-flex align-center gap-2 mb-2">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="mr-2" />
+        Statistika naloga
+    </MudText>
+    @if (_sviNalozi.Count > 0)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportExcel">
+            Excel
+        </MudButton>
+    }
+</div>
+
+@* ── Filter bar ── *@
+<MudPaper Elevation="1" Class="pa-2 mb-3">
+    <div class="d-flex flex-wrap gap-2 align-center">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Godina:</span>
+            <select @bind="_godina" style="@Sel">
+                @for (int g = DateTime.Today.Year; g >= 2023; g--)
+                { var yr = g; <option value="@yr">@yr</option> }
+            </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Mesec:</span>
+            <select @bind="_mesec" style="@Sel">
+                <option value="0">SVI MESECI</option>
+                @for (int m = 1; m <= 12; m++)
+                { var mm = m; <option value="@mm">@MesecNaziv(mm)</option> }
+            </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Tip naloga:</span>
+            <select @bind="_tip" style="@Sel">
+                <option value="">SVE</option>
+                <option value="SOPSTVENI">SOPSTVENI</option>
+                <option value="AGENCIJSKI">AGENCIJSKI</option>
+            </select>
+        </div>
+
+        @* Prevoznik autocomplete *@
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Prevoznik:</span>
+            <div style="position:relative; min-width:180px;">
+                @if (_filterPrevoznik is null)
+                {
+                    <input type="text" value="@_prevoznikPretraga" placeholder="Svi prevoznici..."
+                           @oninput="@(e => { _prevoznikPretraga = e.Value?.ToString() ?? ""; _prevozniciDrop = FiltrirajPartnere(_prevoznikPretraga); _prevoznikOpen = true; })"
+                           @onfocus="@(() => { _prevozniciDrop = FiltrirajPartnere(_prevoznikPretraga); _prevoznikOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _prevoznikOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_prevoznikOpen && _prevozniciDrop.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var p in _prevozniciDrop) { var pp = p;
+                                <div @onclick="@(() => { _filterPrevoznik = pp; _prevoznikPretraga = ""; _prevoznikOpen = false; })" style="@DropItem">
+                                    <strong>@p.Naziv</strong>
+                                    @if (!string.IsNullOrWhiteSpace(p.Mesto))
+                                    { <span style="color:#888; margin-left:4px;">— @p.Mesto</span> }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">@_filterPrevoznik.Naziv</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(() => { _filterPrevoznik = null; _prevoznikPretraga = ""; })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <MudCheckBox @bind-Value="_samoNeplaceni" Label="Samo neplaćeni" Color="Color.Warning" Size="Size.Small" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Prikazi"
+                   Disabled="_ucitava" StartIcon="@Icons.Material.Filled.Search">
+            Prikaži
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Reset"
+                   StartIcon="@Icons.Material.Filled.FilterListOff">
+            Reset
+        </MudButton>
+
+    </div>
+</MudPaper>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+}
+
+@if (!_ucitava && _sviNalozi.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Nema podataka za izabrane filtere.</MudAlert>
+}
+else if (_sviNalozi.Count > 0)
+{
+    @* ── Summary kartice ── *@
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="6" md="@(UkupnoRazlika > 0m ? 2 : 3)">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption">Ukupno naloga</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#2D3E50;">@_nalozi.Count</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="@(UkupnoRazlika > 0m ? 2 : 3)">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption">Završeni</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#2E7D32;">@BrZavrsenih</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="@(UkupnoRazlika > 0m ? 3 : 3)">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption">Ukupna vrednost</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; color:#1565C0;">@UkupnoVrednost.ToString("N2") EUR</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="@(UkupnoRazlika > 0m ? 3 : 3)">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption">Ukupno naplaćeno</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; color:#2E7D32;">@UkupnoPlaceno.ToString("N2") EUR</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        @if (UkupnoRazlika > 0m)
+        {
+            <MudItem xs="12" md="2">
+                <MudCard Elevation="2" Style="border:2px solid #C62828;">
+                    <MudCardContent Class="pa-3 text-center">
+                        <MudText Typo="Typo.caption" Color="Color.Error">Ukupna razlika</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700; color:#C62828;">@UkupnoRazlika.ToString("N2") EUR</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+
+    @* ── Grafikoni ── *@
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Nalozi po mesecima (@_godina)</MudText>
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="_barSeries"
+                          XAxisLabels="_xMeseci"
+                          Width="100%" Height="260px"
+                          ChartOptions="_chartOpts" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Prihodi po mesecima (EUR)</MudText>
+                <MudChart ChartType="ChartType.Line"
+                          ChartSeries="_lineSeries"
+                          XAxisLabels="_xMeseci"
+                          Width="100%" Height="260px"
+                          ChartOptions="_chartOpts" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* ── Top 10 nalogodavaca ── *@
+    <MudPaper Elevation="2" Class="pa-3 mb-3">
+        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Top 10 nalogodavaca</MudText>
+        <MudDataGrid T="PartnerStat" Items="_topNalogodavci" Dense="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Naziv" Title="Nalogodavac" />
+                <PropertyColumn Property="x => x.BrNaloga" Title="Br. naloga" HeaderStyle="width:90px;" />
+                <TemplateColumn Title="Ukupna vrednost (EUR)" HeaderStyle="width:160px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right; font-weight:600; color:#1565C0;">
+                            @context.Item.UkupnaVrednost.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Naplaćeno (EUR)" HeaderStyle="width:140px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right; color:#2E7D32;">
+                            @context.Item.Naplaceno.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Razlika (EUR)" HeaderStyle="width:120px;">
+                    <CellTemplate>
+                        @{ var razl = context.Item.UkupnaVrednost - context.Item.Naplaceno; }
+                        <span style="display:block; text-align:right; font-weight:600; color:@(razl > 0 ? "#C62828" : "#555");">
+                            @razl.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudPaper>
+
+    @* ── Top 10 prevoznika ── *@
+    @if (_topPrevoznici.Count > 0)
+    {
+        <MudPaper Elevation="2" Class="pa-3 mb-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Top 10 prevoznika</MudText>
+            <MudDataGrid T="PartnerStat" Items="_topPrevoznici" Dense="true" Striped="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.Naziv" Title="Prevoznik" />
+                    <PropertyColumn Property="x => x.BrNaloga" Title="Br. naloga" HeaderStyle="width:90px;" />
+                    <TemplateColumn Title="Ukupna vrednost (EUR)" HeaderStyle="width:160px;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; font-weight:600; color:#1565C0;">
+                                @context.Item.UkupnaVrednost.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Naplaćeno (EUR)" HeaderStyle="width:140px;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; color:#2E7D32;">
+                                @context.Item.Naplaceno.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Razlika (EUR)" HeaderStyle="width:120px;">
+                        <CellTemplate>
+                            @{ var rp = context.Item.UkupnaVrednost - context.Item.Naplaceno; }
+                            <span style="display:block; text-align:right; font-weight:600; color:@(rp > 0 ? "#C62828" : "#555");">
+                                @rp.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        </MudPaper>
+    }
+
+    @* ── Neplaćeni nalozi ── *@
+    @if (_neplaceni.Count > 0)
+    {
+        var ukRazl = _neplaceni.Sum(n => (n.CenaTransporta ?? 0m) - (n.PlacenTransport ?? 0m));
+        <MudPaper Elevation="2" Class="pa-3 mb-3" Style="border-left:4px solid #C62828;">
+            <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700; color:#C62828;">
+                Neplaćeni nalozi (@_neplaceni.Count)
+            </MudText>
+            <MudDataGrid T="NalogPrevoz" Items="_neplaceni" Dense="true" Striped="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.BrNaloga" Title="Br. naloga" HeaderStyle="width:100px;" />
+                    <PropertyColumn Property="x => x.BrTure"   Title="Br. ture"   HeaderStyle="width:80px;" />
+                    <TemplateColumn Title="Nalogodavac">
+                        <CellTemplate>
+                            <span style="font-size:0.82rem;">@(context.Item.Uvoznik ?? "—")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Prevoznik">
+                        <CellTemplate>
+                            <span style="font-size:0.82rem;">@(context.Item.Napomena2 ?? "SOPSTVENI")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Cena (EUR)" HeaderStyle="width:100px;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; font-weight:600;">
+                                @(context.Item.CenaTransporta?.ToString("N2") ?? "0.00")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Plaćeno (EUR)" HeaderStyle="width:110px;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; color:#2E7D32;">
+                                @(context.Item.PlacenTransport?.ToString("N2") ?? "0.00")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Razlika (EUR)" HeaderStyle="width:110px;">
+                        <CellTemplate>
+                            @{ var rn = (context.Item.CenaTransporta ?? 0m) - (context.Item.PlacenTransport ?? 0m); }
+                            <span style="display:block; text-align:right; font-weight:700; color:#C62828;">
+                                @rn.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum" HeaderStyle="width:90px;">
+                        <CellTemplate>
+                            <span style="font-size:0.8rem;">@context.Item.DatumUtovara?.ToString("dd.MM.yyyy")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Status" HeaderStyle="width:80px;">
+                        <CellTemplate>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@StatusBoja(context.Item.Status)"
+                                     Style="height:18px; font-size:0.68rem; margin:0;">
+                                @context.Item.Status
+                            </MudChip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn HeaderStyle="width:70px;" CellStyle="width:70px; padding:0 2px;">
+                        <CellTemplate>
+                            <MudTooltip Text="Otvori nalog">
+                                <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                                               Color="Color.Primary"
+                                               OnClick="@(async () => await OtvoriNalog(context.Item))" />
+                            </MudTooltip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+            <div style="text-align:right; margin-top:8px; font-size:0.9rem; font-weight:700; color:#C62828;">
+                Ukupna neplaćena razlika: @ukRazl.ToString("N2") EUR
+            </div>
+        </MudPaper>
+    }
+}
+
+@code {
+    // ── Filteri ──
+    private int     _godina        = DateTime.Today.Year;
+    private int     _mesec         = 0;
+    private string  _tip           = "";
+    private bool    _samoNeplaceni;
+    private bool    _ucitava;
+
+    // ── Data ──
+    private List<NalogPrevoz> _sviNalozi = []; // svi za godinu (za grafikon)
+    private List<NalogPrevoz> _nalozi    = []; // sa mesec+neplaceni filterom (za tabele)
+    private List<NalogPrevoz> _neplaceni = [];
+
+    // ── Grafikoni ──
+    private static readonly string[] _xMeseci =
+        ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Avg","Sep","Okt","Nov","Dec"];
+    private List<ChartSeries> _barSeries  = [];
+    private List<ChartSeries> _lineSeries = [];
+    private readonly ChartOptions _chartOpts = new() { YAxisTicks = 5 };
+
+    // ── Tabele ──
+    private List<PartnerStat> _topNalogodavci = [];
+    private List<PartnerStat> _topPrevoznici  = [];
+
+    // ── Autocomplete ──
+    private List<Partner> _sviPartneri      = [];
+    private Partner?      _filterPrevoznik;
+    private string        _prevoznikPretraga = "";
+    private List<Partner> _prevozniciDrop    = [];
+    private bool          _prevoznikOpen;
+
+    // ── Stilovi ──
+    private const string Sel      = "padding:5px 8px; border:1px solid rgba(0,0,0,0.23); border-radius:4px; font-size:0.82rem; height:36px; background:white; outline:none;";
+    private const string Drop     = "position:absolute; z-index:9999; left:0; right:0; min-width:200px; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:200px; overflow-y:auto;";
+    private const string DropItem = "padding:6px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;";
+    private const string ChipBox  = "border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:3px 8px; display:flex; justify-content:space-between; align-items:center; background:#FFFDE7; min-height:36px; width:100%;";
+    private const string ChipText = "font-weight:600; color:#1565C0; font-size:0.82rem;";
+
+    // ── Computed ──
+    private decimal UkupnoVrednost => _nalozi.Sum(n => n.CenaTransporta  ?? 0m);
+    private decimal UkupnoPlaceno  => _nalozi.Sum(n => n.PlacenTransport ?? 0m);
+    private decimal UkupnoRazlika  => UkupnoVrednost - UkupnoPlaceno;
+    private int     BrZavrsenih    => _nalozi.Count(n => n.Status == "ZAVRSEN");
+
+    // ── Model ──
+    private record PartnerStat(string? Naziv, int BrNaloga, decimal UkupnaVrednost, decimal Naplaceno);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviPartneri = await Db.Partneri.OrderBy(p => p.Naziv).AsNoTracking().ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+        var gDef = await DefaultValues.GetDefault("statistika_nalozi", "godina", uid);
+        if (int.TryParse(gDef, out int g)) _godina = g;
+        var mDef = await DefaultValues.GetDefault("statistika_nalozi", "mesec", uid);
+        if (int.TryParse(mDef, out int m)) _mesec = m;
+        var tDef = await DefaultValues.GetDefault("statistika_nalozi", "tip", uid);
+        if (tDef is not null) _tip = tDef;
+        var prDef = await DefaultValues.GetDefault("statistika_nalozi", "prevoznikId", uid);
+        if (int.TryParse(prDef, out int prId) && prId > 0)
+            _filterPrevoznik = _sviPartneri.FirstOrDefault(p => p.Broj == prId);
+
+        await Prikazi();
+    }
+
+    private async Task Prikazi()
+    {
+        _ucitava = true;
+        StateHasChanged();
+        try
+        {
+            var uid = TenantService.GetIdKorisnika();
+            await DefaultValues.SaveDefault("statistika_nalozi", "godina",      _godina.ToString(), uid);
+            await DefaultValues.SaveDefault("statistika_nalozi", "mesec",       _mesec.ToString(),  uid);
+            await DefaultValues.SaveDefault("statistika_nalozi", "tip",         _tip,               uid);
+            await DefaultValues.SaveDefault("statistika_nalozi", "prevoznikId", _filterPrevoznik?.Broj.ToString() ?? "0", uid);
+
+            // Baza query — svi za godinu bez mesec filtera (za grafikon)
+            IQueryable<NalogPrevoz> q = Db.NaloziZaPrevoz
+                .Where(n => n.DatumDokumenta.HasValue
+                         && n.DatumDokumenta.Value.Year == _godina);
+
+            if (!string.IsNullOrEmpty(_tip))       q = q.Where(n => n.TipNaloga == _tip);
+            if (_filterPrevoznik is not null)       q = q.Where(n => n.IdPartnera == _filterPrevoznik.Broj);
+
+            _sviNalozi = await q.AsNoTracking().ToListAsync();
+
+            // Primeni mesec filter na tabele
+            _nalozi = _mesec > 0
+                ? _sviNalozi.Where(n => n.DatumDokumenta!.Value.Month == _mesec).ToList()
+                : _sviNalozi;
+
+            if (_samoNeplaceni)
+                _nalozi = _nalozi.Where(n => (n.CenaTransporta ?? 0m) > (n.PlacenTransport ?? 0m)).ToList();
+
+            _neplaceni = _nalozi
+                .Where(n => (n.CenaTransporta ?? 0m) > (n.PlacenTransport ?? 0m))
+                .OrderByDescending(n => (n.CenaTransporta ?? 0m) - (n.PlacenTransport ?? 0m))
+                .ToList();
+
+            IzracunajGrafikone();
+            IzracunajTabele();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally { _ucitava = false; StateHasChanged(); }
+    }
+
+    private void IzracunajGrafikone()
+    {
+        var brNaloga  = new double[12];
+        var brPlaceni = new double[12];
+        var vrednost  = new double[12];
+        var naplaceno = new double[12];
+
+        foreach (var n in _sviNalozi)
+        {
+            int mi = n.DatumDokumenta!.Value.Month - 1;
+            brNaloga[mi]++;
+            if ((n.CenaTransporta ?? 0m) <= (n.PlacenTransport ?? 0m) && (n.CenaTransporta ?? 0m) > 0)
+                brPlaceni[mi]++;
+            vrednost[mi]  += (double)(n.CenaTransporta  ?? 0m);
+            naplaceno[mi] += (double)(n.PlacenTransport ?? 0m);
+        }
+
+        _barSeries = [
+            new ChartSeries { Name = "Br. naloga",  Data = brNaloga  },
+            new ChartSeries { Name = "Naplaćeni",   Data = brPlaceni }
+        ];
+        _lineSeries = [
+            new ChartSeries { Name = "Vrednost (EUR)",   Data = vrednost  },
+            new ChartSeries { Name = "Naplaćeno (EUR)",  Data = naplaceno }
+        ];
+    }
+
+    private void IzracunajTabele()
+    {
+        _topNalogodavci = [.. _nalozi
+            .Where(n => !string.IsNullOrWhiteSpace(n.Uvoznik))
+            .GroupBy(n => n.Uvoznik)
+            .Select(g => new PartnerStat(
+                g.Key,
+                g.Count(),
+                g.Sum(n => n.CenaTransporta  ?? 0m),
+                g.Sum(n => n.PlacenTransport ?? 0m)))
+            .OrderByDescending(s => s.UkupnaVrednost)
+            .Take(10)];
+
+        _topPrevoznici = [.. _nalozi
+            .Where(n => !string.IsNullOrWhiteSpace(n.Napomena2))
+            .GroupBy(n => n.Napomena2)
+            .Select(g => new PartnerStat(
+                g.Key,
+                g.Count(),
+                g.Sum(n => n.CenaTransporta  ?? 0m),
+                g.Sum(n => n.PlacenTransport ?? 0m)))
+            .OrderByDescending(s => s.BrNaloga)
+            .Take(10)];
+    }
+
+    private async Task Reset()
+    {
+        _godina          = DateTime.Today.Year;
+        _mesec           = 0;
+        _tip             = "";
+        _samoNeplaceni   = false;
+        _filterPrevoznik = null; _prevoznikPretraga = "";
+        await Prikazi();
+    }
+
+    private async Task OtvoriNalog(NalogPrevoz n)
+    {
+        var opts = new DialogOptions { CloseButton = true, CloseOnEscapeKey = true };
+        var prms = new DialogParameters<NalogPrevozDialog>
+        {
+            { x => x.IdNaloga, n.IdNaloga            },
+            { x => x.IdTure,   n.IdPutnogNaloga ?? 0 },
+            { x => x.BrTure,   n.BrTure ?? ""        }
+        };
+        var dlg = await Dialog.ShowAsync<NalogPrevozDialog>($"Nalog {n.BrNaloga}", prms, opts);
+        if (!(await dlg.Result).Canceled) await Prikazi();
+    }
+
+    private List<Partner> FiltrirajPartnere(string s) =>
+        string.IsNullOrWhiteSpace(s)
+            ? [.. _sviPartneri.Take(10)]
+            : [.. _sviPartneri
+                .Where(p => (p.Naziv ?? "").Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                            (p.Mesto  ?? "").Contains(s, StringComparison.OrdinalIgnoreCase))
+                .Take(8)];
+
+    private Color StatusBoja(string? status) => status switch
+    {
+        "ZAVRSEN" => Color.Success,
+        "OTKAZAN" => Color.Error,
+        _         => Color.Warning
+    };
+
+    private static string MesecNaziv(int m) => m switch
+    {
+        1  => "Januar",   2  => "Februar", 3  => "Mart",
+        4  => "April",    5  => "Maj",     6  => "Jun",
+        7  => "Jul",      8  => "Avgust",  9  => "Septembar",
+        10 => "Oktobar",  11 => "Novembar",12 => "Decembar",
+        _  => ""
+    };
+
+    private async Task ExportExcel()
+    {
+        try
+        {
+            using var wb = new XLWorkbook();
+
+            // Sheet 1: Po mesecima
+            var ws1 = wb.Worksheets.Add("Po mesecima");
+            ZapisiHeader(ws1, ["Mesec", "Br. naloga", "Naplaćeni", "Vrednost (EUR)", "Naplaćeno (EUR)"]);
+            for (int m = 1; m <= 12; m++)
+            {
+                var mn = _sviNalozi.Where(n => n.DatumDokumenta!.Value.Month == m).ToList();
+                ws1.Cell(m + 1, 1).Value = MesecNaziv(m);
+                ws1.Cell(m + 1, 2).Value = mn.Count;
+                ws1.Cell(m + 1, 3).Value = mn.Count(n => (n.CenaTransporta ?? 0m) <= (n.PlacenTransport ?? 0m) && (n.CenaTransporta ?? 0m) > 0);
+                ws1.Cell(m + 1, 4).Value = (double)mn.Sum(n => n.CenaTransporta  ?? 0m);
+                ws1.Cell(m + 1, 5).Value = (double)mn.Sum(n => n.PlacenTransport ?? 0m);
+            }
+            ws1.Columns().AdjustToContents();
+
+            // Sheet 2: Top nalogodavci
+            var ws2 = wb.Worksheets.Add("Top nalogodavci");
+            ZapisiHeader(ws2, ["Nalogodavac", "Br. naloga", "Ukupna vrednost (EUR)", "Naplaćeno (EUR)", "Razlika (EUR)"]);
+            int r = 2;
+            foreach (var s in _topNalogodavci)
+            {
+                ws2.Cell(r, 1).Value = s.Naziv;
+                ws2.Cell(r, 2).Value = s.BrNaloga;
+                ws2.Cell(r, 3).Value = (double)s.UkupnaVrednost;
+                ws2.Cell(r, 4).Value = (double)s.Naplaceno;
+                ws2.Cell(r, 5).Value = (double)(s.UkupnaVrednost - s.Naplaceno);
+                r++;
+            }
+            ws2.Columns().AdjustToContents();
+
+            // Sheet 3: Top prevoznici
+            var ws3 = wb.Worksheets.Add("Top prevoznici");
+            ZapisiHeader(ws3, ["Prevoznik", "Br. naloga", "Ukupna vrednost (EUR)", "Naplaćeno (EUR)", "Razlika (EUR)"]);
+            r = 2;
+            foreach (var s in _topPrevoznici)
+            {
+                ws3.Cell(r, 1).Value = s.Naziv;
+                ws3.Cell(r, 2).Value = s.BrNaloga;
+                ws3.Cell(r, 3).Value = (double)s.UkupnaVrednost;
+                ws3.Cell(r, 4).Value = (double)s.Naplaceno;
+                ws3.Cell(r, 5).Value = (double)(s.UkupnaVrednost - s.Naplaceno);
+                r++;
+            }
+            ws3.Columns().AdjustToContents();
+
+            // Sheet 4: Neplaćeni nalozi
+            var ws4 = wb.Worksheets.Add("Neplaceni nalozi");
+            ZapisiHeader(ws4, ["Br. naloga", "Br. ture", "Nalogodavac", "Prevoznik", "Cena (EUR)", "Plaćeno (EUR)", "Razlika (EUR)", "Datum ut.", "Status"]);
+            r = 2;
+            foreach (var n in _neplaceni)
+            {
+                ws4.Cell(r, 1).Value = n.BrNaloga;
+                ws4.Cell(r, 2).Value = n.BrTure;
+                ws4.Cell(r, 3).Value = n.Uvoznik;
+                ws4.Cell(r, 4).Value = n.Napomena2 ?? "SOPSTVENI";
+                ws4.Cell(r, 5).Value = (double)(n.CenaTransporta  ?? 0m);
+                ws4.Cell(r, 6).Value = (double)(n.PlacenTransport ?? 0m);
+                ws4.Cell(r, 7).Value = (double)((n.CenaTransporta ?? 0m) - (n.PlacenTransport ?? 0m));
+                ws4.Cell(r, 8).Value = n.DatumUtovara?.ToString("dd.MM.yyyy");
+                ws4.Cell(r, 9).Value = n.Status;
+                r++;
+            }
+            ws4.Columns().AdjustToContents();
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            var b64 = Convert.ToBase64String(ms.ToArray());
+            await JS.InvokeVoidAsync("downloadFile", $"statistika_nalozi_{_godina}.xlsx", b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri exportu: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static void ZapisiHeader(IXLWorksheet ws, string[] headers)
+    {
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var c = ws.Cell(1, i + 1);
+            c.Value = headers[i];
+            c.Style.Font.Bold = true;
+            c.Style.Font.FontColor = XLColor.White;
+            c.Style.Fill.BackgroundColor = XLColor.FromHtml("#2D3E50");
+        }
+    }
+}

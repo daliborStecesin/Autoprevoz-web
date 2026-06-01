@@ -182,7 +182,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        await Task.WhenAll(UcitajPodsetnike(), UcitajKurs(), UcitajVazneDatume());
+        await UcitajPodsetnike();
+        await UcitajKurs();
+        await UcitajVazneDatume();
     }
 
     private async Task UcitajVazneDatume()

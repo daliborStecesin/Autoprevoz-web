@@ -5,9 +5,6 @@ using Transport.Infrastructure.Data;
 
 namespace Transport.Application.Services;
 
-/// <summary>
-/// Servis za transportne naloge
-/// </summary>
 public class TransportService : ITransportService
 {
     private readonly TransportDbContext _context;
@@ -20,7 +17,7 @@ public class TransportService : ITransportService
     public async Task<List<NalogPrevoz>> GetSveNalogeAsync()
     {
         return await _context.NaloziZaPrevoz
-            .Include(n => n.PutniNalozi)
+            .Include(n => n.Tura)
             .OrderByDescending(n => n.DatumDokumenta)
             .ToListAsync();
     }
@@ -28,37 +25,31 @@ public class TransportService : ITransportService
     public async Task<NalogPrevoz?> GetNalogByIdAsync(int id)
     {
         return await _context.NaloziZaPrevoz
-            .Include(n => n.PutniNalozi)
+            .Include(n => n.Tura)
             .FirstOrDefaultAsync(n => n.IdNaloga == id);
     }
 
     public async Task<NalogPrevoz> CreateNalogAsync(NalogPrevoz nalog)
     {
-        nalog.DatumUnosa = DateTime.Now;
         nalog.Brisano = 0;
-        
         _context.NaloziZaPrevoz.Add(nalog);
         await _context.SaveChangesAsync();
-        
         return nalog;
     }
 
     public async Task<NalogPrevoz> UpdateNalogAsync(NalogPrevoz nalog)
     {
-        nalog.DatumIzmene = DateTime.Now;
-        
         _context.NaloziZaPrevoz.Update(nalog);
         await _context.SaveChangesAsync();
-        
         return nalog;
     }
 
     public async Task DeleteNalogAsync(int id)
     {
         var nalog = await GetNalogByIdAsync(id);
-        if (nalog != null)
+        if (nalog is not null)
         {
-            nalog.Brisano = 1; // Soft delete
+            nalog.Brisano = 1;
             await UpdateNalogAsync(nalog);
         }
     }
@@ -78,18 +69,13 @@ public class TransportService : ITransportService
 
     public async Task<PutniNalogKamion> CreatePutniNalogAsync(PutniNalogKamion nalog)
     {
-        nalog.DatumUnosa = DateTime.Now;
-        
         _context.PutniNalozi.Add(nalog);
         await _context.SaveChangesAsync();
-        
         return nalog;
     }
 
-    public async Task<decimal> CalculateGorivoPotrosnjuAsync(decimal km, decimal potrosnjaPer100km)
+    public Task<decimal> CalculateGorivoPotrosnjuAsync(decimal km, decimal potrosnjaPer100km)
     {
-        // Preračun: km / 100 * potrosnjaPer100km
-        var potrosnja = (km / 100) * potrosnjaPer100km;
-        return Math.Round(potrosnja, 2);
+        return Task.FromResult(Math.Round(km / 100 * potrosnjaPer100km, 2));
     }
 }

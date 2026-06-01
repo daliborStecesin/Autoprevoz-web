@@ -1,0 +1,574 @@
+@page "/statistika/ture"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using ClosedXML.Excel
+
+@inject ITenantService        TenantService
+@inject IDefaultValuesService DefaultValues
+@inject TransportDbContext    Db
+@inject NavigationManager     Nav
+@inject IJSRuntime            JS
+@inject ISnackbar             Snackbar
+
+<PageTitle>Statistika tura — Autoprevoz</PageTitle>
+
+<div class="d-flex align-center gap-2 mb-2">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.BarChart" Class="mr-2" />
+        Statistika tura
+    </MudText>
+    @if (_ture.Count > 0)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportExcel">
+            Excel
+        </MudButton>
+    }
+</div>
+
+@* ── Filter bar ── *@
+<MudPaper Elevation="1" Class="pa-2 mb-3">
+    <div class="d-flex flex-wrap gap-2 align-center">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Godina:</span>
+            <select @bind="_godina" style="@Sel">
+                @for (int g = DateTime.Today.Year; g >= 2023; g--)
+                { var yr = g; <option value="@yr">@yr</option> }
+            </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Mesec:</span>
+            <select @bind="_mesec" style="@Sel">
+                <option value="0">SVI MESECI</option>
+                @for (int m = 1; m <= 12; m++)
+                { var mm = m; <option value="@mm">@MesecNaziv(mm)</option> }
+            </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Vrsta prevoza:</span>
+            <select @bind="_vrsta" style="@Sel">
+                <option value="">SVE</option>
+                <option value="SOPSTVENI">SOPSTVENI</option>
+                <option value="AGENCIJSKI">AGENCIJSKI</option>
+            </select>
+        </div>
+
+        @* Vozač autocomplete *@
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Vozač:</span>
+            <div style="position:relative; min-width:175px;">
+                @if (_filterVozac is null)
+                {
+                    <input type="text" value="@_vozacPretraga" placeholder="Svi vozači..."
+                           @oninput="@(e => { _vozacPretraga = e.Value?.ToString() ?? ""; _vozaciDrop = FiltrirajVozace(_vozacPretraga); _vozacOpen = true; })"
+                           @onfocus="@(() => { _vozaciDrop = FiltrirajVozace(_vozacPretraga); _vozacOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _vozacOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_vozacOpen && _vozaciDrop.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var v in _vozaciDrop) { var vv = v;
+                                <div @onclick="@(() => { _filterVozac = vv; _vozacPretraga = ""; _vozacOpen = false; })" style="@DropItem">
+                                    @v.Ime @v.Prezime
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">@_filterVozac.Ime @_filterVozac.Prezime</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(() => { _filterVozac = null; _vozacPretraga = ""; })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Vozilo autocomplete *@
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:0.7rem; color:rgba(0,0,0,0.55);">Vozilo:</span>
+            <div style="position:relative; min-width:155px;">
+                @if (_filterVozilo is null)
+                {
+                    <input type="text" value="@_voziloPretraga" placeholder="Reg. oznaka..."
+                           @oninput="@(e => { _voziloPretraga = e.Value?.ToString() ?? ""; _vozilaDrop = FiltrirajVozila(_voziloPretraga); _voziloOpen = true; })"
+                           @onfocus="@(() => { _vozilaDrop = FiltrirajVozila(_voziloPretraga); _voziloOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _voziloOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_voziloOpen && _vozilaDrop.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var v in _vozilaDrop) { var vv = v;
+                                <div @onclick="@(() => { _filterVozilo = vv; _voziloPretraga = ""; _voziloOpen = false; })" style="@DropItem">
+                                    <strong>@v.registarskaOznaka</strong>
+                                    @if (!string.IsNullOrWhiteSpace(v.marka))
+                                    { <span style="color:#888; margin-left:4px;">— @v.marka</span> }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">@_filterVozilo.registarskaOznaka</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(() => { _filterVozilo = null; _voziloPretraga = ""; })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Prikazi"
+                   Disabled="_ucitava" StartIcon="@Icons.Material.Filled.Search">
+            Prikaži
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Reset"
+                   StartIcon="@Icons.Material.Filled.FilterListOff">
+            Reset
+        </MudButton>
+
+    </div>
+</MudPaper>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+}
+
+@if (!_ucitava && _sveTure.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Nema podataka za izabrane filtere.</MudAlert>
+}
+else if (_sveTure.Count > 0)
+{
+    @* ── Summary kartice ── *@
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption" Color="Color.Default">Ukupno tura</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#2D3E50;">@_ture.Count</MudText>
+                    @if (_mesec > 0) { <MudText Typo="Typo.caption" Color="Color.Secondary">za @MesecNaziv(_mesec)</MudText> }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption" Color="Color.Default">Završene</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#2E7D32;">@UkupnoZavrsene</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        od @_ture.Count (@(_ture.Count > 0 ? (int)(UkupnoZavrsene * 100.0 / _ture.Count) : 0)%)
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption" Color="Color.Default">Ukupna vrednost</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; color:#1565C0;">@UkupnaVrednost.ToString("N2") EUR</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="pa-3 text-center">
+                    <MudText Typo="Typo.caption" Color="Color.Default">Prosečna vrednost</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; color:#555;">@ProsecnaVrednost.ToString("N2") EUR</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    @* ── Grafikoni ── *@
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Ture po mesecima (@_godina)</MudText>
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="_barSeries"
+                          XAxisLabels="_xMeseci"
+                          Width="100%" Height="260px"
+                          ChartOptions="_chartOpts" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Vrednost po mesecima (EUR)</MudText>
+                <MudChart ChartType="ChartType.Line"
+                          ChartSeries="_lineSeries"
+                          XAxisLabels="_xMeseci"
+                          Width="100%" Height="260px"
+                          ChartOptions="_chartOpts" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* ── Top 10 relacija ── *@
+    <MudPaper Elevation="2" Class="pa-3 mb-3">
+        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Top 10 relacija</MudText>
+        <MudDataGrid T="RelacijaStat" Items="_topRelacije" Dense="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Relacija" Title="Relacija" />
+                <PropertyColumn Property="x => x.BrTura" Title="Br. tura" HeaderStyle="width:80px;" />
+                <TemplateColumn Title="Ukupna vrednost (EUR)" HeaderStyle="width:160px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right; font-weight:600; color:#1565C0;">
+                            @context.Item.UkupnaVrednost.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Prosečna vrednost (EUR)" HeaderStyle="width:160px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right;">@context.Item.ProsecnaVrednost.ToString("N2")</span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudPaper>
+
+    @* ── Po vozaču ── *@
+    <MudPaper Elevation="2" Class="pa-3 mb-3">
+        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Po vozaču</MudText>
+        <MudDataGrid T="VozacStat" Items="_poVozacu" Dense="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Vozac" Title="Vozač" />
+                <PropertyColumn Property="x => x.BrTura" Title="Br. tura" HeaderStyle="width:80px;" />
+                <TemplateColumn Title="Ukupna vrednost (EUR)" HeaderStyle="width:160px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right; font-weight:600; color:#1565C0;">
+                            @context.Item.UkupnaVrednost.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Završene" HeaderStyle="width:80px;">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:18px; font-size:0.7rem;">
+                            @context.Item.Zavrsene
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="U toku" HeaderStyle="width:80px;">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Style="height:18px; font-size:0.7rem;">
+                            @context.Item.UToku
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudPaper>
+
+    @* ── Po vozilu ── *@
+    <MudPaper Elevation="2" Class="pa-3 mb-3">
+        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight:700;">Po vozilu</MudText>
+        <MudDataGrid T="VoziloStat" Items="_poVozilu" Dense="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Vozilo" Title="Vozilo" />
+                <PropertyColumn Property="x => x.BrTura" Title="Br. tura" HeaderStyle="width:80px;" />
+                <TemplateColumn Title="Ukupna vrednost (EUR)" HeaderStyle="width:160px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right; font-weight:600; color:#1565C0;">
+                            @context.Item.UkupnaVrednost.ToString("N2")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Br. km" HeaderStyle="width:110px;">
+                    <CellTemplate>
+                        <span style="display:block; text-align:right;">
+                            @(context.Item.UkupnoKm > 0 ? context.Item.UkupnoKm.ToString("N0") + " km" : "—")
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    </MudPaper>
+}
+
+@code {
+    // ── Filteri ──
+    private int     _godina = DateTime.Today.Year;
+    private int     _mesec  = 0;
+    private string  _vrsta  = "";
+    private bool    _ucitava;
+
+    // ── Data ──
+    private List<PutniNalogKamion> _sveTure = []; // svi za godinu (za grafikon)
+    private List<PutniNalogKamion> _ture    = []; // sa mesec filterom (za tabele)
+
+    // ── Grafikoni ──
+    private static readonly string[] _xMeseci =
+        ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Avg","Sep","Okt","Nov","Dec"];
+    private List<ChartSeries> _barSeries  = [];
+    private List<ChartSeries> _lineSeries = [];
+    private readonly ChartOptions _chartOpts = new() { YAxisTicks = 5 };
+
+    // ── Tabele ──
+    private List<RelacijaStat> _topRelacije = [];
+    private List<VozacStat>    _poVozacu    = [];
+    private List<VoziloStat>   _poVozilu    = [];
+
+    // ── Autocomplete ──
+    private List<Vozac>  _sviVozaci  = [];
+    private Vozac?       _filterVozac;
+    private string       _vozacPretraga = "";
+    private List<Vozac>  _vozaciDrop    = [];
+    private bool         _vozacOpen;
+
+    private List<Vozilo> _sviVozila  = [];
+    private Vozilo?      _filterVozilo;
+    private string       _voziloPretraga = "";
+    private List<Vozilo> _vozilaDrop     = [];
+    private bool         _voziloOpen;
+
+    // ── Stilovi ──
+    private const string Sel      = "padding:5px 8px; border:1px solid rgba(0,0,0,0.23); border-radius:4px; font-size:0.82rem; height:36px; background:white; outline:none;";
+    private const string Drop     = "position:absolute; z-index:9999; left:0; right:0; min-width:200px; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:200px; overflow-y:auto;";
+    private const string DropItem = "padding:6px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;";
+    private const string ChipBox  = "border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:3px 8px; display:flex; justify-content:space-between; align-items:center; background:#FFFDE7; min-height:36px; width:100%;";
+    private const string ChipText = "font-weight:600; color:#1565C0; font-size:0.82rem;";
+
+    // ── Computed ──
+    private int     UkupnoZavrsene   => _ture.Count(t => t.Status is "ZAVRSEN" or "ZAVRŠENA" or "ZAVRŠEN");
+    private decimal UkupnaVrednost   => _ture.Sum(t => t.Cena ?? 0m);
+    private decimal ProsecnaVrednost => _ture.Count > 0 ? _ture.Average(t => t.Cena ?? 0m) : 0m;
+
+    // ── Modeli ──
+    private record RelacijaStat(string? Relacija, int BrTura, decimal UkupnaVrednost, decimal ProsecnaVrednost);
+    private record VozacStat(string? Vozac, int BrTura, decimal UkupnaVrednost, int Zavrsene, int UToku);
+    private record VoziloStat(string? Vozilo, int BrTura, decimal UkupnaVrednost, decimal UkupnoKm);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviVozaci = await Db.Vozaci.OrderBy(v => v.Ime).ThenBy(v => v.Prezime).AsNoTracking().ToListAsync();
+        _sviVozila = await Db.Vozila.OrderBy(v => v.registarskaOznaka).AsNoTracking().ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+        var gDef = await DefaultValues.GetDefault("statistika_ture", "godina", uid);
+        if (int.TryParse(gDef, out int g)) _godina = g;
+        var mDef = await DefaultValues.GetDefault("statistika_ture", "mesec", uid);
+        if (int.TryParse(mDef, out int m)) _mesec = m;
+        var vDef = await DefaultValues.GetDefault("statistika_ture", "vrsta", uid);
+        if (vDef is not null) _vrsta = vDef;
+        var vzDef = await DefaultValues.GetDefault("statistika_ture", "vozacId", uid);
+        if (int.TryParse(vzDef, out int vzId) && vzId > 0)
+            _filterVozac = _sviVozaci.FirstOrDefault(v => v.Broj == vzId);
+
+        await Prikazi();
+    }
+
+    private async Task Prikazi()
+    {
+        _ucitava = true;
+        StateHasChanged();
+        try
+        {
+            var uid = TenantService.GetIdKorisnika();
+            await DefaultValues.SaveDefault("statistika_ture", "godina",  _godina.ToString(), uid);
+            await DefaultValues.SaveDefault("statistika_ture", "mesec",   _mesec.ToString(),  uid);
+            await DefaultValues.SaveDefault("statistika_ture", "vrsta",   _vrsta,             uid);
+            await DefaultValues.SaveDefault("statistika_ture", "vozacId", _filterVozac?.Broj.ToString() ?? "0", uid);
+
+            IQueryable<PutniNalogKamion> q = Db.PutniNalozi.IgnoreQueryFilters()
+                .Where(t => t.Brisano != 1
+                         && t.DatumPolaska.HasValue
+                         && t.DatumPolaska.Value.Year == _godina);
+
+            if (!string.IsNullOrEmpty(_vrsta))  q = q.Where(t => t.VrstaPrevoza == _vrsta);
+            if (_filterVozac  is not null)       q = q.Where(t => t.IdVozaca1 == _filterVozac.Broj);
+            if (_filterVozilo is not null)       q = q.Where(t => t.IdVozila  == _filterVozilo.VoziloId);
+
+            _sveTure = await q.AsNoTracking().ToListAsync();
+            _ture    = _mesec > 0
+                ? _sveTure.Where(t => t.DatumPolaska!.Value.Month == _mesec).ToList()
+                : _sveTure;
+
+            IzracunajGrafikone();
+            IzracunajTabele();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally { _ucitava = false; StateHasChanged(); }
+    }
+
+    private void IzracunajGrafikone()
+    {
+        var sop  = new double[12];
+        var age  = new double[12];
+        var vred = new double[12];
+        foreach (var t in _sveTure)
+        {
+            int mi = t.DatumPolaska!.Value.Month - 1;
+            if (t.VrstaPrevoza == "AGENCIJSKI") age[mi]++;
+            else                                sop[mi]++;
+            vred[mi] += (double)(t.Cena ?? 0m);
+        }
+        _barSeries  = [
+            new ChartSeries { Name = "SOPSTVENI",  Data = sop  },
+            new ChartSeries { Name = "AGENCIJSKI", Data = age  }
+        ];
+        _lineSeries = [new ChartSeries { Name = "Vrednost (EUR)", Data = vred }];
+    }
+
+    private void IzracunajTabele()
+    {
+        _topRelacije = [.. _ture
+            .Where(t => !string.IsNullOrWhiteSpace(t.Relacija))
+            .GroupBy(t => t.Relacija)
+            .Select(g => new RelacijaStat(
+                g.Key,
+                g.Count(),
+                g.Sum(t => t.Cena ?? 0m),
+                g.Count() > 0 ? g.Average(t => t.Cena ?? 0m) : 0m))
+            .OrderByDescending(r => r.BrTura)
+            .Take(10)];
+
+        _poVozacu = [.. _ture
+            .GroupBy(t => t.Vozac1 ?? "—")
+            .Select(g => new VozacStat(
+                g.Key,
+                g.Count(),
+                g.Sum(t => t.Cena ?? 0m),
+                g.Count(t => t.Status is "ZAVRSEN" or "ZAVRŠENA" or "ZAVRŠEN"),
+                g.Count(t => t.Status == "U TOKU")))
+            .OrderByDescending(v => v.BrTura)];
+
+        _poVozilu = [.. _ture
+            .GroupBy(t => t.Vozilo ?? "—")
+            .Select(g => new VoziloStat(
+                g.Key,
+                g.Count(),
+                g.Sum(t => t.Cena ?? 0m),
+                g.Sum(t => t.Predjeno ?? 0m)))
+            .OrderByDescending(v => v.BrTura)];
+    }
+
+    private async Task Reset()
+    {
+        _godina        = DateTime.Today.Year;
+        _mesec         = 0;
+        _vrsta         = "";
+        _filterVozac   = null; _vozacPretraga  = "";
+        _filterVozilo  = null; _voziloPretraga = "";
+        await Prikazi();
+    }
+
+    private List<Vozac>  FiltrirajVozace(string s) =>
+        string.IsNullOrWhiteSpace(s)
+            ? [.. _sviVozaci.Take(10)]
+            : [.. _sviVozaci.Where(v => ($"{v.Ime} {v.Prezime}").Contains(s, StringComparison.OrdinalIgnoreCase)).Take(8)];
+
+    private List<Vozilo> FiltrirajVozila(string s) =>
+        string.IsNullOrWhiteSpace(s)
+            ? [.. _sviVozila.Take(10)]
+            : [.. _sviVozila.Where(v => (v.registarskaOznaka ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)).Take(8)];
+
+    private static string MesecNaziv(int m) => m switch
+    {
+        1  => "Januar",   2  => "Februar", 3  => "Mart",
+        4  => "April",    5  => "Maj",     6  => "Jun",
+        7  => "Jul",      8  => "Avgust",  9  => "Septembar",
+        10 => "Oktobar",  11 => "Novembar",12 => "Decembar",
+        _  => ""
+    };
+
+    private async Task ExportExcel()
+    {
+        try
+        {
+            using var wb = new XLWorkbook();
+
+            // Sheet 1: Po mesecima
+            var ws1 = wb.Worksheets.Add("Po mesecima");
+            ZapisiHeader(ws1, ["Mesec", "SOPSTVENI", "AGENCIJSKI", "Ukupno", "Vrednost (EUR)"]);
+            for (int m = 1; m <= 12; m++)
+            {
+                var mt = _sveTure.Where(t => t.DatumPolaska!.Value.Month == m).ToList();
+                ws1.Cell(m + 1, 1).Value = MesecNaziv(m);
+                ws1.Cell(m + 1, 2).Value = mt.Count(t => t.VrstaPrevoza == "SOPSTVENI");
+                ws1.Cell(m + 1, 3).Value = mt.Count(t => t.VrstaPrevoza == "AGENCIJSKI");
+                ws1.Cell(m + 1, 4).Value = mt.Count;
+                ws1.Cell(m + 1, 5).Value = (double)mt.Sum(t => t.Cena ?? 0m);
+            }
+            ws1.Columns().AdjustToContents();
+
+            // Sheet 2: Top relacije
+            var ws2 = wb.Worksheets.Add("Top relacije");
+            ZapisiHeader(ws2, ["Relacija", "Br. tura", "Ukupna vrednost (EUR)", "Prosečna vrednost (EUR)"]);
+            int r = 2;
+            foreach (var rel in _topRelacije)
+            {
+                ws2.Cell(r, 1).Value = rel.Relacija;
+                ws2.Cell(r, 2).Value = rel.BrTura;
+                ws2.Cell(r, 3).Value = (double)rel.UkupnaVrednost;
+                ws2.Cell(r, 4).Value = (double)rel.ProsecnaVrednost;
+                r++;
+            }
+            ws2.Columns().AdjustToContents();
+
+            // Sheet 3: Po vozaču
+            var ws3 = wb.Worksheets.Add("Po vozacu");
+            ZapisiHeader(ws3, ["Vozač", "Br. tura", "Ukupna vrednost (EUR)", "Završene", "U toku"]);
+            r = 2;
+            foreach (var vz in _poVozacu)
+            {
+                ws3.Cell(r, 1).Value = vz.Vozac;
+                ws3.Cell(r, 2).Value = vz.BrTura;
+                ws3.Cell(r, 3).Value = (double)vz.UkupnaVrednost;
+                ws3.Cell(r, 4).Value = vz.Zavrsene;
+                ws3.Cell(r, 5).Value = vz.UToku;
+                r++;
+            }
+            ws3.Columns().AdjustToContents();
+
+            // Sheet 4: Po vozilu
+            var ws4 = wb.Worksheets.Add("Po vozilu");
+            ZapisiHeader(ws4, ["Vozilo", "Br. tura", "Ukupna vrednost (EUR)", "Br. km"]);
+            r = 2;
+            foreach (var vl in _poVozilu)
+            {
+                ws4.Cell(r, 1).Value = vl.Vozilo;
+                ws4.Cell(r, 2).Value = vl.BrTura;
+                ws4.Cell(r, 3).Value = (double)vl.UkupnaVrednost;
+                ws4.Cell(r, 4).Value = (double)vl.UkupnoKm;
+                r++;
+            }
+            ws4.Columns().AdjustToContents();
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            var b64 = Convert.ToBase64String(ms.ToArray());
+            await JS.InvokeVoidAsync("downloadFile", $"statistika_ture_{_godina}.xlsx", b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri exportu: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static void ZapisiHeader(IXLWorksheet ws, string[] headers)
+    {
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var c = ws.Cell(1, i + 1);
+            c.Value = headers[i];
+            c.Style.Font.Bold = true;
+            c.Style.Font.FontColor = XLColor.White;
+            c.Style.Fill.BackgroundColor = XLColor.FromHtml("#2D3E50");
+        }
+    }
+}

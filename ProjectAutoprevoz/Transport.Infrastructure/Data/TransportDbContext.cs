@@ -80,6 +80,9 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<NalogPrevoz>()
             .HasQueryFilter(n => n.Brisano == 0 || n.Brisano == null);
 
+        modelBuilder.Entity<PutniNalogKamion>()
+            .HasQueryFilter(t => t.Brisano == 0 || t.Brisano == null);
+
         modelBuilder.Entity<Vozac>()
             .HasQueryFilter(v => v.aktivan == 1 || v.aktivan == null);
 
@@ -169,19 +172,19 @@ public class TransportDbContext : DbContext
             .HasForeignKey(s => s.BrojPonude)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // NalogPrevoz ← PutniNalozi
-        modelBuilder.Entity<NalogPrevoz>()
-            .HasMany(n => n.PutniNalozi)
-            .WithOne(p => p.Nalog)
-            .HasForeignKey(p => p.IdNaloga)
+        // PutniNalogKamion (TURA) ← NalogPrevoz (NALOZI)
+        modelBuilder.Entity<PutniNalogKamion>()
+            .HasMany(t => t.Nalozi)
+            .WithOne(n => n.Tura)
+            .HasForeignKey(n => n.IdPutnogNaloga)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Vozilo ← NaloziZaPrevoz
+        // Vozilo ← NaloziZaPrevoz (via IdVozila)
         modelBuilder.Entity<Vozilo>()
             .ToTable("tbl_vozila")
             .HasMany(v => v.Nalozi)
             .WithOne()
-            .HasForeignKey(n => n.VoziloId)
+            .HasForeignKey(n => n.IdVozila)
             .OnDelete(DeleteBehavior.SetNull);
 
         // Plate (tbl_plate)

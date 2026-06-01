@@ -1,0 +1,776 @@
+@page "/nalozi"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Web.Components.Shared
+@using ClosedXML.Excel
+
+@inject ITenantService          TenantService
+@inject IDefaultValuesService   DefaultValues
+@inject TransportDbContext      Db
+@inject IDialogService          Dialog
+@inject ISnackbar               Snackbar
+@inject NavigationManager       Nav
+@inject IJSRuntime              JS
+
+<PageTitle>Nalozi za prevoz — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-2">
+    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" />
+    Nalozi za prevoz
+</MudText>
+
+@* ── Toolbar ── *@
+<div class="d-flex flex-wrap gap-2 mb-2 align-center justify-space-between">
+    <div class="d-flex flex-wrap gap-2">
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(() => Nav.NavigateTo("/transport/nalozi"))">
+            Nova tura
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Analytics"
+                   OnClick="@(() => Nav.NavigateTo("/statistika/nalozi"))">
+            Statistika naloga
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.FileDownload"
+                   OnClick="ExportExcel">
+            Excel
+        </MudButton>
+    </div>
+    @if (_cekirani.Count > 0)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Print"
+                   OnClick="StampajCekirane">
+            Štampaj označene (@_cekirani.Count)
+        </MudButton>
+    }
+</div>
+
+@* ── Filter bar ── *@
+<MudPaper Elevation="1" Class="pa-2 mb-2">
+    <div class="d-flex flex-wrap gap-2 align-center">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Br. naloga:</span>
+            <input type="text" value="@_filterBrNaloga" placeholder="npr. 20260059"
+                   @onchange="@(async e => { _filterBrNaloga = e.Value?.ToString() ?? ""; await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+
+        @* ── Prevoznik autocomplete ── *@
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Prevoznik:</span>
+            <div style="position:relative; min-width:190px;">
+                @if (_filterPrevoznik is null)
+                {
+                    <input type="text" value="@_prevoznikPretraga" placeholder="Svi prevoznici..."
+                           @oninput="@(e => { _prevoznikPretraga = e.Value?.ToString() ?? ""; _prevozniciDropdown = FiltrirajPartnere(_prevoznikPretraga); _prevoznikOpen = true; })"
+                           @onfocus="@(() => { _prevozniciDropdown = FiltrirajPartnere(_prevoznikPretraga); _prevoznikOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _prevoznikOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_prevoznikOpen && _prevozniciDropdown.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var p in _prevozniciDropdown)
+                            {
+                                var pp = p;
+                                <div @onclick="@(async () => await IzaberiPrevoznik(pp))" style="@DropItem">
+                                    <strong>@p.Naziv</strong>
+                                    @if (!string.IsNullOrWhiteSpace(p.Mesto))
+                                    { <span style="color:#888; margin-left:4px;">— @p.Mesto</span> }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">@_filterPrevoznik.Naziv</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(async () => { _filterPrevoznik = null; _prevoznikPretraga = ""; await OsveziListu(); })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ── Vozač autocomplete ── *@
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Vozač:</span>
+            <div style="position:relative; min-width:180px;">
+                @if (_filterVozac is null)
+                {
+                    <input type="text" value="@_vozacPretraga" placeholder="Svi vozači..."
+                           @oninput="@(e => { _vozacPretraga = e.Value?.ToString() ?? ""; _vozaciDropdown = FiltrirajVozace(_vozacPretraga); _vozacOpen = true; })"
+                           @onfocus="@(() => { _vozaciDropdown = FiltrirajVozace(_vozacPretraga); _vozacOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _vozacOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_vozacOpen && _vozaciDropdown.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var v in _vozaciDropdown)
+                            {
+                                var vv = v;
+                                <div @onclick="@(async () => await IzaberiVozac(vv))" style="@DropItem">
+                                    @v.Ime @v.Prezime
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">@_filterVozac.Ime @_filterVozac.Prezime</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(async () => { _filterVozac = null; _filterVozacId = null; _vozacPretraga = ""; await OsveziListu(); })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Vozilo:</span>
+            <div style="position:relative; min-width:170px;">
+                @if (_filterVoziloObj is null)
+                {
+                    <input type="text" value="@_voziloPretraga" placeholder="Reg. oznaka..."
+                           @oninput="@(e => { _voziloPretraga = e.Value?.ToString() ?? ""; _vozilaDropdown = FiltrirajVozila(_voziloPretraga); _voziloOpen = true; })"
+                           @onfocus="@(() => { _vozilaDropdown = FiltrirajVozila(_voziloPretraga); _voziloOpen = true; })"
+                           @onblur="@(async () => { await Task.Delay(150); _voziloOpen = false; await InvokeAsync(StateHasChanged); })"
+                           style="@Sel width:100%;" />
+                    @if (_voziloOpen && _vozilaDropdown.Count > 0)
+                    {
+                        <div style="@Drop">
+                            @foreach (var voz in _vozilaDropdown)
+                            {
+                                var vv = voz;
+                                <div @onclick="@(async () => await IzaberiVozilo(vv))" style="@DropItem">
+                                    <strong>@vv.registarskaOznaka</strong>
+                                    @if (!string.IsNullOrWhiteSpace(vv.marka))
+                                    { <span style="color:#888; margin-left:4px;">— @vv.marka @vv.tip</span> }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="@ChipBox">
+                        <span style="@ChipText">
+                            @_filterVoziloObj.registarskaOznaka
+                            @if (!string.IsNullOrWhiteSpace(_filterVoziloObj.marka))
+                            { <span style="font-weight:400; color:#555; font-size:0.75rem;"> — @_filterVoziloObj.marka</span> }
+                        </span>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="@(async () => { _filterVoziloObj = null; _filterVoziloId = null; _voziloPretraga = ""; await OsveziListu(); })" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Mesto utovara:</span>
+            <input type="text" value="@_filterMestoU" placeholder="Mesto utovara"
+                   @onchange="@(async e => { _filterMestoU = e.Value?.ToString() ?? ""; await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Mesto istovara:</span>
+            <input type="text" value="@_filterMestoI" placeholder="Mesto istovara"
+                   @onchange="@(async e => { _filterMestoI = e.Value?.ToString() ?? ""; await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Datum od:</span>
+            <input type="date"
+                   value="@(_filterDatumOd?.ToString("yyyy-MM-dd"))"
+                   @onchange="@(async e => { _filterDatumOd = ParseDate(e.Value?.ToString()); await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Datum do:</span>
+            <input type="date"
+                   value="@(_filterDatumDo?.ToString("yyyy-MM-dd"))"
+                   @onchange="@(async e => { _filterDatumDo = ParseDate(e.Value?.ToString()); await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+
+        <MudTooltip Text="Resetuj filtere">
+            <MudIconButton Icon="@Icons.Material.Filled.FilterListOff"
+                           Color="Color.Default" Variant="Variant.Outlined"
+                           OnClick="ResetuiFiltere" />
+        </MudTooltip>
+
+    </div>
+
+    <div style="height:1px; background:rgba(0,0,0,0.08); margin:6px 0;"></div>
+
+    <div class="d-flex flex-wrap gap-2 align-center">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">Ref. nalog:</span>
+            <input type="text" value="@_filterRefNalog" placeholder="Ref. broj"
+                   @onchange="@(async e => { _filterRefNalog = e.Value?.ToString() ?? ""; await DefaultValues.SaveDefault("nalozi", "refNalog", _filterRefNalog, TenantService.GetIdKorisnika()); await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="@Lbl">CMR:</span>
+            <input type="text" value="@_filterCmr" placeholder="CMR broj"
+                   @onchange="@(async e => { _filterCmr = e.Value?.ToString() ?? ""; await DefaultValues.SaveDefault("nalozi", "cmr", _filterCmr, TenantService.GetIdKorisnika()); await OsveziListu(); })"
+                   style="@Sel" />
+        </div>
+    </div>
+
+</MudPaper>
+
+@* ── Status chips ── *@
+<div class="d-flex align-center gap-2 mb-1 flex-wrap">
+    <MudChipSet T="string?" SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="_filterStatus" SelectedValueChanged="OnStatusChanged"
+                CheckMark="false">
+        <MudChip T="string?" Value="@((string?)null)" Color="Color.Primary">SVE</MudChip>
+        <MudChip T="string?" Value="@("U TOKU")"  Color="Color.Warning">U TOKU</MudChip>
+        <MudChip T="string?" Value="@("ZAVRSEN")" Color="Color.Success">ZAVRŠENI</MudChip>
+        <MudChip T="string?" Value="@("OTKAZAN")" Color="Color.Error">OTKAZANI</MudChip>
+    </MudChipSet>
+    <MudChip T="string"
+             Color="@(_filterSamoNeplaceni ? Color.Warning : Color.Default)"
+             Variant="@(_filterSamoNeplaceni ? Variant.Filled : Variant.Outlined)"
+             OnClick="@(async () => { _filterSamoNeplaceni = !_filterSamoNeplaceni; await DefaultValues.SaveDefault("nalozi", "samoNeplaceni", _filterSamoNeplaceni.ToString(), TenantService.GetIdKorisnika()); await OsveziListu(); })">
+        💰 NEPLAĆENI
+    </MudChip>
+</div>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-1" />
+}
+
+@* ── Tabela ── *@
+<MudDataGrid T="NalogPrevoz"
+             Items="_nalozi"
+             Dense="true" Striped="false" Hover="true"
+             RowStyleFunc="@NalogRowStyle">
+    <Columns>
+
+        <TemplateColumn HeaderStyle="width:36px;" CellStyle="width:36px; padding:0 4px;">
+            <CellTemplate>
+                <MudCheckBox T="bool"
+                             Value="@_cekirani.Contains(context.Item.IdNaloga)"
+                             ValueChanged="@(v => ToggleCekiran(context.Item.IdNaloga, v))"
+                             Size="Size.Small" Color="Color.Primary" />
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Br. naloga" SortBy="x => x.BrNaloga" HeaderStyle="width:100px;">
+            <CellTemplate>
+                <span style="font-weight:700;">@context.Item.BrNaloga</span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Br. ture" SortBy="x => x.BrTure" HeaderStyle="width:75px;">
+            <CellTemplate>
+                @if (context.Item.IdPutnogNaloga is not null)
+                {
+                    <span style="font-weight:600; color:#1565C0; cursor:pointer; text-decoration:underline;"
+                          @onclick="@(() => Nav.NavigateTo($"/transport/nalozi/{context.Item.IdPutnogNaloga}"))">
+                        @context.Item.BrTure
+                    </span>
+                }
+                else { <span style="color:#aaa;">—</span> }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Tip" SortBy="x => x.TipNaloga" HeaderStyle="width:90px;">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.Item.TipNaloga == "SOPSTVENI" ? Color.Primary : Color.Warning)"
+                         Style="height:18px; font-size:0.68rem; margin:0;">
+                    @context.Item.TipNaloga
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Nalogodavac" SortBy="x => x.Uvoznik">
+            <CellTemplate>
+                @{ var nlog = context.Item.Uvoznik; }
+                <MudTooltip Text="@(nlog ?? "")">
+                    <span style="font-size:0.82rem;">@(nlog is null ? "—" : nlog.Length > 22 ? nlog[..22] + "…" : nlog)</span>
+                </MudTooltip>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Prevoznik" SortBy="x => x.Napomena2">
+            <CellTemplate>
+                @{ var prev = context.Item.Napomena2; }
+                <MudTooltip Text="@(prev ?? "")">
+                    <span style="font-size:0.82rem;">@(prev is null ? "—" : prev.Length > 22 ? prev[..22] + "…" : prev)</span>
+                </MudTooltip>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Mesto utovara" SortBy="x => x.MestoUtovara">
+            <CellTemplate>
+                <span style="font-size:0.8rem; max-width:130px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                      title="@context.Item.MestoUtovara">
+                    @(context.Item.MestoUtovara ?? "—")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Mesto istovara" SortBy="x => x.MestoIstovara">
+            <CellTemplate>
+                <span style="font-size:0.8rem; max-width:130px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                      title="@context.Item.MestoIstovara">
+                    @(context.Item.MestoIstovara ?? "—")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Datum utov." SortBy="x => x.DatumUtovara" HeaderStyle="width:95px;">
+            <CellTemplate>
+                <span style="font-size:0.8rem;">@context.Item.DatumUtovara?.ToString("dd.MM.yy")</span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Cena (EUR)" SortBy="x => x.CenaTransporta" HeaderStyle="width:90px; text-align:right;">
+            <CellTemplate>
+                @{ var cena = context.Item.CenaTransporta ?? 0m; }
+                <span style="text-align:right; display:block; font-weight:600; color:#1565C0; font-size:0.82rem;">
+                    @(cena == 0m ? "—" : $"{cena:N2}")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Plaćeno (EUR)" SortBy="x => x.PlacenTransport" HeaderStyle="width:90px; text-align:right;">
+            <CellTemplate>
+                @{ var plac = context.Item.PlacenTransport ?? 0m; }
+                <span style="text-align:right; display:block; font-size:0.82rem; color:#333;">
+                    @(plac == 0m ? "—" : $"{plac:N2}")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Razlika" SortBy="x => (x.CenaTransporta ?? 0) - (x.PlacenTransport ?? 0)" HeaderStyle="width:85px; text-align:right;">
+            <CellTemplate>
+                @{ var razl = (context.Item.CenaTransporta ?? 0m) - (context.Item.PlacenTransport ?? 0m); }
+                <span style="text-align:right; display:block; font-size:0.82rem; font-weight:600;
+                             color:@(razl > 0m ? "#C62828" : "#555");">
+                    @(razl == 0m ? "—" : $"{razl:N2}")
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn Title="Status" SortBy="x => x.Status" HeaderStyle="width:90px;">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@StatusBoja(context.Item.Status)"
+                         Style="height:18px; font-size:0.68rem; margin:0;">
+                    @StatusLabel(context.Item.Status)
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn HeaderStyle="width:108px;" CellStyle="width:108px; padding:0 2px;">
+            <CellTemplate>
+                <div class="d-flex">
+                    <MudTooltip Text="Izmeni">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(async () => await IzmeniNalog(context.Item))" />
+                    </MudTooltip>
+                    @if (context.Item.IdPutnogNaloga is not null)
+                    {
+                        <MudTooltip Text="Otvori turu">
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                                           Color="Color.Default"
+                                           OnClick="@(() => Nav.NavigateTo($"/transport/nalozi/{context.Item.IdPutnogNaloga}"))" />
+                        </MudTooltip>
+                    }
+                    <MudTooltip Text="Štampaj nalog">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print" Size="Size.Small"
+                                       Color="Color.Default"
+                                       OnClick="@(async () => await JS.InvokeVoidAsync("open", $"/transport/nalog-transport/{context.Item.IdNaloga}", "_blank"))" />
+                    </MudTooltip>
+                </div>
+            </CellTemplate>
+        </TemplateColumn>
+
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="NalogPrevoz" PageSizeOptions="@(new int[]{20,50,100,200})"
+                          RowsPerPageString="Redova po strani:" />
+    </PagerContent>
+</MudDataGrid>
+
+@if (_nalozi.Count == 0 && !_ucitava)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-1">Nema naloga za izabrane filtere.</MudAlert>
+}
+
+@* ── Footer ── *@
+@if (_nalozi.Count > 0)
+{
+    var fVred  = _nalozi.Sum(n => n.CenaTransporta  ?? 0m);
+    var fPlac  = _nalozi.Sum(n => n.PlacenTransport ?? 0m);
+    var fRazl  = fVred - fPlac;
+    <MudPaper Elevation="0" Class="mt-1 pa-2 d-flex gap-4"
+              Style="background:#f0f4f8; border-radius:6px; font-size:0.82rem; flex-wrap:wrap;">
+        <span>Naloga: <strong>@_nalozi.Count</strong></span>
+        <span>Vrednost: <strong style="color:#1565C0;">@fVred.ToString("N2") EUR</strong></span>
+        <span>Naplaćeno: <strong style="color:@(fPlac >= fVred && fVred > 0 ? "#2e7d32" : "#c62828");">@fPlac.ToString("N2") EUR</strong></span>
+        <span>Razlika: <strong style="color:@(fRazl > 0m ? "#C62828" : "#555");">@fRazl.ToString("N2") EUR</strong></span>
+    </MudPaper>
+}
+
+@code {
+    private List<NalogPrevoz> _nalozi   = [];
+    private HashSet<int>      _cekirani = [];
+    private bool _ucitava;
+    private bool _queryInProgress;
+
+    // Filteri — tekst
+    private string    _filterBrNaloga  = string.Empty;
+    private string    _filterMestoU    = string.Empty;
+    private string    _filterMestoI    = string.Empty;
+    private string    _filterRefNalog  = string.Empty;
+    private string    _filterCmr       = string.Empty;
+    private DateTime? _filterDatumOd;
+    private DateTime? _filterDatumDo;
+    private string?   _filterStatus;
+    private bool      _filterSamoNeplaceni;
+
+    // Prevoznik autocomplete
+    private List<Partner> _sviPartneri        = [];
+    private Partner?      _filterPrevoznik;
+    private string        _prevoznikPretraga  = string.Empty;
+    private List<Partner> _prevozniciDropdown = [];
+    private bool          _prevoznikOpen;
+
+    // Vozač autocomplete
+    private List<Vozac> _sviVozaci      = [];
+    private Vozac?      _filterVozac;
+    private int?        _filterVozacId;
+    private string      _vozacPretraga  = string.Empty;
+    private List<Vozac> _vozaciDropdown = [];
+    private bool        _vozacOpen;
+
+    // Vozilo autocomplete
+    private List<Vozilo> _sviVozila      = [];
+    private Vozilo?      _filterVoziloObj;
+    private int?         _filterVoziloId;
+    private string       _voziloPretraga  = string.Empty;
+    private List<Vozilo> _vozilaDropdown  = [];
+    private bool         _voziloOpen;
+
+    // Stilovi
+    private const string Lbl      = "font-size:0.7rem; color:rgba(0,0,0,0.55);";
+    private const string Sel      = "padding:5px 8px; border:1px solid rgba(0,0,0,0.23); border-radius:4px; font-size:0.82rem; height:36px; background:white; outline:none; min-width:120px;";
+    private const string Drop     = "position:absolute; z-index:9999; left:0; right:0; min-width:200px; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:200px; overflow-y:auto;";
+    private const string DropItem = "padding:6px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;";
+    private const string ChipBox  = "border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:3px 8px; display:flex; justify-content:space-between; align-items:center; background:#FFFDE7; min-height:36px; width:100%;";
+    private const string ChipText = "font-weight:600; color:#1565C0; font-size:0.82rem;";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviPartneri = await Db.Partneri.OrderBy(p => p.Naziv).AsNoTracking().ToListAsync();
+        _sviVozaci   = await Db.Vozaci.OrderBy(v => v.Ime).ThenBy(v => v.Prezime).AsNoTracking().ToListAsync();
+        _sviVozila   = await Db.Vozila.OrderBy(v => v.registarskaOznaka).AsNoTracking().ToListAsync();
+
+        var uid = TenantService.GetIdKorisnika();
+        var refDef = await DefaultValues.GetDefault("nalozi", "refNalog", uid);
+        if (!string.IsNullOrEmpty(refDef)) _filterRefNalog = refDef;
+
+        var cmrDef = await DefaultValues.GetDefault("nalozi", "cmr", uid);
+        if (!string.IsNullOrEmpty(cmrDef)) _filterCmr = cmrDef;
+
+        var neplaceniDef = await DefaultValues.GetDefault("nalozi", "samoNeplaceni", uid);
+        if (neplaceniDef == "True") _filterSamoNeplaceni = true;
+
+        await OsveziListu();
+    }
+
+    private async Task OsveziListu()
+    {
+        if (_queryInProgress) return;
+        _queryInProgress = true;
+        _ucitava = true;
+        _cekirani.Clear();
+        StateHasChanged();
+        try
+        {
+            IQueryable<NalogPrevoz> q = Db.NaloziZaPrevoz;
+
+            if (!string.IsNullOrWhiteSpace(_filterBrNaloga))
+                q = q.Where(n => n.BrNaloga != null && n.BrNaloga.Contains(_filterBrNaloga));
+
+            if (_filterPrevoznik is not null)
+                q = q.Where(n => n.IdPartnera == _filterPrevoznik.Broj);
+
+            if (_filterVozac is not null)
+                q = q.Where(n => n.IdVozaca == _filterVozac.Broj);
+
+            if (_filterVoziloId.HasValue)
+                q = q.Where(n => n.IdVozila == _filterVoziloId);
+
+            if (!string.IsNullOrWhiteSpace(_filterMestoU))
+                q = q.Where(n => n.MestoUtovara != null && n.MestoUtovara.Contains(_filterMestoU));
+
+            if (!string.IsNullOrWhiteSpace(_filterMestoI))
+                q = q.Where(n => n.MestoIstovara != null && n.MestoIstovara.Contains(_filterMestoI));
+
+            if (_filterDatumOd.HasValue)
+                q = q.Where(n => n.DatumUtovara >= _filterDatumOd.Value);
+
+            if (_filterDatumDo.HasValue)
+                q = q.Where(n => n.DatumUtovara <= _filterDatumDo.Value.AddDays(1));
+
+            if (!string.IsNullOrWhiteSpace(_filterStatus))
+                q = q.Where(n => n.Status == _filterStatus);
+
+            if (!string.IsNullOrWhiteSpace(_filterRefNalog))
+                q = q.Where(n => n.Nalog != null && n.Nalog.Contains(_filterRefNalog));
+
+            if (!string.IsNullOrWhiteSpace(_filterCmr))
+                q = q.Where(n => n.CMR != null && n.CMR.Contains(_filterCmr));
+
+            if (_filterSamoNeplaceni)
+                q = q.Where(n => (n.CenaTransporta ?? 0) > (n.PlacenTransport ?? 0));
+
+            _nalozi = await q.AsNoTracking().OrderByDescending(n => n.IdNaloga).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _queryInProgress = false;
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Filter handlers ──
+
+    private async Task OnStatusChanged(string? val)
+    {
+        _filterStatus = val;
+        await OsveziListu();
+    }
+
+    private async Task IzaberiPrevoznik(Partner p)
+    {
+        _filterPrevoznik    = p;
+        _prevoznikPretraga  = string.Empty;
+        _prevozniciDropdown = [];
+        _prevoznikOpen      = false;
+        await OsveziListu();
+    }
+
+    private async Task IzaberiVozac(Vozac v)
+    {
+        _filterVozac    = v;
+        _filterVozacId  = v.Broj;
+        _vozacPretraga  = string.Empty;
+        _vozaciDropdown = [];
+        _vozacOpen      = false;
+        await OsveziListu();
+    }
+
+    private async Task ResetuiFiltere()
+    {
+        _filterBrNaloga    = string.Empty;
+        _filterPrevoznik   = null;
+        _prevoznikPretraga = string.Empty;
+        _filterVozac       = null;
+        _filterVozacId     = null;
+        _vozacPretraga     = string.Empty;
+        _filterVoziloObj   = null;
+        _filterVoziloId    = null;
+        _voziloPretraga    = string.Empty;
+        _filterMestoU       = string.Empty;
+        _filterMestoI       = string.Empty;
+        _filterRefNalog     = string.Empty;
+        _filterCmr          = string.Empty;
+        _filterDatumOd      = null;
+        _filterDatumDo      = null;
+        _filterStatus       = null;
+        _filterSamoNeplaceni = false;
+        await OsveziListu();
+    }
+
+    // ── Autocomplete helpers ──
+
+    private List<Partner> FiltrirajPartnere(string pretraga) =>
+        string.IsNullOrWhiteSpace(pretraga)
+            ? [.. _sviPartneri.Take(10)]
+            : [.. _sviPartneri
+                .Where(p => (p.Naziv ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
+                            (p.Mesto  ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(8)];
+
+    private List<Vozac> FiltrirajVozace(string pretraga) =>
+        string.IsNullOrWhiteSpace(pretraga)
+            ? [.. _sviVozaci.Take(12)]
+            : [.. _sviVozaci
+                .Where(v => ((v.Ime ?? "") + " " + (v.Prezime ?? "")).Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
+                            ((v.Prezime ?? "") + " " + (v.Ime ?? "")).Contains(pretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(8)];
+
+    private List<Vozilo> FiltrirajVozila(string pretraga) =>
+        string.IsNullOrWhiteSpace(pretraga)
+            ? [.. _sviVozila.Take(12)]
+            : [.. _sviVozila
+                .Where(v => (v.registarskaOznaka ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase) ||
+                            (v.marka            ?? "").Contains(pretraga, StringComparison.OrdinalIgnoreCase))
+                .Take(8)];
+
+    private async Task IzaberiVozilo(Vozilo v)
+    {
+        _filterVoziloObj = v;
+        _filterVoziloId  = v.VoziloId;
+        _voziloPretraga  = string.Empty;
+        _vozilaDropdown  = [];
+        _voziloOpen      = false;
+        await OsveziListu();
+    }
+
+    // ── Multi-select / print ──
+
+    private void ToggleCekiran(int id, bool value)
+    {
+        if (value) _cekirani.Add(id);
+        else       _cekirani.Remove(id);
+        StateHasChanged();
+    }
+
+    private async Task StampajCekirane()
+    {
+        if (_cekirani.Count == 0) return;
+        var ids = string.Join(",", _cekirani);
+        await JS.InvokeVoidAsync("open", $"/transport/nalozi-stampa?ids={ids}", "_blank");
+    }
+
+    // ── Dijalog ──
+
+    private async Task NoviNalog()
+    {
+        var opts = new DialogOptions { CloseButton = true, CloseOnEscapeKey = true };
+        var prms = new DialogParameters<NalogPrevozDialog>
+        {
+            { x => x.IdNaloga, 0  },
+            { x => x.IdTure,   0  },
+            { x => x.BrTure,   "" }
+        };
+        var dlg = await Dialog.ShowAsync<NalogPrevozDialog>("Novi nalog za prevoz", prms, opts);
+        if (!(await dlg.Result).Canceled) await OsveziListu();
+    }
+
+    private async Task IzmeniNalog(NalogPrevoz n)
+    {
+        var opts = new DialogOptions { CloseButton = true, CloseOnEscapeKey = true };
+        var prms = new DialogParameters<NalogPrevozDialog>
+        {
+            { x => x.IdNaloga, n.IdNaloga            },
+            { x => x.IdTure,   n.IdPutnogNaloga ?? 0 },
+            { x => x.BrTure,   n.BrTure ?? ""        }
+        };
+        var dlg = await Dialog.ShowAsync<NalogPrevozDialog>($"Izmena naloga {n.BrNaloga}", prms, opts);
+        if (!(await dlg.Result).Canceled) await OsveziListu();
+    }
+
+    // ── Stilovi ──
+
+    private string NalogRowStyle(NalogPrevoz item, int _) => item.Status switch
+    {
+        "U TOKU"  => "background-color:#EBF5FB !important;",
+        "ZAVRSEN" => "background-color:#EAFAF1 !important;",
+        "OTKAZAN" => "background-color:#FDEDEC !important;",
+        _         => string.Empty
+    };
+
+    private static Color StatusBoja(string? status) => status switch
+    {
+        "U TOKU"  => Color.Warning,
+        "ZAVRSEN" => Color.Success,
+        "OTKAZAN" => Color.Error,
+        _         => Color.Default
+    };
+
+    private static string StatusLabel(string? status) => status switch
+    {
+        "ZAVRSEN" => "ZAVRŠEN",
+        "OTKAZAN" => "OTKAZAN",
+        _         => status ?? "—"
+    };
+
+    private static string ValutaOznaka(string? valuta) =>
+        valuta?.Contains("EUR") == true ? "EUR" : "RSD";
+
+    private async Task ExportExcel()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Nalozi");
+
+        var headers = new[]
+        {
+            "Br. naloga", "Br. ture", "Tip", "Nalogodavac", "Prevoznik",
+            "Mesto utovara", "Mesto istovara", "Datum utovara", "Datum istovara",
+            "Cena (EUR)", "Plaćeno (EUR)", "Razlika (EUR)", "Status"
+        };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var h = ws.Cell(1, i + 1);
+            h.Value = headers[i];
+            h.Style.Font.Bold = true;
+            h.Style.Font.FontColor = XLColor.White;
+            h.Style.Fill.BackgroundColor = XLColor.FromHtml("#2D3E50");
+        }
+
+        int row = 2;
+        foreach (var n in _nalozi)
+        {
+            var razlika = (double)((n.CenaTransporta ?? 0m) - (n.PlacenTransport ?? 0m));
+            ws.Cell(row, 1).Value  = n.BrNaloga;
+            ws.Cell(row, 2).Value  = n.BrTure;
+            ws.Cell(row, 3).Value  = n.TipNaloga;
+            ws.Cell(row, 4).Value  = n.Uvoznik;
+            ws.Cell(row, 5).Value  = n.Napomena2;
+            ws.Cell(row, 6).Value  = n.MestoUtovara;
+            ws.Cell(row, 7).Value  = n.MestoIstovara;
+            ws.Cell(row, 8).Value  = n.DatumUtovara?.ToString("dd.MM.yyyy");
+            ws.Cell(row, 9).Value  = n.DatumIstovara?.ToString("dd.MM.yyyy");
+            ws.Cell(row, 10).Value = (double)(n.CenaTransporta  ?? 0m);
+            ws.Cell(row, 11).Value = (double)(n.PlacenTransport ?? 0m);
+            ws.Cell(row, 12).Value = razlika;
+            ws.Cell(row, 13).Value = StatusLabel(n.Status);
+
+            if (razlika > 0)
+                ws.Row(row).Style.Font.FontColor = XLColor.Red;
+
+            row++;
+        }
+
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        await JS.InvokeVoidAsync("downloadFile", $"nalozi_{DateTime.Today:yyyy-MM-dd}.xlsx", base64);
+    }
+
+    private static DateTime? ParseDate(string? s) =>
+        DateTime.TryParse(s, out var d) ? d.Date : null;
+}
