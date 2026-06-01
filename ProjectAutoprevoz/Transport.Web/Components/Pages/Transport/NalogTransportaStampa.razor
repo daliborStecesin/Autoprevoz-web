@@ -68,10 +68,22 @@
     .no-print button:hover { background: #e0e0e0; }
     .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
 
+    /* ── Logo + zaglavlje ── */
+    .print-header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 16px; }
+    .print-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
+    .print-firma-podaci { flex-grow: 1; }
+    .print-doc-meta { text-align: right; flex-shrink: 0; min-width: 180px; }
+    .print-doc-meta .doc-title { font-size: 13pt; font-weight: bold; letter-spacing: 1px;
+                                  border-top: 2px solid #000; border-bottom: 2px solid #000;
+                                  padding: 4px 0; margin-bottom: 6px; }
+    .print-doc-meta .doc-line { font-size: 9.5pt; line-height: 1.7; }
+    .print-doc-meta .doc-line strong { color: #1a237e; }
+
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
         @@page { margin: 1.5cm; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
 </style>
 
@@ -91,10 +103,15 @@ else
    ══════════════════════════════════════════════ *@
 <div class="wrap">
 
-    @* Header: firma desno, logo levo *@
-    <div class="header-row">
-        <div></div>
-        <div class="firm-block" style="text-align:right;">
+    @* Zaglavlje: logo + firma levo, doc info desno *@
+    <div class="print-header">
+
+        @if (!string.IsNullOrEmpty(_logoBase64))
+        {
+            <img src="@_logoBase64" class="print-logo" alt="Logo" />
+        }
+
+        <div class="print-firma-podaci firm-block">
             @if (_firma is not null)
             {
                 <div class="naziv">@_firma.NazivFirme</div>
@@ -106,15 +123,15 @@ else
                 { <div>@_firma.mail</div> }
             }
         </div>
-    </div>
 
-    <div class="doc-naslov">NALOG ZA TRANSPORT</div>
-    <div class="doc-br">
-        Broj naloga: <strong>@_nalog.BrNaloga</strong>
-        &nbsp;&nbsp;&nbsp;
-        Br. ture: <strong>@(_nalog.BrTure ?? "—")</strong>
-        &nbsp;&nbsp;&nbsp;
-        Datum: @_nalog.DatumDokumenta?.ToString("dd.MM.yyyy")
+        <div class="print-doc-meta">
+            <div class="doc-title">NALOG ZA TRANSPORT</div>
+            <div class="doc-line">Broj: <strong>@_nalog.BrNaloga</strong></div>
+            @if (!string.IsNullOrWhiteSpace(_nalog.BrTure))
+            { <div class="doc-line">Tura: <strong>@_nalog.BrTure</strong></div> }
+            <div class="doc-line">Datum: @_nalog.DatumDokumenta?.ToString("dd.MM.yyyy")</div>
+        </div>
+
     </div>
 
     @* Nalogodavac + Prevoznik *@
@@ -278,7 +295,8 @@ else
 
     private NalogPrevoz? _nalog;
     private PodaciFirme? _firma;
-    private bool         _ucitava = true;
+    private bool         _ucitava   = true;
+    private string?      _logoBase64;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -287,11 +305,19 @@ else
 
         try
         {
-            _firma  = await Db.PodaciFirme.FirstOrDefaultAsync();
-            _nalog  = await Db.NaloziZaPrevoz
-                               .IgnoreQueryFilters()
-                               .AsNoTracking()
-                               .FirstOrDefaultAsync(n => n.IdNaloga == IdNaloga);
+            _firma = await Db.PodaciFirme.FirstOrDefaultAsync();
+            _nalog = await Db.NaloziZaPrevoz
+                              .IgnoreQueryFilters()
+                              .AsNoTracking()
+                              .FirstOrDefaultAsync(n => n.IdNaloga == IdNaloga);
+
+            // Logo: učitaj samo ako je aktiviran u podešavanjima
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
         }
         catch { }
         finally { _ucitava = false; StateHasChanged(); }

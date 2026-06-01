@@ -116,22 +116,25 @@
     </MudNavLink>
 
     @* ── PODEŠAVANJA ──────────────────────────────────── *@
-    <div class="nav-section-title">Podešavanja</div>
-    <MudNavLink Href="/podesavanja"
-                Icon="@Icons.Material.Filled.Settings">
-        Podešavanja
-    </MudNavLink>
-    <MudNavLink Href="/podesavanja/podaci-firme"
-                Icon="@Icons.Material.Filled.Business">
-        Podaci firme
-    </MudNavLink>
-    <MudNavLink Href="/podesavanja/sifarnici"
-                Icon="@Icons.Material.Filled.List">
-        Šifarnici
-    </MudNavLink>
-    <MudNavLink Href="/administracija/podesavanja"
-                Icon="@Icons.Material.Filled.Settings">
-        Administracija
-    </MudNavLink>
+    <MudNavGroup Title="Podešavanja"
+                 Icon="@Icons.Material.Filled.Settings"
+                 Expanded="false">
+        <MudNavLink Href="/podesavanja"
+                    Icon="@Icons.Material.Filled.Tune">
+            Opšta podešavanja
+        </MudNavLink>
+        <MudNavLink Href="/podesavanja/podaci-firme"
+                    Icon="@Icons.Material.Filled.Business">
+            Podaci firme
+        </MudNavLink>
+        <MudNavLink Href="/podesavanja/sifarnici"
+                    Icon="@Icons.Material.Filled.ListAlt">
+            Šifarnici
+        </MudNavLink>
+        <MudNavLink Href="/administracija/podesavanja"
+                    Icon="@Icons.Material.Filled.AdminPanelSettings">
+            Administracija
+        </MudNavLink>
+    </MudNavGroup>
 
 </MudNavMenu>
