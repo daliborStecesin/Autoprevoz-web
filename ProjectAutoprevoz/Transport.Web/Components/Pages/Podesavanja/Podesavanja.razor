@@ -41,42 +41,96 @@ else if (_pod is not null && _firma is not null)
         ═══════════════════════════════════════════════════════ *@
         <MudTabPanel Text="Opšta podešavanja" Icon="@Icons.Material.Filled.Tune">
             <MudGrid Spacing="3">
+
+                @* Red 1: Mesto izdavanja | Dnevnica domaća ────────── *@
                 <MudItem xs="12" md="6">
                     <MudTextField @bind-Value="_pod.MestoIzdavanja"
                                   Label="Mesto izdavanja"
-                                  Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
-                    <MudTextField @bind-Value="_pod.NapomenaPoreska"
-                                  Label="Napomena poreska"
                                   Variant="Variant.Outlined" ShrinkLabel="true"
-                                  Lines="3" Class="mb-3" />
-                    <MudNumericField T="decimal?"
-                                     @bind-Value="_pod.StopaPDV"
-                                     Label="Stopa PDV %"
-                                     Variant="Variant.Outlined" ShrinkLabel="true"
-                                     Format="N2" Class="mb-3" />
+                                  HelperText="Ako je prazno, koristi se mesto iz adrese firme" />
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudNumericField T="decimal?"
                                      @bind-Value="_pod.OpcijaDecimal1"
                                      Label="Dnevnica domaća (RSD)"
                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                     Format="N2" Class="mb-3" />
+                                     Format="N2"
+                                     HelperText=" " />
+                </MudItem>
+
+                @* Red 2: PDV stope | Dnevnica inostrana ───────────── *@
+                <MudItem xs="12" md="6">
+                    <div style="display:flex; gap:8px;">
+                        <div style="flex:1;">
+                            <MudNumericField T="decimal?"
+                                             @bind-Value="_pod.StopaPDV"
+                                             Label="Opšta stopa PDV %"
+                                             Variant="Variant.Outlined" ShrinkLabel="true"
+                                             Format="N2"
+                                             HelperText=" " />
+                        </div>
+                        <div style="flex:1;">
+                            <MudNumericField T="decimal?"
+                                             @bind-Value="_pod.nizaStopaPDV"
+                                             Label="Niža stopa PDV %"
+                                             Variant="Variant.Outlined" ShrinkLabel="true"
+                                             Format="N2"
+                                             HelperText=" " />
+                        </div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" md="6">
                     <MudNumericField T="decimal?"
                                      @bind-Value="_pod.OpcijaDecimal2"
                                      Label="Dnevnica inostrana (EUR)"
                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                     Format="N2" Class="mb-3" />
+                                     Format="N2"
+                                     HelperText=" " />
+                </MudItem>
+
+                @* Red 3: Rok + Valuta osnova | Kurs EUR ────────────── *@
+                <MudItem xs="12" md="6">
+                    <div style="display:flex; gap:8px;">
+                        <div style="flex:1;">
+                            <MudNumericField T="decimal?"
+                                             @bind-Value="_pod.ValutaDana"
+                                             Label="Rok plaćanja (dana)"
+                                             Variant="Variant.Outlined" ShrinkLabel="true"
+                                             Format="N0"
+                                             HelperText="Koristi se ako partner nema valutu" />
+                        </div>
+                        <div style="flex:1;">
+                            <div style="position:relative; height:56px;">
+                                <label style="position:absolute; top:-9px; left:10px; z-index:1;
+                                              background:#fff; padding:0 4px;
+                                              font-size:.75rem; color:rgba(0,0,0,.6); line-height:1;
+                                              pointer-events:none;">
+                                    Valuta se računa od
+                                </label>
+                                <select @bind="_pod.OpcijaString12"
+                                        style="width:100%; height:100%; background:#fff; color:rgba(0,0,0,.87);
+                                               border:1px solid rgba(0,0,0,.23); border-radius:4px;
+                                               padding:0 12px; font-size:1rem; outline:none; cursor:pointer;
+                                               appearance:auto;">
+                                    <option value="PROMET">Datum prometa (istovara)</option>
+                                    <option value="RACUN">Datum računa</option>
+                                </select>
+                            </div>
+                            <div style="font-size:.75rem; color:rgba(0,0,0,.6); padding:3px 14px 0;">
+                                Osnova za izračunavanje valute
+                            </div>
+                        </div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" md="6">
                     <MudNumericField T="decimal?"
                                      @bind-Value="_pod.kursEur"
                                      Label="Podrazumevani kurs EUR (ako NBS nije dostupan)"
                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                     Format="N4" Class="mb-3" />
-                    <MudNumericField T="decimal?"
-                                     @bind-Value="_pod.ValutaDana"
-                                     Label="Podrazumevano valuta dana"
-                                     Variant="Variant.Outlined" ShrinkLabel="true"
-                                     Format="N0" />
+                                     Format="N4"
+                                     HelperText=" " />
                 </MudItem>
+
             </MudGrid>
         </MudTabPanel>
 
@@ -584,7 +638,8 @@ else if (_pod is not null && _firma is not null)
                 brTureAgencijski        = 1,
                 sefTipServera           = "DEMO",
                 eOtpremnicaTipServera   = "DEMO",
-                pdvDatumObracuna        = "DATUM PROMETA"
+                pdvDatumObracuna        = "DATUM PROMETA",
+                OpcijaString12          = "PROMET"
             };
             _noviZapis = true;
         }

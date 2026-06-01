@@ -17,7 +17,8 @@ public class Podesavanja
     [MaxLength(150)] public string? NapomenaPoreska { get; set; }
 
     // decimal(18,2)
-    public decimal? StopaPDV { get; set; }
+    public decimal? StopaPDV     { get; set; }
+    public decimal? nizaStopaPDV { get; set; }
 
     // decimal(10,0) — generičke decimalne opcije
     public decimal? OpcijaDecimal1 { get; set; }
@@ -55,6 +56,9 @@ public class Podesavanja
     [MaxLength(50)]  public string? formatBrojaPredracuna { get; set; }
     public int?     Broj_Otpremnice       { get; set; }
     [MaxLength(50)]  public string? formatBrojaOtpremnice { get; set; }
+
+    // Slobodni string — OpcijaString12: osnova za valutu (PROMET/RACUN)
+    [MaxLength(50)] public string? OpcijaString12 { get; set; }
 
     // Opšte opcije — int u DB (0/1 pattern za bool, int za cifre)
     public int? automatskiBrojevi       { get; set; }

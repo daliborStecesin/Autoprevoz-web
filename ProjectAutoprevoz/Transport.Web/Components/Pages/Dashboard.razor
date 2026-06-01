@@ -221,6 +221,24 @@
         _ucitavaKurs = true; StateHasChanged();
         _kursEur     = await KursService.GetKursAsync(DateTime.Today);
         _ucitavaKurs = false; StateHasChanged();
+
+        // Upiši povučeni kurs kao fallback vrednost u podešavanja
+        if (_kursEur > 0)
+            await UpisiKursUPodesavanja(_kursEur);
+    }
+
+    private async Task UpisiKursUPodesavanja(decimal kurs)
+    {
+        try
+        {
+            var pod = await Db.Podesavanja.FirstOrDefaultAsync();
+            if (pod is not null)
+            {
+                pod.kursEur = kurs;
+                await Db.SaveChangesAsync();
+            }
+        }
+        catch { }
     }
 
     private async Task UcitajPodsetnike()
