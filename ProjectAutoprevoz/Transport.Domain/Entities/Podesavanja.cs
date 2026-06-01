@@ -60,6 +60,9 @@ public class Podesavanja
     // Slobodni string — OpcijaString12: osnova za valutu (PROMET/RACUN)
     [MaxLength(50)] public string? OpcijaString12 { get; set; }
 
+    // Modul zastavice — 0 = isključen, 1 = aktivan (default)
+    public int? transportModulAktivan   { get; set; }
+
     // Opšte opcije — int u DB (0/1 pattern za bool, int za cifre)
     public int? automatskiBrojevi       { get; set; }
     public int? rucniUnosBrojFakture    { get; set; }

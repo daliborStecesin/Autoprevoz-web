@@ -7,6 +7,7 @@ public interface ITenantService
     string GetNazivFirme();
     int GetPrivilegija();
     int GetIdKorisnika();
+    bool GetTransportModulAktivan();
     bool IsAuthenticated();
     void Logout();
 }

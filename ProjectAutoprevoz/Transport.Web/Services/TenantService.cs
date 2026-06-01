@@ -47,6 +47,12 @@ public class TenantService : ITenantService
         return _cachedUserId.Value;
     }
 
+    public bool GetTransportModulAktivan()
+    {
+        var val = _http.HttpContext?.Request.Cookies["ap_transport"] ?? "1";
+        return val != "0"; // default: aktivan (1); 0 = isključen
+    }
+
     public bool IsAuthenticated() => !string.IsNullOrEmpty(GetConnectionString());
 
     public void Logout()

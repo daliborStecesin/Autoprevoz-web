@@ -387,6 +387,7 @@ else if (_sviNalozi.Count > 0)
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        if (!TenantService.GetTransportModulAktivan()) { Nav.NavigateTo("/"); return; }
 
         _sviPartneri = await Db.Partneri.OrderBy(p => p.Naziv).AsNoTracking().ToListAsync();
 

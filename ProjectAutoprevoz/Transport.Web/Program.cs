@@ -124,6 +124,32 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
     ctx.Response.Cookies.Append("ap_priv",  korisnik.Privilegija.ToString(),              opts);
     ctx.Response.Cookies.Append("ap_user",  korisnik.IdKorisnika.ToString(),              opts);
 
+    // Učitaj module zastavice iz tenant baze (raw ADO.NET — ne zavisi od EF mapiranja)
+    // NULL u bazi = 0 (neaktivan); greška čitanja = 1 (backwards compatible)
+    int transportAktivan = 1;
+    try
+    {
+        var tenantCsb = new SqlConnectionStringBuilder(licenca.ConnectionString ?? string.Empty)
+        {
+            TrustServerCertificate = true,
+            Encrypt = false
+        };
+        using var conn = new SqlConnection(tenantCsb.ConnectionString);
+        await conn.OpenAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT TOP 1 transportModulAktivan FROM tbl_Podesavanja WHERE Broj = 1";
+        var val = await cmd.ExecuteScalarAsync();
+        // NULL ili DBNull → 0 (neaktivan); sve ostalo → int vrednost
+        transportAktivan = (val is DBNull or null) ? 0 : Convert.ToInt32(val);
+    }
+    catch
+    {
+        // Kolona ne postoji (ALTER nije pokrenut) → legacy ponašanje: aktivan
+        transportAktivan = 1;
+    }
+
+    ctx.Response.Cookies.Append("ap_transport", transportAktivan.ToString(), opts);
+
     return Results.Ok(new
     {
         connectionString = licenca.ConnectionString ?? string.Empty,
@@ -142,6 +168,7 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
     ctx.Response.Cookies.Delete("ap_firma");
     ctx.Response.Cookies.Delete("ap_priv");
     ctx.Response.Cookies.Delete("ap_user");
+    ctx.Response.Cookies.Delete("ap_transport");
     return Results.Redirect("/login");
 });
 

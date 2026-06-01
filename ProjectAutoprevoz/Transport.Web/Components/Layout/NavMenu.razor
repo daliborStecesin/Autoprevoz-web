@@ -1,3 +1,5 @@
+@inject ITenantService TenantService
+
 <MudNavMenu>
 
     @* ── OPERATIVA ────────────────────────────────────── *@
@@ -45,26 +47,29 @@
                 Icon="@Icons.Material.Filled.CardMembership">
         Dozvole MUP
     </MudNavLink>
-    <MudNavLink Href="/transport/nalozi"
-                Icon="@Icons.Material.Filled.DriveEta">
-        Transport / Ture
-    </MudNavLink>
-    <MudNavLink Href="/nalozi"
-                Icon="@Icons.Material.Filled.ReceiptLong">
-        Nalozi za prevoz
-    </MudNavLink>
-    <MudNavLink Href="/transport/putni-nalozi"
-                Icon="@Icons.Material.Filled.Route">
-        Putni nalozi
-    </MudNavLink>
-    <MudNavLink Href="/statistika/ture"
-                Icon="@Icons.Material.Filled.BarChart">
-        Statistika tura
-    </MudNavLink>
-    <MudNavLink Href="/statistika/nalozi"
-                Icon="@Icons.Material.Filled.Analytics">
-        Statistika naloga
-    </MudNavLink>
+    @if (TenantService.GetTransportModulAktivan())
+    {
+        <MudNavLink Href="/transport/nalozi"
+                    Icon="@Icons.Material.Filled.DriveEta">
+            Transport / Ture
+        </MudNavLink>
+        <MudNavLink Href="/nalozi"
+                    Icon="@Icons.Material.Filled.ReceiptLong">
+            Nalozi za prevoz
+        </MudNavLink>
+        <MudNavLink Href="/transport/putni-nalozi"
+                    Icon="@Icons.Material.Filled.Route">
+            Putni nalozi
+        </MudNavLink>
+        <MudNavLink Href="/statistika/ture"
+                    Icon="@Icons.Material.Filled.BarChart">
+            Statistika tura
+        </MudNavLink>
+        <MudNavLink Href="/statistika/nalozi"
+                    Icon="@Icons.Material.Filled.Analytics">
+            Statistika naloga
+        </MudNavLink>
+    }
 
     @* ── FINANSIJE ────────────────────────────────────── *@
     <div class="nav-section-title">Finansije</div>

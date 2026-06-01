@@ -351,6 +351,7 @@ else if (_sveTure.Count > 0)
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        if (!TenantService.GetTransportModulAktivan()) { Nav.NavigateTo("/"); return; }
 
         _sviVozaci = await Db.Vozaci.OrderBy(v => v.Ime).ThenBy(v => v.Prezime).AsNoTracking().ToListAsync();
         _sviVozila = await Db.Vozila.OrderBy(v => v.registarskaOznaka).AsNoTracking().ToListAsync();

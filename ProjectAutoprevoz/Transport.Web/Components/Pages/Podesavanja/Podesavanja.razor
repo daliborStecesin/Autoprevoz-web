@@ -139,6 +139,10 @@ else if (_pod is not null && _firma is not null)
         ═══════════════════════════════════════════════════════ *@
         <MudTabPanel Text="Brojevi dokumenata" Icon="@Icons.Material.Filled.Tag">
 
+            @* ── Transport modul (Ture + Nalozi) ── uslovni prikaz ── *@
+            @if ((_pod.transportModulAktivan ?? 1) != 0)
+            {
+
             @* ── Ture ──────────────────────────────────────────────── *@
             <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                 <MudIcon Icon="@Icons.Material.Filled.DriveEta" Size="Size.Small" Class="mr-1" />
@@ -247,6 +251,15 @@ else if (_pod is not null && _firma is not null)
                                       ReadOnly="true" />
                     </MudItem>
                 </MudGrid>
+            }
+
+            } @* kraj @if transportModulAktivan *@
+            else
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                    Transport modul (ture i nalozi) nije aktiviran u vašoj licenci.
+                    Kontaktirajte DAK-SOFT za aktivaciju.
+                </MudAlert>
             }
 
             <MudDivider Class="my-4" />
