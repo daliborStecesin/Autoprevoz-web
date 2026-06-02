@@ -1,0 +1,280 @@
+@using Transport.Application.Services.Sef
+@using Transport.Domain.Entities
+
+@inject ISefService    SefService
+@inject ISnackbar      Snackbar
+@inject IDialogService Dialog
+
+<MudDialog Style="min-width:900px;">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+            Članovi PDV oslobođenja
+        </MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudTabs Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-3"
+                 ActivePanelIndexChanged="OnTabChanged">
+
+            @* ── TAB 1: Svi članovi ──────────────────────────────────── *@
+            <MudTabPanel Text="Svi članovi">
+
+                <div class="d-flex align-center gap-3 flex-wrap mb-3">
+                    <MudTextField @bind-Value="_filter"
+                                  Immediate="true"
+                                  Label="Pretraga (tekst / ključ)"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Style="min-width:280px;"
+                                  DebounceInterval="200"
+                                  OnDebounceIntervalElapsed="@(_ => StateHasChanged())" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudDownload"
+                               OnClick="OsveziSaSef"
+                               Disabled="_ucitavaSef">
+                        @if (_ucitavaSef)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Izlistaj sve sa SEF
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.DeleteSweep"
+                               OnClick="ObrisiVanUpotrebe"
+                               Disabled="_ucitavaSef || !_sviClanovi.Any()">
+                        Ukloni van upotrebe
+                    </MudButton>
+                </div>
+
+                @if (_ucitava)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else
+                {
+                    <MudTable Items="@FiltriranaSvihClanovi"
+                              Dense="true" Striped="true" Hover="true"
+                              RowsPerPage="25"
+                              Class="mt-1">
+                        <HeaderContent>
+                            <MudTh>Ključ</MudTh>
+                            <MudTh>Član</MudTh>
+                            <MudTh>Paragraf</MudTh>
+                            <MudTh>Tačka</MudTh>
+                            <MudTh Style="min-width:300px;">Tekst</MudTh>
+                            <MudTh>Kategorija</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Ključ">@context.KeyClan</MudTd>
+                            <MudTd DataLabel="Član">@context.Article</MudTd>
+                            <MudTd DataLabel="Paragraf">@context.Paragraph</MudTd>
+                            <MudTd DataLabel="Tačka">@context.Point</MudTd>
+                            <MudTd DataLabel="Tekst" Style="white-space:normal;">
+                                <MudText Typo="Typo.caption">@context.Text</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Kategorija">@context.Category</MudTd>
+                            <MudTd>
+                                @if (context.Koristi == 1)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Check">
+                                        U upotrebi
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudButton Size="Size.Small"
+                                               Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               OnClick="@(() => DodajUUpotrebu(context.ReasonId ?? 0))">
+                                        Dodaj
+                                    </MudButton>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager />
+                        </PagerContent>
+                    </MudTable>
+                }
+            </MudTabPanel>
+
+            @* ── TAB 2: U upotrebi ───────────────────────────────────── *@
+            <MudTabPanel Text="@($"U upotrebi ({_uUpotrebi.Count})")">
+
+                @if (_ucitavaUpotrebu)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (!_uUpotrebi.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                        Nema članova označenih za upotrebu.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="@_uUpotrebi"
+                              Dense="true" Striped="true" Hover="true"
+                              Class="mt-1">
+                        <HeaderContent>
+                            <MudTh>Ključ</MudTh>
+                            <MudTh>Član</MudTh>
+                            <MudTh>Paragraf</MudTh>
+                            <MudTh>Tačka</MudTh>
+                            <MudTh Style="min-width:300px;">Tekst</MudTh>
+                            <MudTh>Kategorija</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Ključ">@context.KeyClan</MudTd>
+                            <MudTd DataLabel="Član">@context.Article</MudTd>
+                            <MudTd DataLabel="Paragraf">@context.Paragraph</MudTd>
+                            <MudTd DataLabel="Tačka">@context.Point</MudTd>
+                            <MudTd DataLabel="Tekst" Style="white-space:normal;">
+                                <MudText Typo="Typo.caption">@context.Text</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Kategorija">@context.Category</MudTd>
+                            <MudTd>
+                                <MudButton Size="Size.Small"
+                                           Variant="Variant.Outlined"
+                                           Color="Color.Error"
+                                           OnClick="@(() => UkloniIzUpotrebe(context.ReasonId ?? 0))">
+                                    Ukloni
+                                </MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudTabPanel>
+
+        </MudTabs>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel" Variant="Variant.Text">Zatvori</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    private List<TaxExemption> _sviClanovi     = [];
+    private List<TaxExemption> _uUpotrebi      = [];
+    private string?            _filter;
+    private bool               _ucitava        = true;
+    private bool               _ucitavaSef     = false;
+    private bool               _ucitavaUpotrebu = false;
+    private int                _aktivniTab     = 0;
+
+    private IEnumerable<TaxExemption> FiltriranaSvihClanovi =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _sviClanovi
+            : _sviClanovi.Where(x =>
+                (x.Text    != null && x.Text.Contains(_filter,    StringComparison.OrdinalIgnoreCase)) ||
+                (x.KeyClan != null && x.KeyClan.Contains(_filter, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UcitajSveClanove();
+        _ucitava = false;
+    }
+
+    private async Task UcitajSveClanove()
+    {
+        _sviClanovi = await SefService.GetSviClanovi(null);
+        _uUpotrebi  = _sviClanovi.Where(x => x.Koristi == 1).ToList();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        _aktivniTab = index;
+        if (index == 1 && !_uUpotrebi.Any())
+        {
+            _ucitavaUpotrebu = true;
+            StateHasChanged();
+            _uUpotrebi = await SefService.GetUUpotrebi();
+            _ucitavaUpotrebu = false;
+        }
+    }
+
+    private async Task OsveziSaSef()
+    {
+        _ucitavaSef = true;
+        StateHasChanged();
+        try
+        {
+            var n = await SefService.OsveziClanove();
+            await UcitajSveClanove();
+            Snackbar.Add($"Učitano {n} članova sa SEF.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri komunikaciji sa SEF: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _ucitavaSef = false;
+        }
+    }
+
+    private async Task DodajUUpotrebu(int reasonId)
+    {
+        if (reasonId == 0) return;
+        try
+        {
+            await SefService.DodajUUpotrebu(reasonId);
+            var red = _sviClanovi.FirstOrDefault(x => x.ReasonId == reasonId);
+            if (red is not null) red.Koristi = 1;
+            _uUpotrebi = _sviClanovi.Where(x => x.Koristi == 1).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UkloniIzUpotrebe(int reasonId)
+    {
+        if (reasonId == 0) return;
+        try
+        {
+            await SefService.UkloniIzUpotrebe(reasonId);
+            var red = _sviClanovi.FirstOrDefault(x => x.ReasonId == reasonId);
+            if (red is not null) red.Koristi = 0;
+            _uUpotrebi = _sviClanovi.Where(x => x.Koristi == 1).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ObrisiVanUpotrebe()
+    {
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda brisanja",
+            "Biće obrisani svi članovi koji NISU označeni za upotrebu. Da li ste sigurni?",
+            yesText: "Obriši",
+            cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        try
+        {
+            await SefService.ObrisiVanUpotrebe();
+            await UcitajSveClanove();
+            Snackbar.Add("Članovi van upotrebe su obrisani.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.Message}", Severity.Error);
+        }
+    }
+}

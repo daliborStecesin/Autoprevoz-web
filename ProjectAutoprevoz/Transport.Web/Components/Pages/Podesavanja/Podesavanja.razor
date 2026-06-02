@@ -11,6 +11,7 @@
 @inject NavigationManager Nav
 @inject TransportDbContext Db
 @inject ISnackbar         Snackbar
+@inject IDialogService    Dialog
 
 <PageTitle>Podešavanja — Autoprevoz</PageTitle>
 
@@ -587,6 +588,15 @@ else if (_pod is not null && _firma is not null)
 
             </MudPaper>
 
+            <div class="mt-4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.List"
+                           OnClick="OtvoriClanove">
+                    Članovi PDV oslobođenja
+                </MudButton>
+            </div>
+
         </MudTabPanel>
         } @* kraj @if e-fakture *@
 
@@ -757,4 +767,10 @@ else if (_pod is not null && _firma is not null)
 
     private string PrevBroj(int? trenutni, string? format)
         => BrojDokumentaService.Preview(trenutni ?? 0, format, _pod?.minCifaraBroja ?? 0);
+
+    private async Task OtvoriClanove()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        await Dialog.ShowAsync<ClanoviPdvDialog>("Članovi PDV oslobođenja", opts);
+    }
 }

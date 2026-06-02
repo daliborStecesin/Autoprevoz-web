@@ -60,6 +60,9 @@ public class TransportDbContext : DbContext
     public DbSet<Banka>         Banke          { get; set; }
     public DbSet<Podesavanja>   Podesavanja    { get; set; }
 
+    // SEF — PDV oslobođenja
+    public DbSet<TaxExemption>  TaxExemptions  { get; set; }
+
     // Podsetnici
     public DbSet<Potsetnik> Podsetnici { get; set; }
 

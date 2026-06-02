@@ -2,6 +2,7 @@ using Transport.Web.Components;
 using Transport.Infrastructure.Data;
 using Transport.Application.Interfaces;
 using Transport.Application.Services;
+using Transport.Application.Services.Sef;
 using Transport.Web.Services;
 using MudBlazor.Services;
 using Microsoft.EntityFrameworkCore;
@@ -49,6 +50,8 @@ builder.Services.AddScoped<ITransportService, TransportService>();
 builder.Services.AddScoped<IDnevnicaService, DnevnicaService>();
 builder.Services.AddScoped<IPdvService, PdvService>();
 builder.Services.AddScoped<IDefaultValuesService, DefaultValuesService>();
+builder.Services.AddScoped<SefApiClient>();
+builder.Services.AddScoped<ISefService, SefService>();
 
 // ============================================================================
 // INFRASTRUCTURE
