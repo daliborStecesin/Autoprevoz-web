@@ -55,12 +55,15 @@
     .no-print button:hover { background: #e0e0e0; }
     .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
 
+    .print-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
+
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
         thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .sekcija .naslov { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         @@page { margin: 1.5cm; }
     }
 </style>
@@ -79,14 +82,20 @@ else
 
     @* ── Header ── *@
     <div class="header-row">
-        <div class="firm-block">
-            @if (_firma is not null)
+        <div style="display:flex; align-items:flex-start; gap:12px;">
+            @if (!string.IsNullOrEmpty(_logoBase64))
             {
-                <div class="naziv">@_firma.NazivFirme</div>
-                <div>@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
-                <div>PIB: @_firma.PIB &nbsp;&nbsp; MB: @_firma.MaticniBroj</div>
-                @if (!string.IsNullOrWhiteSpace(_firma.Telefon)) { <div>Tel: @_firma.Telefon</div> }
+                <img src="@_logoBase64" class="print-logo" alt="Logo" />
             }
+            <div class="firm-block">
+                @if (_firma is not null)
+                {
+                    <div class="naziv">@_firma.NazivFirme</div>
+                    <div>@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                    <div>PIB: @_firma.PIB &nbsp;&nbsp; MB: @_firma.MaticniBroj</div>
+                    @if (!string.IsNullOrWhiteSpace(_firma.Telefon)) { <div>Tel: @_firma.Telefon</div> }
+                }
+            </div>
         </div>
         <div class="doc-box">
             <div class="naslov">NALOG ZA VOŽNJU</div>
@@ -258,6 +267,7 @@ else
     private List<Trosak>      _troskovi = [];
     private List<Dnevnica>    _dnevnice = [];
     private PodaciFirme?      _firma;
+    private string?           _logoBase64;
     private bool              _ucitava  = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -268,6 +278,14 @@ else
         try
         {
             _firma = await Db.PodaciFirme.FirstOrDefaultAsync();
+
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
+
             _tura  = await Db.PutniNalozi.IgnoreQueryFilters()
                               .FirstOrDefaultAsync(t => t.IdNaloga == Id);
 

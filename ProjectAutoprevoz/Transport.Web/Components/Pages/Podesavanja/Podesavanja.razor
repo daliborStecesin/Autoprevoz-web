@@ -464,7 +464,7 @@ else if (_pod is not null && _firma is not null)
             </MudPaper>
 
             @* ── Tekstovi na štampi ────────────────────────────────── *@
-            <MudPaper Elevation="1" Class="pa-4">
+            <MudPaper Elevation="1" Class="pa-4 mb-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                     <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Class="mr-1" />
                     Tekstovi na štampi
@@ -473,42 +473,15 @@ else if (_pod is not null && _firma is not null)
                               Label="Uslovi transporta"
                               Variant="Variant.Outlined" ShrinkLabel="true"
                               Lines="6"
-                              HelperText="Prikazuje se na dnu nalog za prevoz"
-                              Class="mb-3" />
-                <MudGrid Spacing="3">
-                    <MudItem xs="12" sm="6">
-                        <MudTextField @bind-Value="_pod.napomenaStampa1"
-                                      Label="Napomena na štampi 1"
-                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                      Lines="3" />
-                    </MudItem>
-                    <MudItem xs="12" sm="6">
-                        <MudTextField @bind-Value="_pod.napomenaStampa2"
-                                      Label="Napomena na štampi 2"
-                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                      Lines="3" />
-                    </MudItem>
-                </MudGrid>
+                              HelperText="Prikazuje se na dnu naloga za prevoz" />
             </MudPaper>
 
-            @* ── Fakturisanje — tekstovi ──────────────────────────── *@
-            <MudPaper Elevation="1" Class="pa-4 mt-4">
+            @* ── Inostrana faktura ────────────────────────────────── *@
+            <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
-                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
-                    Fakturisanje — tekstovi
+                    <MudIcon Icon="@Icons.Material.Filled.Language" Size="Size.Small" Class="mr-1" />
+                    Inostrana faktura
                 </MudText>
-
-                <MudText Typo="Typo.caption" Class="mb-2 d-block mud-text-secondary">Domaća faktura</MudText>
-                <MudTextField @bind-Value="_pod.Napomena_txt2"
-                              Label="Stalna napomena na fakturi"
-                              Variant="Variant.Outlined" ShrinkLabel="true"
-                              Lines="4"
-                              HelperText="Prikazuje se na dnu svake domaće fakture"
-                              Class="mb-4" />
-
-                <MudDivider Class="mb-4" />
-
-                <MudText Typo="Typo.caption" Class="mb-2 d-block mud-text-secondary">Inostrana faktura</MudText>
                 <MudTextField @bind-Value="_pod.opcijaText1"
                               Label="Stalna napomena na ino fakturi"
                               Variant="Variant.Outlined" ShrinkLabel="true"

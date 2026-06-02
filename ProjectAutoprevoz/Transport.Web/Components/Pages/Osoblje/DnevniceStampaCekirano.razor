@@ -48,11 +48,14 @@
     .no-print button.green { background: #4CAF50; color: white; border-color: #388E3C; }
     .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
 
+    .print-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
+
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
         thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tr { page-break-inside: avoid; }
         @@page { margin: 1.5cm; }
     }
@@ -73,14 +76,20 @@ else
 {
     <div class="wrap">
         <div class="two-col">
-            <div class="left">
-                @if (_firma is not null)
+            <div class="left" style="display:flex; align-items:flex-start; gap:12px;">
+                @if (!string.IsNullOrEmpty(_logoBase64))
                 {
-                    <div class="naziv">@_firma.NazivFirme</div>
-                    <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
-                    <div class="adresa">PIB: @_firma.PIB</div>
-                    <div class="adresa">Matični br: @_firma.MaticniBroj</div>
+                    <img src="@_logoBase64" class="print-logo" alt="Logo" />
                 }
+                <div>
+                    @if (_firma is not null)
+                    {
+                        <div class="naziv">@_firma.NazivFirme</div>
+                        <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                        <div class="adresa">PIB: @_firma.PIB</div>
+                        <div class="adresa">Matični br: @_firma.MaticniBroj</div>
+                    }
+                </div>
             </div>
             <div class="right">
                 <div class="naslov">Obračun dnevnica i gotovinskih troškova</div>
@@ -203,6 +212,7 @@ else
 
     private List<Dnevnica> _dnevnice      = [];
     private PodaciFirme?   _firma;
+    private string?        _logoBase64;
     private string?        _vozacIme;
     private VozacRacun?    _racunDomaci;
     private VozacRacun?    _racunDevizni;
@@ -226,6 +236,13 @@ else
         try
         {
             _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
 
             var ids = (Ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
                                  .Select(x => int.TryParse(x.Trim(), out var n) ? n : 0)

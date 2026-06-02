@@ -94,6 +94,11 @@
         color: #666;
     }
 
+    .print-header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 8px; }
+    .print-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
+    .firm-block { font-size: 9pt; line-height: 1.6; }
+    .firm-block .naziv { font-size: 12pt; font-weight: bold; }
+
     @@media print {
         .no-print { display: none !important; }
 
@@ -102,6 +107,7 @@
         thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .footer td:first-child { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
         tr { page-break-inside: avoid; }
         table { page-break-after: auto; }
@@ -119,17 +125,27 @@ else
     <div class="wrap">
 
         @* ── Zaglavlje ── *@
-        <div class="header">
-            @if (_firma is not null)
+        <div class="print-header">
+            @if (!string.IsNullOrEmpty(_logoBase64))
             {
-                <h1>@_firma.NazivFirme</h1>
-                @if (!string.IsNullOrEmpty(_firma.Adresa) || !string.IsNullOrEmpty(_firma.Mesto))
-                {
-                    <div class="adresa">
-                        @_firma.Adresa@(!string.IsNullOrEmpty(_firma.Adresa) && !string.IsNullOrEmpty(_firma.Mesto) ? ", " : "")@_firma.Mesto
-                    </div>
-                }
+                <img src="@_logoBase64" class="print-logo" alt="Logo" />
             }
+            <div class="firm-block">
+                @if (_firma is not null)
+                {
+                    <div class="naziv">@_firma.NazivFirme</div>
+                    @if (!string.IsNullOrEmpty(_firma.Adresa) || !string.IsNullOrEmpty(_firma.Mesto))
+                    {
+                        <div>@_firma.Adresa@(!string.IsNullOrEmpty(_firma.Adresa) && !string.IsNullOrEmpty(_firma.Mesto) ? ", " : "")@_firma.Mesto</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_firma.PIB))
+                    {
+                        <div>PIB: @_firma.PIB@(!string.IsNullOrEmpty(_firma.MaticniBroj) ? $" · MB: {_firma.MaticniBroj}" : "")</div>
+                    }
+                }
+            </div>
+        </div>
+        <div class="header">
             <div class="naslov">
                 Obračun troškova za period od: @FormatDatum(Od) DO: @FormatDatum(Do)
             </div>
@@ -214,6 +230,7 @@ else
 
     private List<Trosak>  _troskovi    = [];
     private PodaciFirme?  _firma;
+    private string?       _logoBase64;
     private string?       _voziloPrikaz;
     private bool          _ucitava     = true;
     private decimal       _ukupnoRsd;
@@ -229,6 +246,13 @@ else
         if (!firstRender) return;
 
         _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+        var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+        if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+        {
+            var mime = _firma.logoMimeType ?? "image/png";
+            _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+        }
 
         var odDate = DateTime.TryParse(Od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
         var doDate = DateTime.TryParse(Do, out var d)  ? d.AddDays(1) : DateTime.Today.AddDays(1);
