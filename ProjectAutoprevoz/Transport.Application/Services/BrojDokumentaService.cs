@@ -36,5 +36,5 @@ public static class BrojDokumentaService
     }
 
     public static string Preview(int trenutniBroj, string? format, int minCifara = 0)
-        => Formatiraj(trenutniBroj + 1, format, minCifara);
+        => Formatiraj(trenutniBroj, format, minCifara);
 }

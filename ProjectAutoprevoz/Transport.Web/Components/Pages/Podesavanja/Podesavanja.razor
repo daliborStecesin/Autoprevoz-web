@@ -139,6 +139,112 @@ else if (_pod is not null && _firma is not null)
         ═══════════════════════════════════════════════════════ *@
         <MudTabPanel Text="Brojevi dokumenata" Icon="@Icons.Material.Filled.Tag">
 
+            @* ── Fakturisanje ──────────────────────────────────────── *@
+            <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
+                <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
+                Fakturisanje
+            </MudText>
+
+            <MudGrid Spacing="3" Class="mb-3">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Racuna"
+                                     Label="Broj računa"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_pod.formatBrojaRacuna"
+                                  Label="Format broja računa"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  Placeholder="broj-godina4"
+                                  HelperText="Tokeni: broj, godina2, godina4, mesec, dan" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField Value="@(PrevBroj(_pod.Broj_Racuna, _pod.formatBrojaRacuna))"
+                                  Label="Preview"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  ReadOnly="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3" Class="mb-3">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Otpremnice"
+                                     Label="Broj ino računa"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_pod.formatBrojaInoRacuna"
+                                  Label="Format ino računa"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  Placeholder="broj-godina4"
+                                  HelperText="Tokeni: broj, godina2, godina4, mesec, dan" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField Value="@(PrevBroj(_pod.Broj_Otpremnice, _pod.formatBrojaInoRacuna))"
+                                  Label="Preview ino"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  ReadOnly="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Predracuna"
+                                     Label="Broj predračuna"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_pod.formatBrojaPredracuna"
+                                  Label="Format predračuna"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  Placeholder="broj-godina4"
+                                  HelperText="Tokeni: broj, godina2, godina4, mesec, dan" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField Value="@(PrevBroj(_pod.Broj_Predracuna, _pod.formatBrojaPredracuna))"
+                                  Label="Preview predračun"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  ReadOnly="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+
+            @* ── Finansijski dokumenti ─────────────────────────────── *@
+            <MudText Typo="Typo.subtitle1" Class="mb-1 mud-text-secondary">
+                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Class="mr-1" />
+                Finansijski dokumenti
+            </MudText>
+            <MudText Typo="Typo.caption" Class="mb-3 d-block mud-text-secondary">
+                Format se podešava kasnije (npr. KO-1-2026)
+            </MudText>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Dok_1"
+                                     Label="Broj knjižnog odobrenja (KO)"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Dok_3"
+                                     Label="Broj knjižnog zaduženja (KZ)"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Dok_2"
+                                     Label="Broj avansa"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+
             @* ── Transport modul (Ture + Nalozi) ── uslovni prikaz ── *@
             @if ((_pod.transportModulAktivan ?? 1) != 0)
             {
@@ -146,7 +252,7 @@ else if (_pod is not null && _firma is not null)
             @* ── Ture ──────────────────────────────────────────────── *@
             <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                 <MudIcon Icon="@Icons.Material.Filled.DriveEta" Size="Size.Small" Class="mr-1" />
-                Ture
+                Transport — ture
             </MudText>
             <MudCheckBox T="bool"
                          Value="@((_pod.koristiOdvojeneBrojeve ?? 0) != 0)"
@@ -200,12 +306,12 @@ else if (_pod is not null && _firma is not null)
                 </MudGrid>
             }
 
-            <MudDivider Class="my-4" />
+            <MudDivider Class="my-3" />
 
             @* ── Nalozi ────────────────────────────────────────────── *@
             <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                 <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Small" Class="mr-1" />
-                Nalozi
+                Transport — nalozi
             </MudText>
 
             <MudGrid Spacing="3" Class="mb-4">
@@ -264,98 +370,6 @@ else if (_pod is not null && _firma is not null)
 
             <MudDivider Class="my-4" />
 
-            @* ── Fakturisanje ──────────────────────────────────────── *@
-            <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
-                <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
-                Fakturisanje
-            </MudText>
-
-            <MudGrid Spacing="3" Class="mb-3">
-                <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Racuna"
-                                     Label="Broj računa"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField @bind-Value="_pod.formatBrojaRacuna"
-                                  Label="Format broja računa"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  Placeholder="broj/godina4" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField Value="@(PrevBroj(_pod.Broj_Racuna, _pod.formatBrojaRacuna))"
-                                  Label="Preview"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  ReadOnly="true" />
-                </MudItem>
-            </MudGrid>
-
-            <MudGrid Spacing="3" Class="mb-3">
-                <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.OpcijaInt9"
-                                     Label="Broj ino računa"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField @bind-Value="_pod.formatBrojaInoRacuna"
-                                  Label="Format ino računa"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  Placeholder="broj/godina4" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField Value="@(PrevBroj(_pod.OpcijaInt9, _pod.formatBrojaInoRacuna))"
-                                  Label="Preview ino"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  ReadOnly="true" />
-                </MudItem>
-            </MudGrid>
-
-            <MudGrid Spacing="3" Class="mb-3">
-                <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Predracuna"
-                                     Label="Broj predračuna"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField @bind-Value="_pod.formatBrojaPredracuna"
-                                  Label="Format predračuna"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  Placeholder="broj/godina4" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField Value="@(PrevBroj(_pod.Broj_Predracuna, _pod.formatBrojaPredracuna))"
-                                  Label="Preview predračun"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  ReadOnly="true" />
-                </MudItem>
-            </MudGrid>
-
-            <MudGrid Spacing="3" Class="mb-4">
-                <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Otpremnice"
-                                     Label="Broj otpremnice"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField @bind-Value="_pod.formatBrojaOtpremnice"
-                                  Label="Format otpremnice"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  Placeholder="broj/godina4" />
-                </MudItem>
-                <MudItem xs="12" sm="4">
-                    <MudTextField Value="@(PrevBroj(_pod.Broj_Otpremnice, _pod.formatBrojaOtpremnice))"
-                                  Label="Preview otpremnica"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  ReadOnly="true" />
-                </MudItem>
-            </MudGrid>
-
-            <MudDivider Class="my-4" />
-
             @* ── Opšte opcije brojeva ──────────────────────────────── *@
             <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                 <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-1" />
@@ -372,7 +386,7 @@ else if (_pod is not null && _firma is not null)
                     <MudCheckBox T="bool"
                                  Value="@((_pod.rucniUnosBrojFakture ?? 0) != 0)"
                                  ValueChanged="@(v => _pod.rucniUnosBrojFakture = v ? 1 : 0)"
-                                 Label="Dozvoli ručni unos broja fakture"
+                                 Label="Dozvoli ručni unos brojeva dokumenata"
                                  Class="mb-2" />
                     <MudCheckBox T="bool"
                                  Value="@((_pod.koristiOdvojeneInoRacune ?? 0) != 0)"
@@ -385,12 +399,7 @@ else if (_pod is not null && _firma is not null)
                                      @bind-Value="_pod.minCifaraBroja"
                                      Label="Minimalan broj cifara"
                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                     HelperText="0 = bez nula ispred, 5 = 00001"
-                                     Class="mb-3" />
-                    <MudTextField @bind-Value="_pod.prefiksiRacuna"
-                                  Label="Prefiksi računa"
-                                  Variant="Variant.Outlined" ShrinkLabel="true"
-                                  HelperText="npr: R-,INO- (razdvojeni zarezom)" />
+                                     HelperText="0 = bez nula ispred, 5 = 00001" />
                 </MudItem>
             </MudGrid>
 
@@ -516,18 +525,20 @@ else if (_pod is not null && _firma is not null)
         </MudTabPanel>
 
         @* ═══════════════════════════════════════════════════════
-           TAB 4 — E-FAKTURE
+           TAB 4 — E-FAKTURE (samo Srbija + OpcijaInt13==1)
         ═══════════════════════════════════════════════════════ *@
+        @if (_firma?.Vlasnik == "SRBIJA" && (_pod?.OpcijaInt13 ?? 0) == 1)
+        {
         <MudTabPanel Text="E-fakture" Icon="@Icons.Material.Filled.CloudUpload">
 
-            @* ── SEF ──────────────────────────────────────────────── *@
-            <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                     <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
                     E-faktura (SEF)
                 </MudText>
 
                 <MudGrid Spacing="3">
+                    @* Red 1: SEF server | Datum za obračun PDV *@
                     <MudItem xs="12" sm="6">
                         <div class="mb-3">
                             <label class="ap-select-label">SEF server</label>
@@ -536,25 +547,18 @@ else if (_pod is not null && _firma is not null)
                                 <option value="PRODUKCIJA">PRODUKCIJA</option>
                             </select>
                         </div>
-                        <MudTextField @bind-Value="_pod.pdvKategorija"
-                                      Label="PDV kategorija"
-                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                      Placeholder="PDV-RS-33"
-                                      Class="mb-3" />
-                        <MudTextField @bind-Value="_pod.pdvSlovo"
-                                      Label="Oznaka PDV"
-                                      Variant="Variant.Outlined" ShrinkLabel="true"
-                                      Placeholder="SS"
-                                      Class="mb-3" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
                         <div class="mb-3">
-                            <label class="ap-select-label">Datum za obračun PDV</label>
+                            <label class="ap-select-label">Podrazumevani datum za obračun PDV</label>
                             <select @bind="_pod.pdvDatumObracuna" class="ap-select">
                                 <option value="DATUM PROMETA">DATUM PROMETA</option>
                                 <option value="DATUM IZDAVANJA">DATUM IZDAVANJA</option>
                             </select>
                         </div>
                     </MudItem>
-                    <MudItem xs="12" sm="6">
+                    @* Red 2: API ključ — puna širina *@
+                    <MudItem xs="12">
                         <MudTextField @bind-Value="_pod.sefApiKey"
                                       Label="API ključ SEF"
                                       Variant="Variant.Outlined" ShrinkLabel="true"
@@ -564,15 +568,35 @@ else if (_pod is not null && _firma is not null)
                                       AdornmentIcon="@(_sefApiPrikaz ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
                                       OnAdornmentClick="@(() => _sefApiPrikaz = !_sefApiPrikaz)" />
                     </MudItem>
+                    @* Red 3: PDV kategorija | Oznaka PDV *@
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_pod.pdvKategorija"
+                                      Label="PDV kategorija"
+                                      Variant="Variant.Outlined" ShrinkLabel="true"
+                                      Placeholder="PDV-RS-33"
+                                      Class="mb-3" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_pod.pdvSlovo"
+                                      Label="Oznaka PDV"
+                                      Variant="Variant.Outlined" ShrinkLabel="true"
+                                      Placeholder="SS"
+                                      Class="mb-3" />
+                    </MudItem>
                 </MudGrid>
 
-                <MudCheckBox T="bool"
-                             Value="@((_pod.eFakturaAktivna ?? 0) != 0)"
-                             ValueChanged="@(v => _pod.eFakturaAktivna = v ? 1 : 0)"
-                             Label="E-faktura aktivna" />
             </MudPaper>
 
-            @* ── E-Otpremnica ─────────────────────────────────────── *@
+        </MudTabPanel>
+        } @* kraj @if e-fakture *@
+
+        @* ═══════════════════════════════════════════════════════
+           TAB 5 — E-OTPREMNICE (za sad skriveno — TODO)
+        ═══════════════════════════════════════════════════════ *@
+        @if (false) @* TODO: aktivirati kad e-otpremnica bude gotova *@
+        {
+        <MudTabPanel Text="E-otpremnice" Icon="@Icons.Material.Filled.LocalShipping">
+
             <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.subtitle1" Class="mb-3 mud-text-secondary">
                     <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Size="Size.Small" Class="mr-1" />
@@ -608,6 +632,7 @@ else if (_pod is not null && _firma is not null)
             </MudPaper>
 
         </MudTabPanel>
+        } @* kraj @if e-otpremnice *@
 
     </MudTabs>
 }
@@ -703,6 +728,15 @@ else if (_pod is not null && _firma is not null)
     private async Task Sacuvaj()
     {
         if (_pod is null || _firma is null) return;
+
+        // Upisati default format ako je prazan
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaRacuna))             _pod.formatBrojaRacuna             = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaInoRacuna))          _pod.formatBrojaInoRacuna          = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaPredracuna))         _pod.formatBrojaPredracuna         = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaTure))               _pod.formatBrojaTure               = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaTureAgencijski))     _pod.formatBrojaTureAgencijski     = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaNaloga))             _pod.formatBrojaNaloga             = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaNalogaAgencijski))   _pod.formatBrojaNalogaAgencijski   = "broj-godina4";
 
         try
         {

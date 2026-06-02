@@ -50,19 +50,20 @@ else if (_podaci is not null)
                 <MudTextField @bind-Value="_podaci.MaticniBroj"     Label="Matični broj"         Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.SifraDelatnosti" Label="Šifra delatnosti"     Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.EpPdv"           Label="EP PDV"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
-                <MudSelect T="string"
-                           @bind-Value="_podaci.drzava"
-                           Label="Država"
-                           Variant="Variant.Outlined"
-                           ShrinkLabel="true"
-                           Class="mb-3">
-                    <MudSelectItem T="string" Value="@("SRBIJA")">Srbija</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("HRVATSKA")">Hrvatska</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("SLOVENIJA")">Slovenija</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("BOSNA I HERCEGOVINA")">Bosna i Hercegovina</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("CRNA GORA")">Crna Gora</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("MAKEDONIJA")">Makedonija</MudSelectItem>
-                </MudSelect>
+                <div class="mb-3">
+                    <label class="mud-input-label mud-input-label-animated mud-input-label-outlined mud-input-label-inputcontrol" style="font-size:0.75rem;color:rgba(0,0,0,0.6);">Država</label>
+                    <select @bind="_podaci.Vlasnik"
+                            class="mud-input-slot mud-input-root mud-input-root-outlined"
+                            style="width:100%;padding:14px 12px;border:1px solid rgba(0,0,0,0.23);border-radius:4px;font-size:1rem;background:transparent;outline:none;">
+                        <option value="">— odaberi —</option>
+                        <option value="SRBIJA">Srbija</option>
+                        <option value="HRVATSKA">Hrvatska</option>
+                        <option value="SLOVENIJA">Slovenija</option>
+                        <option value="BOSNA I HERCEGOVINA">Bosna i Hercegovina</option>
+                        <option value="CRNA GORA">Crna Gora</option>
+                        <option value="MAKEDONIJA">Makedonija</option>
+                    </select>
+                </div>
             </MudPaper>
         </MudItem>
 
@@ -193,7 +194,7 @@ else if (_podaci is not null)
 
         if (_podaci is null)
         {
-            _podaci    = new Transport.Domain.Entities.PodaciFirme { drzava = "SRBIJA" };
+            _podaci    = new Transport.Domain.Entities.PodaciFirme { Vlasnik = "SRBIJA" };
             _noviZapis = true;
         }
 

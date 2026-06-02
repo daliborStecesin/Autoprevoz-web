@@ -47,6 +47,11 @@ public class Podesavanja
     public int?     Broj_Dok_4                    { get; set; }
     [MaxLength(50)]  public string? formatBrojaNalogaAgencijski { get; set; }
 
+    // Finansijski dokumenti
+    public int? Broj_Dok_1 { get; set; }  // Knjižno odobrenje (KO)
+    public int? Broj_Dok_2 { get; set; }  // Avans
+    public int? Broj_Dok_3 { get; set; }  // Knjižno zaduženje (KZ)
+
     // Fakturisanje — int u DB
     public int?     Broj_Racuna           { get; set; }
     [MaxLength(50)]  public string? formatBrojaRacuna   { get; set; }
@@ -88,6 +93,7 @@ public class Podesavanja
     [MaxLength(10)]  public string? pdvSlovo             { get; set; }
     [MaxLength(30)]  public string? pdvDatumObracuna     { get; set; }
     public int?      eFakturaAktivna      { get; set; }
+    public int?      OpcijaInt13          { get; set; }  // e-faktura aktivna/koristi se (uslov za prikaz taba)
 
     [MaxLength(20)]  public string? eOtpremnicaTipServera { get; set; }
     public string?   eOtpremnicaApiKey    { get; set; }
