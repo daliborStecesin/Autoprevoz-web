@@ -196,7 +196,6 @@ public class NalogPrevoz : IAuditable
 
     public virtual PutniNalogKamion? Tura { get; set; }
 
-    public int?      Uneo        { get; set; }
     public DateTime? DatumUnosa  { get; set; }
     public int?      Izmenio     { get; set; }
     public DateTime? DatumIzmene { get; set; }

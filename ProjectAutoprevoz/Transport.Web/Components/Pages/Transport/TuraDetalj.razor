@@ -5,15 +5,17 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 @using Transport.Application.Interfaces
+@using Transport.Application.Services
 @using Transport.Web.Components.Shared
 
-@inject ITenantService     TenantService
-@inject INbsKursService    NbsKurs
-@inject TransportDbContext Db
-@inject IDialogService     Dialog
-@inject ISnackbar          Snackbar
-@inject NavigationManager  Nav
-@inject IJSRuntime         JS
+@inject ITenantService        TenantService
+@inject INbsKursService       NbsKurs
+@inject TransportDbContext    Db
+@inject IDialogService        Dialog
+@inject ISnackbar             Snackbar
+@inject NavigationManager     Nav
+@inject IJSRuntime            JS
+@inject IDefaultValuesService DefaultValues
 
 <PageTitle>Tura @(_tura?.BrNaloga ?? "...") — Autoprevoz</PageTitle>
 
@@ -29,6 +31,13 @@
     {
         <MudChip T="string" Size="Size.Small" Color="@StatusBoja(_tura.Status)"
                  Style="margin-left:8px;">@_tura.Status</MudChip>
+        @if (_tura.Cena.HasValue && _tura.Cena.Value != 0)
+        {
+            <span class="ml-auto" style="font-size:0.88rem; color:#1565C0; font-weight:700;
+                                         background:#e3f0ff; padding:3px 10px; border-radius:12px;">
+                💶 Vrednost: @_tura.Cena.Value.ToString("N2") EUR
+            </span>
+        }
     }
 </div>
 
@@ -49,336 +58,382 @@ else if (_tura is not null)
        LEVI PANEL — FORMA ZA UREĐIVANJE TURE
        ══════════════════════════════════════════════════════════════════ *@
     <MudItem xs="12" md="4">
-        <MudPaper Elevation="2" Class="pa-3" Style="position:sticky; top:64px; overflow-y:auto; max-height:calc(100vh - 80px);">
+        <MudPaper Elevation="2" Class="pa-0"
+                  Style="position:sticky; top:64px; max-height:calc(100vh - 80px);
+                         display:flex; flex-direction:column; overflow:hidden;">
 
-            @* Header *@
-            <div class="d-flex justify-space-between align-center mb-3">
-                <MudText Typo="Typo.subtitle1" Style="font-weight:700; color:#2D3E50;">PODACI TURE</MudText>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_tura.BrNaloga</MudText>
-            </div>
+            @* ── Scrollable sadržaj ── *@
+            <div style="overflow-y:auto; flex:1; padding:12px;">
 
-            @* ── Vrsta i tip prevoza ── *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta prevoza:</MudText>
-            <select @bind="_tura.VrstaPrevoza"
-                    style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
-                           border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:8px;">
-                <option value="SOPSTVENI">SOPSTVENI</option>
-                <option value="AGENCIJSKI">AGENCIJSKI</option>
-            </select>
+                @* Header *@
+                <div class="d-flex justify-space-between align-center mb-3">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:700; color:#2D3E50;">PODACI TURE</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_tura.BrNaloga</MudText>
+                </div>
 
-            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Tip prevoza:</MudText>
-            <select @bind="_tura.TipPrevoza"
-                    style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
-                           border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:8px;">
-                <option value="">—</option>
-                <option value="ZEMLJA">ZEMLJA</option>
-                <option value="INOSTRANSTVO">INOSTRANSTVO</option>
-                <option value="KOMBINOVANO">KOMBINOVANO</option>
-            </select>
+                @* ── Vrsta prevoza ── *@
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta prevoza:</MudText>
+                <select value="@_tura.VrstaPrevoza"
+                        @onchange="OnVrstaChanged"
+                        style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
+                               border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:8px;">
+                    <option value="SOPSTVENI">SOPSTVENI</option>
+                    <option value="AGENCIJSKI">AGENCIJSKI</option>
+                </select>
 
-            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Status:</MudText>
-            <select @bind="_tura.Status"
-                    style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
-                           border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:10px;">
-                <option value="U TOKU">U TOKU</option>
-                <option value="ZAVRSEN">ZAVRŠEN</option>
-                <option value="OTKAZAN">OTKAZAN</option>
-            </select>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Status:</MudText>
+                <select @bind="_tura.Status"
+                        style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
+                               border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:10px;">
+                    <option value="U TOKU">U TOKU</option>
+                    <option value="ZAVRSEN">ZAVRŠEN</option>
+                    <option value="OTKAZAN">OTKAZAN</option>
+                </select>
 
-            <MudTextField @bind-Value="_tura.Relacija"
-                          Label="Relacija" Variant="Variant.Outlined" Margin="Margin.Dense"
-                          Class="mb-2" />
+                <MudTextField @bind-Value="_tura.Relacija"
+                              Label="Relacija" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Class="mb-2" />
 
-            <MudDivider Class="my-2" />
+                <MudDivider Class="my-2" />
 
-            @* ── Osoblje ── *@
-            <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;">OSOBLJE I VOZNI PARK</MudText>
+                @* ── Osoblje i vozni park ── *@
+                <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;">OSOBLJE I VOZNI PARK</MudText>
 
-            @* Vozač 1 *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Vozač 1:</MudText>
-            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                @if (_selV1 is null)
-                {
-                    <MudTextField Value="_v1Pretraga"
-                                  ValueChanged="@((string v) => { _v1Pretraga = v; AzurirajVozace(v, ref _v1Predlozi); })"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Pretraži vozača..." Immediate="true" T="string" />
-                    @if (_v1Predlozi.Count > 0)
+                @* Vozač 1 *@
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Vozač 1:</MudText>
+                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                    @if (_selV1 is null)
                     {
-                        <div style="position:absolute; z-index:9999; left:0; right:0;
-                                    background:white; border:1px solid #ccc; border-radius:4px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                            @foreach (var v in _v1Predlozi)
-                            {
-                                var vozac = v;
-                                <div @onclick="() => IzaberiV1(vozac)"
-                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                    @vozac.Ime @vozac.Prezime
-                                </div>
-                            }
-                        </div>
+                        <MudTextField Value="_v1Pretraga"
+                                      ValueChanged="@((string v) => { _v1Pretraga = v; AzurirajVozace(v, ref _v1Predlozi); })"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Placeholder="Pretraži vozača..." Immediate="true" T="string" />
+                        @if (_v1Predlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                @foreach (var v in _v1Predlozi)
+                                {
+                                    var vozac = v;
+                                    <div @onclick="() => IzaberiV1(vozac)"
+                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                        @vozac.Ime @vozac.Prezime
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
-                }
-                else
-                {
-                    <MudPaper Elevation="0"
-                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV1.Ime @_selV1.Prezime</span>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                       OnClick="@(() => { _selV1 = null; _tura.IdVozaca1 = null; _tura.Vozac1 = null; _v1Pretraga = ""; })" />
-                    </MudPaper>
-                }
-            </div>
-
-            @* Vozač 2 *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač 2:</MudText>
-            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                @if (_selV2 is null)
-                {
-                    <MudTextField Value="_v2Pretraga"
-                                  ValueChanged="@((string v) => { _v2Pretraga = v; AzurirajVozace(v, ref _v2Predlozi); })"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Pretraži vozača..." Immediate="true" T="string" />
-                    @if (_v2Predlozi.Count > 0)
+                    else
                     {
-                        <div style="position:absolute; z-index:9999; left:0; right:0;
-                                    background:white; border:1px solid #ccc; border-radius:4px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                            @foreach (var v in _v2Predlozi)
-                            {
-                                var vozac = v;
-                                <div @onclick="() => IzaberiV2(vozac)"
-                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                    @vozac.Ime @vozac.Prezime
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <MudPaper Elevation="0"
-                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV2.Ime @_selV2.Prezime</span>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                       OnClick="@(() => { _selV2 = null; _tura.IdVozaca2 = null; _tura.Vozac2 = null; _v2Pretraga = ""; })" />
-                    </MudPaper>
-                }
-            </div>
-
-            @* Vozilo *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozilo:</MudText>
-            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                @if (_selVozilo is null)
-                {
-                    <MudTextField Value="_voziloPretraga"
-                                  ValueChanged="@((string v) => { _voziloPretraga = v; AzurirajVozila(v); })"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Reg. oznaka vozila..." Immediate="true" T="string" />
-                    @if (_voziloPredlozi.Count > 0)
-                    {
-                        <div style="position:absolute; z-index:9999; left:0; right:0;
-                                    background:white; border:1px solid #ccc; border-radius:4px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                            @foreach (var vz in _voziloPredlozi)
-                            {
-                                var vozilo = vz;
-                                <div @onclick="() => IzaberiVozilo(vozilo)"
-                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                    <strong>@vozilo.registarskaOznaka</strong>
-                                    <span style="color:#666; margin-left:6px;">@vozilo.marka @vozilo.oznaka</span>
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <MudPaper Elevation="0"
-                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selVozilo.registarskaOznaka</span>
-                            <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selVozilo.marka @_selVozilo.oznaka</span>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                       OnClick="@(() => { _selVozilo = null; _tura.IdVozila = null; _tura.Vozilo = null; _voziloPretraga = ""; })" />
-                    </MudPaper>
-                }
-            </div>
-
-            @* Prikolica *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">Prikolica:</MudText>
-            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                @if (_selPrikolica is null)
-                {
-                    <MudTextField Value="_prikolicaPretraga"
-                                  ValueChanged="@((string v) => { _prikolicaPretraga = v; AzurirajPrikolice(v); })"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Reg. oznaka prikolice..." Immediate="true" T="string" />
-                    @if (_prikolicaPredlozi.Count > 0)
-                    {
-                        <div style="position:absolute; z-index:9999; left:0; right:0;
-                                    background:white; border:1px solid #ccc; border-radius:4px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                            @foreach (var vz in _prikolicaPredlozi)
-                            {
-                                var prikolica = vz;
-                                <div @onclick="() => IzaberiPrikolicu(prikolica)"
-                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                    <strong>@prikolica.registarskaOznaka</strong>
-                                    <span style="color:#666; margin-left:6px;">@prikolica.marka @prikolica.oznaka</span>
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <MudPaper Elevation="0"
-                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selPrikolica.registarskaOznaka</span>
-                            <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selPrikolica.marka @_selPrikolica.oznaka</span>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                       OnClick="@(() => { _selPrikolica = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
-                    </MudPaper>
-                }
-            </div>
-
-            <MudDivider Class="my-2" />
-
-            @* ── Datumi ── *@
-            <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;">DATUMI TURE</MudText>
-
-            <MudText Typo="Typo.caption" Style="color:#1565C0; font-weight:600;" Class="mt-2">Polazak:</MudText>
-            <div class="d-flex gap-1 mb-2 mt-1">
-                <DateInput @bind-Value="_polazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
-                <TimeInput @bind-Value="_polazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
-            </div>
-
-            <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:600;">Izlazak iz zemlje:</MudText>
-            <div class="d-flex gap-1 mb-2 mt-1">
-                <DateInput @bind-Value="_izlazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
-                <TimeInput @bind-Value="_izlazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
-            </div>
-
-            <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:600;">Ulazak u zemlju:</MudText>
-            <div class="d-flex gap-1 mb-2 mt-1">
-                <DateInput @bind-Value="_ulazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
-                <TimeInput @bind-Value="_ulazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
-            </div>
-
-            <MudText Typo="Typo.caption" Style="color:#1565C0; font-weight:600;">Dolazak:</MudText>
-            <div class="d-flex gap-1 mb-2 mt-1">
-                <DateInput @bind-Value="_dolazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
-                <TimeInput @bind-Value="_dolazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
-            </div>
-
-            <MudDivider Class="my-2" />
-
-            @* ── Kilometraža ── *@
-            <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;">KILOMETRAŽA</MudText>
-
-            <MudGrid Spacing="1" Class="mt-1">
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" Value="_tura.KmPocetna"
-                                     Label="KM start" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true"
-                                     ValueChanged="@((decimal? v) => { _tura.KmPocetna = v; IzracunajPredjeno(); })" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" Value="_tura.KmTrenutna"
-                                     Label="KM kraj" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true"
-                                     ValueChanged="@((decimal? v) => { _tura.KmTrenutna = v; IzracunajPredjeno(); })" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" Value="_tura.GorivoStart"
-                                     Label="Gorivo start (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true"
-                                     ValueChanged="@((decimal? v) => { _tura.GorivoStart = v; IzracunajGorivo(); })" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" Value="_tura.GorivoEnd"
-                                     Label="Gorivo kraj (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true"
-                                     ValueChanged="@((decimal? v) => { _tura.GorivoEnd = v; IzracunajGorivo(); })" />
-                </MudItem>
-            </MudGrid>
-
-            @if (_tura.Predjeno.HasValue || _tura.GorivoUtroseno.HasValue)
-            {
-                <div class="d-flex gap-3 mt-1 mb-2">
-                    @if (_tura.Predjeno.HasValue)
-                    {
-                        <MudText Typo="Typo.caption">
-                            Pređeno: <strong>@_tura.Predjeno.Value.ToString("N0") km</strong>
-                        </MudText>
-                    }
-                    @if (_tura.GorivoUtroseno.HasValue)
-                    {
-                        <MudText Typo="Typo.caption">
-                            Utrošeno: <strong>@_tura.GorivoUtroseno.Value.ToString("N1") L</strong>
-                        </MudText>
+                        <MudPaper Elevation="0"
+                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV1.Ime @_selV1.Prezime</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="@(() => { _selV1 = null; _tura.IdVozaca1 = null; _tura.Vozac1 = null; _v1Pretraga = ""; })" />
+                        </MudPaper>
                     }
                 </div>
-            }
 
-            <MudDivider Class="my-2" />
-
-            @* ── Finansije ── *@
-            <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;">FINANSIJE</MudText>
-            <MudGrid Spacing="1" Class="mt-1">
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" @bind-Value="_tura.KursEUR"
-                                     Label="Kurs EUR" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     Format="N4" HideSpinButtons="true" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudTextField @bind-Value="_tura.PlaniranoDana"
-                                  Label="Planirano dana" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" @bind-Value="_tura.AkontacijaDom"
-                                     Label="Akontacija DOM (RSD)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     Format="N2" HideSpinButtons="true" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudNumericField T="decimal?" @bind-Value="_tura.AkontacijaIno"
-                                     Label="Akontacija INO (EUR)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     Format="N2" HideSpinButtons="true" />
-                </MudItem>
-            </MudGrid>
-
-            @* Sumarni finansijski prikaz *@
-            <MudPaper Elevation="0" Class="mt-2 pa-2"
-                      Style="background:#f0f4f8; border-radius:6px; font-size:0.82rem;">
-                <div class="d-flex justify-space-between">
-                    <span>Vrednost ture (nalozi):</span>
-                    <strong style="color:#1565C0;">@_tura.Cena?.ToString("N2") EUR</strong>
+                @* Vozač 2 *@
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač 2:</MudText>
+                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                    @if (_selV2 is null)
+                    {
+                        <MudTextField Value="_v2Pretraga"
+                                      ValueChanged="@((string v) => { _v2Pretraga = v; AzurirajVozace(v, ref _v2Predlozi); })"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Placeholder="Pretraži vozača..." Immediate="true" T="string" />
+                        @if (_v2Predlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                @foreach (var v in _v2Predlozi)
+                                {
+                                    var vozac = v;
+                                    <div @onclick="() => IzaberiV2(vozac)"
+                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                        @vozac.Ime @vozac.Prezime
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <MudPaper Elevation="0"
+                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV2.Ime @_selV2.Prezime</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="@(() => { _selV2 = null; _tura.IdVozaca2 = null; _tura.Vozac2 = null; _v2Pretraga = ""; })" />
+                        </MudPaper>
+                    }
                 </div>
-                <div class="d-flex justify-space-between">
-                    <span>Troškovi ture:</span>
-                    <strong style="color:#c62828;">@_tura.Vrednost?.ToString("N2") RSD</strong>
-                </div>
-            </MudPaper>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Save"
-                       OnClick="SacuvajTuru" FullWidth="true" Class="mt-3"
-                       Disabled="_ucitava">
-                Sačuvaj turu
-            </MudButton>
+                @* Vozilo *@
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozilo:</MudText>
+                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                    @if (_selVozilo is null)
+                    {
+                        <MudTextField Value="_voziloPretraga"
+                                      ValueChanged="@((string v) => { _voziloPretraga = v; AzurirajVozila(v); })"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Placeholder="Reg. oznaka vozila..." Immediate="true" T="string" />
+                        @if (_voziloPredlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                @foreach (var vz in _voziloPredlozi)
+                                {
+                                    var vozilo = vz;
+                                    <div @onclick="() => IzaberiVozilo(vozilo)"
+                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                        <strong>@vozilo.registarskaOznaka</strong>
+                                        <span style="color:#666; margin-left:6px;">@vozilo.marka @vozilo.oznaka</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <MudPaper Elevation="0"
+                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selVozilo.registarskaOznaka</span>
+                                <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selVozilo.marka @_selVozilo.oznaka</span>
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="@(() => { _selVozilo = null; _tura.IdVozila = null; _tura.Vozilo = null; _voziloPretraga = ""; })" />
+                        </MudPaper>
+                    }
+                </div>
+
+                @* Prikolica *@
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Prikolica:</MudText>
+                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                    @if (_selPrikolica is null)
+                    {
+                        <MudTextField Value="_prikolicaPretraga"
+                                      ValueChanged="@((string v) => { _prikolicaPretraga = v; AzurirajPrikolice(v); })"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Placeholder="Reg. oznaka prikolice..." Immediate="true" T="string" />
+                        @if (_prikolicaPredlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                @foreach (var vz in _prikolicaPredlozi)
+                                {
+                                    var prikolica = vz;
+                                    <div @onclick="() => IzaberiPrikolicu(prikolica)"
+                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                        <strong>@prikolica.registarskaOznaka</strong>
+                                        <span style="color:#666; margin-left:6px;">@prikolica.marka @prikolica.oznaka</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <MudPaper Elevation="0"
+                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selPrikolica.registarskaOznaka</span>
+                                <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selPrikolica.marka @_selPrikolica.oznaka</span>
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="@(() => { _selPrikolica = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
+                        </MudPaper>
+                    }
+                </div>
+
+                @* ── Accordion paneli (ručni, bez MudExpansionPanels) ── *@
+
+                @* Panel: Datumi ture *@
+                <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:10px;">
+                    <div @onclick="OnPanelDatumiToggle"
+                         style="display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 12px; cursor:pointer; user-select:none;
+                                background:#fafafa; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                            Datumi ture
+                        </div>
+                        <MudIcon Icon="@(_panelDatumi ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="color:#888;" />
+                    </div>
+                    @if (_panelDatumi)
+                    {
+                        <div style="padding:8px 12px 10px;">
+                            <MudText Typo="Typo.caption" Style="color:#1565C0; font-weight:600;" Class="mt-1">Polazak:</MudText>
+                            <div class="d-flex gap-1 mb-2 mt-1">
+                                <DateInput @bind-Value="_polazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
+                                <TimeInput @bind-Value="_polazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
+                            </div>
+                            <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:600;">Izlazak iz zemlje:</MudText>
+                            <div class="d-flex gap-1 mb-2 mt-1">
+                                <DateInput @bind-Value="_izlazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
+                                <TimeInput @bind-Value="_izlazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
+                            </div>
+                            <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:600;">Ulazak u zemlju:</MudText>
+                            <div class="d-flex gap-1 mb-2 mt-1">
+                                <DateInput @bind-Value="_ulazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
+                                <TimeInput @bind-Value="_ulazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
+                            </div>
+                            <MudText Typo="Typo.caption" Style="color:#1565C0; font-weight:600;">Dolazak:</MudText>
+                            <div class="d-flex gap-1 mt-1">
+                                <DateInput @bind-Value="_dolazakDatum" AfterChange="SinkronizujDatumeKaTuri" />
+                                <TimeInput @bind-Value="_dolazakVreme" AfterChange="SinkronizujDatumeKaTuri" />
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* Panel: Kilometraža i gorivo *@
+                <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:6px;">
+                    <div @onclick="OnPanelKmToggle"
+                         style="display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 12px; cursor:pointer; user-select:none;
+                                background:#fafafa; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                            <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
+                            Kilometraža i gorivo
+                        </div>
+                        <MudIcon Icon="@(_panelKm ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="color:#888;" />
+                    </div>
+                    @if (_panelKm)
+                    {
+                        <div style="padding:8px 12px 10px;">
+                            <MudGrid Spacing="1" Class="mt-1">
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" Value="_tura.KmPocetna"
+                                                     Label="KM start" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.KmPocetna = v; IzracunajPredjeno(); })" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" Value="_tura.KmTrenutna"
+                                                     Label="KM kraj" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.KmTrenutna = v; IzracunajPredjeno(); })" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" Value="_tura.GorivoStart"
+                                                     Label="Gorivo start (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.GorivoStart = v; IzracunajGorivo(); })" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" Value="_tura.GorivoEnd"
+                                                     Label="Gorivo kraj (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.GorivoEnd = v; IzracunajGorivo(); })" />
+                                </MudItem>
+                            </MudGrid>
+                            @if (_tura.Predjeno.HasValue || _tura.GorivoUtroseno.HasValue)
+                            {
+                                <div class="d-flex gap-3 mt-1">
+                                    @if (_tura.Predjeno.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption">
+                                            Pređeno: <strong>@_tura.Predjeno.Value.ToString("N0") km</strong>
+                                        </MudText>
+                                    }
+                                    @if (_tura.GorivoUtroseno.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption">
+                                            Utrošeno: <strong>@_tura.GorivoUtroseno.Value.ToString("N1") L</strong>
+                                        </MudText>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @* Panel: Finansije *@
+                <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:6px;">
+                    <div @onclick="OnPanelFinansijeToggle"
+                         style="display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 12px; cursor:pointer; user-select:none;
+                                background:#fafafa; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                            <MudIcon Icon="@Icons.Material.Filled.Euro" Size="Size.Small" />
+                            Finansije
+                        </div>
+                        <MudIcon Icon="@(_panelFinansije ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="color:#888;" />
+                    </div>
+                    @if (_panelFinansije)
+                    {
+                        <div style="padding:8px 12px 10px;">
+                            <MudGrid Spacing="1" Class="mt-1">
+                                <MudItem xs="12">
+                                    <MudNumericField T="decimal?" @bind-Value="_tura.KursEUR"
+                                                     Label="Kurs EUR" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N4" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" @bind-Value="_tura.AkontacijaDom"
+                                                     Label="Akontacija RSD" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField T="decimal?" @bind-Value="_tura.AkontacijaIno"
+                                                     Label="Akontacija EUR" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true" />
+                                </MudItem>
+                            </MudGrid>
+                        </div>
+                    }
+                </div>
+
+            </div>
+
+            @* ── Vrednost ture — uvek vidljiva, van panela ── *@
+            <div style="padding:7px 12px; background:#f0f4f8; border-top:1px solid #d0dae4; font-size:0.82rem; flex-shrink:0;">
+                <div class="d-flex justify-space-between align-center">
+                    <span style="color:#555;">Vrednost ture (nalozi):</span>
+                    <strong style="color:#1565C0;">@((_tura?.Cena ?? 0).ToString("N2")) EUR</strong>
+                </div>
+                <div class="d-flex justify-space-between align-center mt-1">
+                    <span style="color:#555;">Troškovi ture:</span>
+                    <strong style="color:#c62828;">@((_tura?.Vrednost ?? 0).ToString("N2")) RSD</strong>
+                </div>
+            </div>
+
+            @* ── Sticky Sačuvaj dugme ── *@
+            <div style="padding:8px 12px; border-top:1px solid #e0e0e0; background:white; flex-shrink:0;">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="SacuvajTuru" FullWidth="true"
+                           Disabled="_ucitava">
+                    Sačuvaj turu
+                </MudButton>
+            </div>
 
         </MudPaper>
     </MudItem>
 
     @* ══════════════════════════════════════════════════════════════════
-       DESNI PANEL — TABOVI
+       DESNI PANEL — TABOVI (samo za postojeće ture)
        ══════════════════════════════════════════════════════════════════ *@
     <MudItem xs="12" md="8">
 
+    @if (Id == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-2">
+            Popunite podatke ture i kliknite <strong>Sačuvaj turu</strong> da biste kreirali turu.
+            Broj ture i ostale opcije (nalozi, troškovi, plate) biće dostupni nakon kreiranja.
+        </MudAlert>
+    }
+    else
+    {
         @* Print toolbar *@
         <div class="d-flex flex-wrap gap-2 mb-2">
             <MudButton Variant="Variant.Outlined" Size="Size.Small"
@@ -797,6 +852,7 @@ else if (_tura is not null)
             </MudTabPanel>
 
         </MudTabs>
+    } @* kraj else (Id > 0) *@
     </MudItem>
 
 </MudGrid>
@@ -804,6 +860,7 @@ else if (_tura is not null)
 
 @code {
     [Parameter] public int Id { get; set; }
+    [SupplyParameterFromQuery(Name = "vrsta")] public string? VrstaParam { get; set; }
 
     private PutniNalogKamion? _tura;
     private List<NalogPrevoz>  _nalozi        = [];
@@ -845,6 +902,13 @@ else if (_tura is not null)
     private decimal _cenaDomaca = 3380m;
     private decimal _cenaIno    = 90m;
 
+    private Podesavanja? _pod;
+
+    // Accordion stanje panela
+    private bool _panelDatumi    = false;
+    private bool _panelKm        = false;
+    private bool _panelFinansije = false;
+
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
@@ -860,8 +924,81 @@ else if (_tura is not null)
 
         _cenaDomaca = await PovuciScalar("SELECT TOP 1 OpcijaDecimal1 FROM tbl_Podesavanja", 3380m);
         _cenaIno    = await PovuciScalar("SELECT TOP 1 OpcijaDecimal2 FROM tbl_Podesavanja", 90m);
+        _pod        = await Db.Podesavanja.FirstOrDefaultAsync();
+
+        // Učitaj stanje accordion panela po korisniku
+        var uid = TenantService.GetIdKorisnika();
+        var pDatumi    = await DefaultValues.GetDefault("tura", "panel_datumi",    uid);
+        var pKm        = await DefaultValues.GetDefault("tura", "panel_km",        uid);
+        var pFinansije = await DefaultValues.GetDefault("tura", "panel_finansije",  uid);
+        if (pDatumi    is not null) _panelDatumi    = pDatumi    == "True";
+        if (pKm        is not null) _panelKm        = pKm        == "True";
+        if (pFinansije is not null) _panelFinansije = pFinansije == "True";
+
+        if (Id == 0)
+        {
+            await InicijalizujNovuTuru();
+            _ucitava = false;
+            return;
+        }
 
         await UcitajTuru();
+    }
+
+    private Task SacuvajPanelState(string kljuc, bool val)
+        => DefaultValues.SaveDefault("tura", kljuc, val.ToString(), TenantService.GetIdKorisnika());
+
+    private async Task OnPanelDatumiToggle()    { _panelDatumi    = !_panelDatumi;    await SacuvajPanelState("panel_datumi",    _panelDatumi); }
+    private async Task OnPanelKmToggle()        { _panelKm        = !_panelKm;        await SacuvajPanelState("panel_km",        _panelKm); }
+    private async Task OnPanelFinansijeToggle() { _panelFinansije = !_panelFinansije; await SacuvajPanelState("panel_finansije",  _panelFinansije); }
+
+    private async Task InicijalizujNovuTuru()
+    {
+        var vrsta  = VrstaParam ?? "SOPSTVENI";
+        bool agenc = vrsta == "AGENCIJSKI" && _pod?.koristiOdvojeneBrojeve == 1;
+        int    br  = agenc ? (_pod?.brTureAgencijski ?? 1) : (_pod?.Broj_Kalkulacije ?? 1);
+        string fmt = agenc
+            ? (_pod?.formatBrojaTureAgencijski ?? "broj-godina4")
+            : (_pod?.formatBrojaTure           ?? "broj-godina4");
+
+        decimal kurs = _tKurs > 0 ? _tKurs : 1m;
+
+        _tura = new PutniNalogKamion
+        {
+            BrNaloga       = BrojDokumentaService.Formatiraj(br, fmt, _pod?.minCifaraBroja ?? 0, DateTime.Today),
+            VrstaPrevoza   = vrsta,
+            Status         = "U TOKU",
+            DatumDokumenta = DateTime.Today,
+            DatumPolaska   = DateTime.Now,
+            DatumIzlaska   = DateTime.Now,
+            DatumUlaska    = DateTime.Now,
+            DatumDolaska   = DateTime.Now,
+            KursEUR        = kurs,
+            Brisano        = 0
+        };
+
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        _polazakDatum = today; _polazakVreme = "07:00";
+        _izlazakDatum = today; _izlazakVreme = "12:00";
+        _ulazakDatum  = today; _ulazakVreme  = "18:00";
+        _dolazakDatum = today; _dolazakVreme = "23:00";
+    }
+
+    private async Task OnVrstaChanged(ChangeEventArgs e)
+    {
+        if (_tura is null) return;
+        _tura.VrstaPrevoza = e.Value?.ToString() ?? "SOPSTVENI";
+
+        if (_pod?.koristiOdvojeneBrojeve != 1) return;
+
+        bool agenc  = _tura.VrstaPrevoza == "AGENCIJSKI";
+        int    brojac = agenc ? (_pod?.brTureAgencijski ?? 1) : (_pod?.Broj_Kalkulacije ?? 1);
+        string format = agenc
+            ? (_pod?.formatBrojaTureAgencijski ?? "broj-godina4")
+            : (_pod?.formatBrojaTure           ?? "broj-godina4");
+
+        _tura.BrNaloga = BrojDokumentaService.Formatiraj(
+            brojac, format, _pod?.minCifaraBroja ?? 0, DateTime.Today);
     }
 
     private async Task UcitajTuru()
@@ -931,6 +1068,73 @@ else if (_tura is not null)
     private async Task SacuvajTuru()
     {
         if (_tura is null) return;
+        SinkronizujDatumeKaTuri();
+
+        if (Id == 0)
+            await UmetniNovuTuru();
+        else
+            await AzurirajPostojecuTuru();
+    }
+
+    private async Task UmetniNovuTuru()
+    {
+        try
+        {
+            // Svež brojač iz baze (ne iz keša)
+            var pod    = await Db.Podesavanja.FirstOrDefaultAsync();
+            bool agenc = _tura!.VrstaPrevoza == "AGENCIJSKI" && pod?.koristiOdvojeneBrojeve == 1;
+            int  sl    = agenc ? (pod?.brTureAgencijski ?? 1) : (pod?.Broj_Kalkulacije ?? 1);
+            string fmt = agenc
+                ? (pod?.formatBrojaTureAgencijski ?? "broj-godina4")
+                : (pod?.formatBrojaTure           ?? "broj-godina4");
+            int min = pod?.minCifaraBroja ?? 0;
+
+            string brTure = BrojDokumentaService.Formatiraj(sl, fmt, min, DateTime.Today);
+
+            // Provera duplikata
+            bool postoji = await Db.PutniNalozi.AnyAsync(t => t.BrNaloga == brTure && t.Brisano == 0);
+            if (postoji)
+            {
+                var izbor = await Dialog.ShowMessageBox(
+                    "Duplikat broja",
+                    $"Broj '{brTure}' već postoji. Šta želite?",
+                    yesText: "OSVEŽI BROJ", noText: "IPAK SAČUVAJ", cancelText: "OTKAŽI");
+                if (izbor == null) return;
+                if (izbor == true)
+                    brTure = BrojDokumentaService.Formatiraj(++sl, fmt, min, DateTime.Today);
+            }
+
+            using var tx = await Db.Database.BeginTransactionAsync();
+            try
+            {
+                _tura.BrNaloga = brTure;
+                Db.PutniNalozi.Add(_tura);
+
+                if (pod is not null)
+                {
+                    if (agenc) pod.brTureAgencijski = sl + 1;
+                    else       pod.Broj_Kalkulacije  = sl + 1;
+                }
+
+                await Db.SaveChangesAsync();
+                await tx.CommitAsync();
+                Snackbar.Add("Tura kreirana.", Severity.Success);
+                Nav.NavigateTo($"/transport/nalozi/{_tura.IdNaloga}");
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AzurirajPostojecuTuru()
+    {
         try
         {
             var dbTura = await Db.PutniNalozi
@@ -938,32 +1142,30 @@ else if (_tura is not null)
                 .FirstOrDefaultAsync(t => t.IdNaloga == Id);
             if (dbTura is null) return;
 
-            SinkronizujDatumeKaTuri();
-            dbTura.VrstaPrevoza  = _tura.VrstaPrevoza;
-            dbTura.TipPrevoza    = _tura.TipPrevoza;
-            dbTura.Status        = _tura.Status;
-            dbTura.Relacija      = _tura.Relacija;
-            dbTura.IdVozaca1     = _tura.IdVozaca1;
-            dbTura.Vozac1        = _tura.Vozac1;
-            dbTura.IdVozaca2     = _tura.IdVozaca2;
-            dbTura.Vozac2        = _tura.Vozac2;
-            dbTura.IdVozila      = _tura.IdVozila;
-            dbTura.Vozilo        = _tura.Vozilo;
-            dbTura.Prikolica     = _tura.Prikolica;
-            dbTura.DatumPolaska  = _tura.DatumPolaska;
-            dbTura.DatumIzlaska  = _tura.DatumIzlaska;
-            dbTura.DatumUlaska   = _tura.DatumUlaska;
-            dbTura.DatumDolaska  = _tura.DatumDolaska;
-            dbTura.KmPocetna     = _tura.KmPocetna;
-            dbTura.KmTrenutna    = _tura.KmTrenutna;
-            dbTura.Predjeno      = _tura.Predjeno;
-            dbTura.GorivoStart   = _tura.GorivoStart;
-            dbTura.GorivoEnd     = _tura.GorivoEnd;
+            dbTura.VrstaPrevoza   = _tura!.VrstaPrevoza;
+            dbTura.TipPrevoza     = _tura.TipPrevoza;
+            dbTura.Status         = _tura.Status;
+            dbTura.Relacija       = _tura.Relacija;
+            dbTura.IdVozaca1      = _tura.IdVozaca1;
+            dbTura.Vozac1         = _tura.Vozac1;
+            dbTura.IdVozaca2      = _tura.IdVozaca2;
+            dbTura.Vozac2         = _tura.Vozac2;
+            dbTura.IdVozila       = _tura.IdVozila;
+            dbTura.Vozilo         = _tura.Vozilo;
+            dbTura.Prikolica      = _tura.Prikolica;
+            dbTura.DatumPolaska   = _tura.DatumPolaska;
+            dbTura.DatumIzlaska   = _tura.DatumIzlaska;
+            dbTura.DatumUlaska    = _tura.DatumUlaska;
+            dbTura.DatumDolaska   = _tura.DatumDolaska;
+            dbTura.KmPocetna      = _tura.KmPocetna;
+            dbTura.KmTrenutna     = _tura.KmTrenutna;
+            dbTura.Predjeno       = _tura.Predjeno;
+            dbTura.GorivoStart    = _tura.GorivoStart;
+            dbTura.GorivoEnd      = _tura.GorivoEnd;
             dbTura.GorivoUtroseno = _tura.GorivoUtroseno;
-            dbTura.KursEUR       = _tura.KursEUR;
-            dbTura.AkontacijaDom = _tura.AkontacijaDom;
-            dbTura.AkontacijaIno = _tura.AkontacijaIno;
-            dbTura.PlaniranoDana = _tura.PlaniranoDana;
+            dbTura.KursEUR        = _tura.KursEUR;
+            dbTura.AkontacijaDom  = _tura.AkontacijaDom;
+            dbTura.AkontacijaIno  = _tura.AkontacijaIno;
 
             await Db.SaveChangesAsync();
             Snackbar.Add("Tura sačuvana.", Severity.Success);

@@ -41,7 +41,6 @@ public class Trosak : IAuditable
 
     public Vozilo? Vozilo { get; set; }
 
-    public int?      Uneo        { get; set; }
     public DateTime? DatumUnosa  { get; set; }
     public int?      Izmenio     { get; set; }
     public DateTime? DatumIzmene { get; set; }

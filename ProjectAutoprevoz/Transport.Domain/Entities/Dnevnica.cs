@@ -65,7 +65,6 @@ public class Dnevnica : IAuditable
 
     public decimal? akontacija { get; set; }
 
-    public int?      Uneo        { get; set; }
     public DateTime? DatumUnosa  { get; set; }
     public int?      Izmenio     { get; set; }
     public DateTime? DatumIzmene { get; set; }

@@ -4,6 +4,8 @@
 @using Transport.Application.Interfaces
 @using Transport.Application.Services
 
+@implements IDisposable
+
 @inject TransportDbContext Db
 @inject ISnackbar          Snackbar
 @inject INbsKursService    NbsKurs
@@ -605,6 +607,7 @@
     [Parameter] public string BrTure   { get; set; } = "";
     [Parameter] public PutniNalogKamion? Tura { get; set; }
 
+    private bool _disposed;
     private NalogPrevoz _nalog = new();
     private Transport.Domain.Entities.Podesavanja? _pod;
     private string _brNalogaPreview = "";
@@ -695,6 +698,7 @@
     private async Task ZatвориAuto(string field)
     {
         await Task.Delay(200);
+        if (_disposed) return;
         if (_openAuto == field)
         {
             _openAuto = null;
@@ -705,12 +709,16 @@
     protected override async Task OnInitializedAsync()
     {
         _sviPartneri = await Db.Partneri.OrderBy(p => p.Naziv).AsNoTracking().ToListAsync();
+        if (_disposed) return;
+
         _sifarnikSifre = await Db.Sifarnici
             .Where(s => s.kategorija == "SIFRA_TRANSPORTA" && s.aktivan == 1)
             .OrderBy(s => s.redosled).ThenBy(s => s.naziv)
             .AsNoTracking().ToListAsync();
+        if (_disposed) return;
 
         _pod = await Db.Podesavanja.FirstOrDefaultAsync();
+        if (_disposed) return;
 
         if (IdNaloga > 0)
             await UcitajZaIzmenu();
@@ -760,10 +768,15 @@
                 IdDispecer     = TenantService.GetIdKorisnika(),
             };
         }
+        if (_disposed) return;
 
         try { _nalog.KursEUR = await NbsKurs.GetKursAsync(DateTime.Today); } catch { }
+        if (_disposed) return;
+
         await UcitajHistoriju();
     }
+
+    public void Dispose() => _disposed = true;
 
     private async Task UcitajZaIzmenu()
     {
@@ -998,7 +1011,7 @@
         _brNalogaPreview = BrojDokumentaService.Formatiraj(noviBrojac, fmt, min, DateTime.Today);
 
         await Db.SaveChangesAsync(); // sačuvaj skip counter odmah
-        StateHasChanged();
+        if (!_disposed) StateHasChanged();
     }
 
     private async Task SacuvajTemplate()

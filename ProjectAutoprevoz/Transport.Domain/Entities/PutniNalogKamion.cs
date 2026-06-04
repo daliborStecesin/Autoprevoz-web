@@ -196,7 +196,6 @@ public class PutniNalogKamion : IAuditable
 
     public virtual ICollection<NalogPrevoz> Nalozi { get; set; } = [];
 
-    public int?      Uneo        { get; set; }
     public DateTime? DatumUnosa  { get; set; }
     public int?      Izmenio     { get; set; }
     public DateTime? DatumIzmene { get; set; }

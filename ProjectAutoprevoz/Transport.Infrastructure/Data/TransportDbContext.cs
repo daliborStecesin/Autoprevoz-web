@@ -25,8 +25,7 @@ public class TransportDbContext : DbContext
                 {
                     if (entry.State == EntityState.Added)
                     {
-                        auditable.Uneo       = userId;
-                        auditable.DatumUnosa = now;
+                        auditable.DatumUnosa  = now;
                         auditable.Izmenio     = userId;
                         auditable.DatumIzmene = now;
                     }
@@ -34,9 +33,8 @@ public class TransportDbContext : DbContext
                     {
                         auditable.Izmenio     = userId;
                         auditable.DatumIzmene = now;
-                        // Ne diraj Uneo/DatumUnosa — ostaje originalni kreator
-                        entry.Property(nameof(IAuditable.Uneo)).IsModified       = false;
-                        entry.Property(nameof(IAuditable.DatumUnosa)).IsModified  = false;
+                        // Ne diraj DatumUnosa — ostaje originalni datum kreiranja
+                        entry.Property(nameof(IAuditable.DatumUnosa)).IsModified = false;
                     }
                 }
                 else if (entry.Entity is Plata plata && entry.State != EntityState.Unchanged)
