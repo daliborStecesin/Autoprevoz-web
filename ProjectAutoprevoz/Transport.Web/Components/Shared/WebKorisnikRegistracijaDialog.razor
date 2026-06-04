@@ -1,0 +1,179 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Microsoft.AspNetCore.Identity
+
+@inject MasterDbContext    MasterDb
+@inject TransportDbContext Db
+@inject ITenantService     TenantService
+@inject ISnackbar          Snackbar
+
+<MudDialog Style="min-width:480px;">
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_ime"
+                              Label="Ime *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_email"
+                              Label="Email *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Email"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_lozinka"
+                              Label="Lozinka *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Password"
+                              Required="true"
+                              HelperText="Minimum 6 karaktera" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_potvrda"
+                              Label="Potvrda lozinke *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Password"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudCheckBox @bind-Value="_aktivan"
+                             Label="Aktivan"
+                             Color="Color.Primary" />
+            </MudItem>
+
+            @if (_greska is not null)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+                </MudItem>
+            }
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="Registruj"
+                   Disabled="_ucitava">
+            @(_ucitava ? "Čuvanje..." : "Registruj korisnika")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int    VozacId        { get; set; }
+    [Parameter] public string ImeZaposlenog  { get; set; } = string.Empty;
+
+    private string _ime     = string.Empty;
+    private string _email   = string.Empty;
+    private string _lozinka = string.Empty;
+    private string _potvrda = string.Empty;
+    private bool   _aktivan = true;
+    private bool   _ucitava;
+    private string? _greska;
+
+    protected override void OnInitialized()
+    {
+        _ime = ImeZaposlenog;
+    }
+
+    private async Task Registruj()
+    {
+        _greska = null;
+
+        if (string.IsNullOrWhiteSpace(_ime))
+        {
+            _greska = "Ime je obavezno.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_email) || !_email.Contains('@') || !_email.Contains('.'))
+        {
+            _greska = "Unesite ispravan email.";
+            return;
+        }
+
+        if (_lozinka.Length < 6)
+        {
+            _greska = "Lozinka mora imati minimum 6 karaktera.";
+            return;
+        }
+
+        if (_lozinka != _potvrda)
+        {
+            _greska = "Lozinke se ne poklapaju.";
+            return;
+        }
+
+        _ucitava = true;
+        StateHasChanged();
+
+        try
+        {
+            var emailPostoji = await MasterDb.WebKorisnici
+                .AnyAsync(k => k.Email == _email);
+
+            if (emailPostoji)
+            {
+                _greska = "Email već postoji u sistemu.";
+                return;
+            }
+
+            // TODO: dodati izbor privilegija (role) — za sad svi korisnici dobijaju Admin rolu
+            var adminRole = await Db.Role
+                .FirstOrDefaultAsync(r => r.Naziv == "Admin");
+            int privilegija = adminRole?.IdRole ?? 1;
+
+            var hasher = new PasswordHasher<object>();
+            var hash   = hasher.HashPassword(new object(), _lozinka);
+
+            var korisnik = new WebKorisnik
+            {
+                IdLicence      = TenantService.GetIdLicence(),
+                IdZaposlenog   = VozacId,
+                Ime            = _ime.Trim(),
+                Email          = _email.Trim().ToLower(),
+                LozinkaHash    = hash,
+                Privilegija    = privilegija,
+                Aktivan        = _aktivan ? 1 : 0,
+                DatumKreiranja = DateTime.Now,
+                ZadnjaPrijava  = null
+            };
+
+            MasterDb.WebKorisnici.Add(korisnik);
+            await MasterDb.SaveChangesAsync();
+
+            Snackbar.Add($"Korisnik {_ime} uspešno registrovan!", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            _greska = $"Greška pri registraciji: {ex.Message}";
+        }
+        finally
+        {
+            _ucitava = false;
+        }
+    }
+}

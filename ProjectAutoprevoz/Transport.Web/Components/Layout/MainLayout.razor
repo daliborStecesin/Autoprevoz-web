@@ -58,8 +58,14 @@
         <MudText Typo="Typo.h6" Class="mr-auto" Style="color:#E6EBF0; font-weight:600;">
             Autoprevoz — Transport
         </MudText>
-        <MudText Typo="Typo.body2" Class="mr-3 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
+        <MudIcon Icon="@Icons.Material.Filled.Business" Style="color:rgba(230,235,240,0.60); font-size:1rem;" Class="d-none d-sm-inline" />
+        <MudText Typo="Typo.body2" Class="mx-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
             @TenantService.GetNazivFirme()
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mx-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.35);">·</MudText>
+        <MudIcon Icon="@Icons.Material.Filled.Person" Style="color:rgba(230,235,240,0.60); font-size:1rem;" Class="d-none d-sm-inline" />
+        <MudText Typo="Typo.body2" Class="mr-3 ml-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
+            @(TenantService.GetImeKorisnika() is { Length: > 0 } ime ? ime : TenantService.GetNazivFirme())
         </MudText>
         <MudTooltip Text="Odjavi se">
             <MudIconButton Icon="@Icons.Material.Filled.Logout"

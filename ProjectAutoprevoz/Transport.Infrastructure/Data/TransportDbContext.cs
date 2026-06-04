@@ -66,6 +66,9 @@ public class TransportDbContext : DbContext
     // Podsetnici
     public DbSet<Potsetnik> Podsetnici { get; set; }
 
+    // Role / privilegije
+    public DbSet<Role> Role { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -237,6 +240,14 @@ public class TransportDbContext : DbContext
             typeof(Racun).GetProperty(nameof(Racun.Placeno)),
             typeof(Racun).GetProperty(nameof(Racun.Kurs)),
         };
+
+        modelBuilder.Entity<Role>(e =>
+        {
+            e.ToTable("tbl_role");
+            e.HasKey(r => r.IdRole);
+            e.Property(r => r.IdRole).HasColumnName("idRole");
+            e.Property(r => r.Naziv).HasColumnName("naziv").HasMaxLength(50);
+        });
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

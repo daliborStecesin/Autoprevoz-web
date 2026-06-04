@@ -7,13 +7,14 @@
 @inject ITenantService    TenantService
 @inject NavigationManager Nav
 @inject TransportDbContext Db
+@inject MasterDbContext   MasterDb
 @inject IDialogService    Dialog
 
-<PageTitle>Vozači / Zaposleni — Autoprevoz</PageTitle>
+<PageTitle>Zaposleni — Autoprevoz</PageTitle>
 
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
-    Vozači / Zaposleni
+    Zaposleni
 </MudText>
 
 <MudDataGrid T="Vozac"
@@ -44,7 +45,7 @@
                    StartIcon="@Icons.Material.Filled.PersonAdd"
                    OnClick="NoviVozac"
                    Class="mr-2">
-            Novi vozač
+            Novi zaposleni
         </MudButton>
 
         <MudButton Variant="Variant.Filled"
@@ -71,6 +72,25 @@
                 </MudChip>
             </CellTemplate>
         </TemplateColumn>
+        <TemplateColumn Title="Web pristup" Width="130px">
+            <CellTemplate>
+                @{
+                    _webKorisnici.TryGetValue(context.Item.Broj, out var wk);
+                }
+                @if (wk is null)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-disabled">—</MudText>
+                }
+                else if (wk.Aktivan == 1)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Aktivan</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error">Neaktivan</MudChip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
     </Columns>
 
     <PagerContent>
@@ -79,12 +99,13 @@
 </MudDataGrid>
 
 @code {
-    private List<Vozac> _svi         = [];
-    private List<Vozac> _filtrirani  = [];
-    private Vozac?      _selektovani;
-    private bool        _ucitava     = true;
-    private string      _pretraga    = string.Empty;
-    private DateTime    _poslednjKlik = DateTime.MinValue;
+    private List<Vozac>               _svi           = [];
+    private List<Vozac>               _filtrirani    = [];
+    private Dictionary<int, WebKorisnik> _webKorisnici = [];
+    private Vozac?                    _selektovani;
+    private bool                      _ucitava       = true;
+    private string                    _pretraga      = string.Empty;
+    private DateTime                  _poslednjKlik  = DateTime.MinValue;
 
     protected override void OnInitialized()
     {
@@ -108,6 +129,15 @@
             .ThenBy(v => v.Ime)
             .AsNoTracking()
             .ToListAsync();
+
+        var idLicence = TenantService.GetIdLicence();
+        var ids = _svi.Select(v => v.Broj).ToHashSet();
+        var wkLista = await MasterDb.WebKorisnici
+            .Where(k => k.IdLicence == idLicence && k.IdZaposlenog != null)
+            .ToListAsync();
+        _webKorisnici = wkLista
+            .Where(k => ids.Contains(k.IdZaposlenog!.Value))
+            .ToDictionary(k => k.IdZaposlenog!.Value);
 
         Filtriraj(_pretraga);
         _ucitava = false;
@@ -141,7 +171,7 @@
     {
         var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, 0 } };
-        var dialog = await Dialog.ShowAsync<VozacDialog>("Novi vozač", prms, opts);
+        var dialog = await Dialog.ShowAsync<VozacDialog>("Novi zaposleni", prms, opts);
         if (!(await dialog.Result).Canceled) await UcitajSve();
     }
 
@@ -149,7 +179,7 @@
     {
         var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, id } };
-        var dialog = await Dialog.ShowAsync<VozacDialog>("Vozač", prms, opts);
+        var dialog = await Dialog.ShowAsync<VozacDialog>("Zaposleni", prms, opts);
         if (!(await dialog.Result).Canceled) await UcitajSve();
     }
 

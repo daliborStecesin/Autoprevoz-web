@@ -3,10 +3,28 @@
 @using Transport.Infrastructure.Data
 
 @inject TransportDbContext Db
+@inject MasterDbContext    MasterDb
+@inject ITenantService     TenantService
 @inject IDialogService     Dialog
 @inject ISnackbar          Snackbar
 
 <MudDialog Style="min-width:600px;">
+    <TitleContent>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <MudText Typo="Typo.h6">Zaposleni</MudText>
+            @if (VozacId > 0 && _entitet is not null)
+            {
+                @if (_entitet.aktivan == 1)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Style="margin:0;">Aktivan</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Style="margin:0;">Neaktivan</MudChip>
+                }
+            }
+        </div>
+    </TitleContent>
     <DialogContent>
         <MudTabs Elevation="0" Rounded="false" ApplyEffectsToContainer="true">
 
@@ -89,29 +107,17 @@
                     </MudItem>
 
                     <MudItem xs="12" sm="6">
-                        <MudDatePicker @bind-Date="_istekDozvole"
-                                       Label="Istek dozvole"
-                                       Variant="Variant.Outlined"
-                                       DateFormat="dd.MM.yyyy" />
+                        <DateInput Label="Istek dozvole" @bind-Value="_istekDozvole" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudDatePicker @bind-Date="_istekPasosa"
-                                       Label="Istek pasoša"
-                                       Variant="Variant.Outlined"
-                                       DateFormat="dd.MM.yyyy" />
+                        <DateInput Label="Istek pasoša" @bind-Value="_istekPasosa" />
                     </MudItem>
 
                     <MudItem xs="12" sm="6">
-                        <MudDatePicker @bind-Date="_datumZaposlenja"
-                                       Label="Zaposlen od"
-                                       Variant="Variant.Outlined"
-                                       DateFormat="dd.MM.yyyy" />
+                        <DateInput Label="Zaposlen od" @bind-Value="_datumZaposlenja" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudDatePicker @bind-Date="_datumRodjenja"
-                                       Label="Datum rođenja"
-                                       Variant="Variant.Outlined"
-                                       DateFormat="dd.MM.yyyy" />
+                        <DateInput Label="Datum rođenja" @bind-Value="_datumRodjenja" />
                     </MudItem>
 
                     <MudItem xs="12">
@@ -261,12 +267,43 @@
 
         @if (VozacId > 0)
         {
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Error"
-                       StartIcon="@Icons.Material.Filled.PersonOff"
-                       OnClick="Deaktiviraj">
-                Deaktiviraj
-            </MudButton>
+            @if (_webKorisnik is null)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           OnClick="OtvoriRegistraciju">
+                    Registruj kao korisnika
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.ManageAccounts"
+                           OnClick="OtvoriUpravljanje">
+                    Upravljaj pristupom
+                </MudButton>
+            }
+
+            @if (_entitet?.aktivan == 1)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.PersonOff"
+                           OnClick="Deaktiviraj">
+                    Deaktiviraj
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           OnClick="Aktiviraj">
+                    Aktiviraj
+                </MudButton>
+            }
         }
 
         <MudButton Variant="Variant.Outlined"
@@ -282,8 +319,9 @@
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
     [Parameter]          public int        VozacId  { get; set; }
 
-    private Vozac? _entitet;
-    private bool    _disposed;
+    private Vozac?      _entitet;
+    private WebKorisnik? _webKorisnik;
+    private bool         _disposed;
 
     // Tab 1
     private string    _ime          = string.Empty;
@@ -298,10 +336,10 @@
     private string?   _brojLK;
     private string?   _pasos;
     private string?   _komentar;
-    private DateTime? _istekDozvole;
-    private DateTime? _istekPasosa;
-    private DateTime? _datumZaposlenja;
-    private DateTime? _datumRodjenja;
+    private string _istekDozvole    = string.Empty;
+    private string _istekPasosa     = string.Empty;
+    private string _datumZaposlenja = string.Empty;
+    private string _datumRodjenja   = string.Empty;
 
     // Tab 2
     private string   _tipIsplate  = "DNEVNICA";
@@ -338,13 +376,69 @@
                 _fixnoPlata      = _entitet.fixnoPlata;
                 _cenaPoKm        = _entitet.cenaPoKm;
 
-                _istekDozvole    = ToDateTime(_entitet.istekDozvole);
-                _istekPasosa     = ToDateTime(_entitet.istekPasosa);
-                _datumZaposlenja = ToDateTime(_entitet.datumZaposlenja);
-                _datumRodjenja   = ToDateTime(_entitet.datumRodjenja);
+                _istekDozvole    = ToIso(_entitet.istekDozvole);
+                _istekPasosa     = ToIso(_entitet.istekPasosa);
+                _datumZaposlenja = ToIso(_entitet.datumZaposlenja);
+                _datumRodjenja   = ToIso(_entitet.datumRodjenja);
 
                 await UcitajRacune();
             }
+        }
+
+        if (VozacId > 0)
+            await UcitajWebKorisnika();
+    }
+
+    private async Task UcitajWebKorisnika()
+    {
+        var idLicence = TenantService.GetIdLicence();
+        _webKorisnik = await MasterDb.WebKorisnici
+            .FirstOrDefaultAsync(k => k.IdZaposlenog == VozacId && k.IdLicence == idLicence);
+    }
+
+    private async Task OtvoriRegistraciju()
+    {
+        if (_disposed) return;
+
+        if (_entitet is null || _entitet.Broj == 0)
+        {
+            var sacuvano = await Sacuvaj(false);
+            if (!sacuvano || _disposed) return;
+        }
+
+        if (_entitet is null) return;
+
+        var imeZaposlenog = $"{_ime} {_prezime}".Trim();
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<WebKorisnikRegistracijaDialog>
+        {
+            { x => x.VozacId,       _entitet.Broj },
+            { x => x.ImeZaposlenog, imeZaposlenog }
+        };
+        var dialog = await Dialog.ShowAsync<WebKorisnikRegistracijaDialog>("Registruj kao korisnika", prms, opts);
+
+        if (!(await dialog.Result).Canceled && !_disposed)
+        {
+            await UcitajWebKorisnika();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OtvoriUpravljanje()
+    {
+        if (_disposed || _webKorisnik is null) return;
+
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<WebKorisnikUpravljanjeDialog>
+        {
+            { x => x.KorisnikId, _webKorisnik.IdKorisnika }
+        };
+        var dialog = await Dialog.ShowAsync<WebKorisnikUpravljanjeDialog>("Upravljaj pristupom", prms, opts);
+
+        if (!(await dialog.Result).Canceled && !_disposed)
+        {
+            await UcitajWebKorisnika();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -379,15 +473,15 @@
         _entitet.procenatZaPlatu = _tipIsplate == "PROCENAT" ? _procenat       : null;
         _entitet.fixnoPlata      = _tipIsplate == "FIXNO"    ? _fixnoPlata     : null;
         _entitet.cenaPoKm        = _tipIsplate == "PO_KM"    ? _cenaPoKm       : null;
-        _entitet.istekDozvole    = ToDateOnly(_istekDozvole);
-        _entitet.istekPasosa     = ToDateOnly(_istekPasosa);
-        _entitet.datumZaposlenja = ToDateOnly(_datumZaposlenja);
-        _entitet.datumRodjenja   = ToDateOnly(_datumRodjenja);
+        _entitet.istekDozvole    = FromIso(_istekDozvole);
+        _entitet.istekPasosa     = FromIso(_istekPasosa);
+        _entitet.datumZaposlenja = FromIso(_datumZaposlenja);
+        _entitet.datumRodjenja   = FromIso(_datumRodjenja);
 
         await Db.SaveChangesAsync();
         if (_disposed) return false;
 
-        Snackbar.Add("Vozač sačuvan.", Severity.Success);
+        Snackbar.Add("Zaposleni sačuvan.", Severity.Success);
 
         if (closeDialog && !_disposed)
         {
@@ -483,9 +577,13 @@
     {
         if (_disposed || _entitet is null) return;
 
+        var poruka = _webKorisnik?.Aktivan == 1
+            ? "Da li ste sigurni? Zaposleni neće biti obrisan, samo deaktiviran. Njegov web pristup će takođe biti deaktiviran."
+            : "Da li ste sigurni? Zaposleni neće biti obrisan, samo deaktiviran.";
+
         var potvrda = await Dialog.ShowMessageBox(
             "Potvrda deaktivacije",
-            "Da li ste sigurni? Vozač neće biti obrisan, samo deaktiviran.",
+            poruka,
             yesText: "Da, deaktiviraj",
             cancelText: "Odustani");
 
@@ -495,15 +593,42 @@
         await Db.SaveChangesAsync();
         if (_disposed) return;
 
-        Snackbar.Add("Vozač deaktiviran.", Severity.Info);
+        // Kaskadna deaktivacija: deaktiviran zaposleni ne može da se loguje
+        if (_webKorisnik is not null && _webKorisnik.Aktivan == 1)
+        {
+            _webKorisnik.Aktivan = 0;
+            await MasterDb.SaveChangesAsync();
+        }
+
+        Snackbar.Add("Zaposleni deaktiviran.", Severity.Info);
         MudDialog.Close(DialogResult.Ok(true));
     }
 
-    private static DateTime? ToDateTime(DateOnly? d)
-        => d.HasValue ? d.Value.ToDateTime(TimeOnly.MinValue) : null;
+    private async Task Aktiviraj()
+    {
+        if (_disposed || _entitet is null) return;
 
-    private static DateOnly? ToDateOnly(DateTime? d)
-        => d.HasValue ? DateOnly.FromDateTime(d.Value) : null;
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda aktivacije",
+            "Da li ste sigurni da želite da aktivirate ovog zaposlenog?",
+            yesText: "Da, aktiviraj",
+            cancelText: "Odustani");
+
+        if (_disposed || potvrda != true) return;
+
+        _entitet.aktivan = 1;
+        await Db.SaveChangesAsync();
+        if (_disposed) return;
+
+        Snackbar.Add("Zaposleni aktiviran.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private static string ToIso(DateOnly? d)
+        => d.HasValue ? d.Value.ToString("yyyy-MM-dd") : string.Empty;
+
+    private static DateOnly? FromIso(string s)
+        => DateTime.TryParse(s, out var dt) ? DateOnly.FromDateTime(dt) : null;
 
     public void Dispose()
     {

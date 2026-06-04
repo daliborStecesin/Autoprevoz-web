@@ -7,6 +7,7 @@ using Transport.Web.Services;
 using MudBlazor.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -97,11 +98,15 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
 {
     var korisnik = await db.WebKorisnici
         .Include(k => k.Licenca)
-        .FirstOrDefaultAsync(k => k.Email       == podaci.Email
-                                && k.LozinkaHash == podaci.Password
-                                && k.Aktivan     == 1);
+        .FirstOrDefaultAsync(k => k.Email   == podaci.Email
+                                && k.Aktivan == 1);
 
     if (korisnik is null)
+        return Results.Json(new { poruka = "Pogrešan email ili lozinka." }, statusCode: 401);
+
+    var hasher = new PasswordHasher<object>();
+    var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", podaci.Password);
+    if (verResult == PasswordVerificationResult.Failed)
         return Results.Json(new { poruka = "Pogrešan email ili lozinka." }, statusCode: 401);
 
     var licenca = korisnik.Licenca;
@@ -122,10 +127,15 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
         Expires   = DateTimeOffset.UtcNow.AddHours(8)
     };
 
-    ctx.Response.Cookies.Append("ap_conn",  licenca.ConnectionString      ?? string.Empty, opts);
-    ctx.Response.Cookies.Append("ap_firma", licenca.Naziv                ?? string.Empty, opts);
-    ctx.Response.Cookies.Append("ap_priv",  korisnik.Privilegija.ToString(),              opts);
-    ctx.Response.Cookies.Append("ap_user",  korisnik.IdKorisnika.ToString(),              opts);
+    korisnik.ZadnjaPrijava = DateTime.Now;
+    await db.SaveChangesAsync();
+
+    ctx.Response.Cookies.Append("ap_conn",    licenca.ConnectionString      ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_firma",   licenca.Naziv                ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_ime",     korisnik.Ime                 ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_priv",    korisnik.Privilegija.ToString(),              opts);
+    ctx.Response.Cookies.Append("ap_user",    korisnik.IdKorisnika.ToString(),              opts);
+    ctx.Response.Cookies.Append("ap_licence", korisnik.IdLicence.ToString(),               opts);
 
     // Učitaj module zastavice iz tenant baze (raw ADO.NET — ne zavisi od EF mapiranja)
     // NULL u bazi = 0 (neaktivan); greška čitanja = 1 (backwards compatible)
@@ -169,9 +179,11 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
 {
     ctx.Response.Cookies.Delete("ap_conn");
     ctx.Response.Cookies.Delete("ap_firma");
+    ctx.Response.Cookies.Delete("ap_ime");
     ctx.Response.Cookies.Delete("ap_priv");
     ctx.Response.Cookies.Delete("ap_user");
     ctx.Response.Cookies.Delete("ap_transport");
+    ctx.Response.Cookies.Delete("ap_licence");
     return Results.Redirect("/login");
 });
 

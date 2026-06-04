@@ -36,6 +36,20 @@ MudBlazor tema: Primary `#2D3E50`, Secondary `#3D8EB9`, Background `#F5F7FA`, Dr
 - Print stranice: `@layout EmptyLayout`, `@rendermode InteractiveServer`, auto-print posle 400ms
 - Dialozi: `MudDialog` + `MudDialogInstance MudDialog`
 - Custom dropdown: ručni `position:absolute` div iznad inputa (ne MudAutocomplete)
+## Buduće faze (NE raditi sad — samo kontekst)
+- FAZA 8: Self-service onboarding (PIB → kreiraj bazu rs{PIB})
+- FAZA 9: Licenciranje (mesečna naplata, datum u master+lokalno)
+- FAZA 10: Modularnost + Lager modul (deljenje koda sa softverom za trgovinu)
+Detalji u ROADMAP.md. Trenutni fokus: transport, korisnici/audit, fakturisanje.
+
+## Multi-korisnik / Audit (AKTUELNO)
+- Login preko master baze (daksoft) → tbl_web_korisnici
+- IdLicence → tbl_licence.ConnectionString → klijent baza
+- Audit: uneo/izmenio = IdKorisnika (master, globalno jedinstven)
+- Ime na dokumentima: upisuje se string iz tbl_imenik (NE cross-DB join)
+- Cookie: ap_user (IdKorisnika), ap_conn, ap_licence, ap_ime, ap_zaposleni
+- Dozvole: tbl_role (template) + tbl_korisnik_moduli (po korisniku)
+- Prvi admin: seed admin/admin + MoraPromenitiLozinku=1 (forsirana promena)
 
 ## Status projekta
 
@@ -54,8 +68,8 @@ MudBlazor tema: Primary `#2D3E50`, Secondary `#3D8EB9`, Background `#F5F7FA`, Dr
 - [x] Vizuelni identitet (#2D3E50)
 - [x] **FAZA 1 — Troškovi** (CRUD, filteri, NBS kurs auto, podela na mesece, štampa)
 - [x] **FAZA 2 — Dnevnice** (CRUD, obračun po minutima, 4 vrste štampe, označi plaćeno)
-- [ ] Plate
-- [ ] Šifarnici
+- [x] Plate
+- [x] Šifarnici
 - [x] **Transport/Ture** (lista tura, detalj+3 taba, nalozi CRUD, troškovi inline, plate/dnevnice, 3 štampe)
 - [ ] Finansije
 - [ ] Fakturisanje

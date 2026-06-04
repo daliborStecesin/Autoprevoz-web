@@ -4,10 +4,13 @@ public class WebKorisnik
 {
     public int IdKorisnika { get; set; }
     public int IdLicence { get; set; }
+    public int? IdZaposlenog { get; set; }
     public string? Ime { get; set; }
     public string? Email { get; set; }
     public string? LozinkaHash { get; set; }
     public int Privilegija { get; set; }
     public int Aktivan { get; set; }
+    public DateTime? DatumKreiranja { get; set; }
+    public DateTime? ZadnjaPrijava { get; set; }
     public Licenca? Licenca { get; set; }
 }

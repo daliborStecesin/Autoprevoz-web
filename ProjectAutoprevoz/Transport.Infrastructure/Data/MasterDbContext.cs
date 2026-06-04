@@ -7,7 +7,7 @@ public class MasterDbContext : DbContext
 {
     public MasterDbContext(DbContextOptions<MasterDbContext> options) : base(options) { }
 
-    public DbSet<Licenca> Licence { get; set; }
+    public DbSet<Licenca>     Licence      { get; set; }
     public DbSet<WebKorisnik> WebKorisnici { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
@@ -33,5 +33,6 @@ public class MasterDbContext : DbContext
              .WithMany()
              .HasForeignKey(w => w.IdLicence);
         });
+
     }
 }

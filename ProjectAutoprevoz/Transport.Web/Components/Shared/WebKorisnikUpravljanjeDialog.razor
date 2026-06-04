@@ -1,0 +1,176 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Microsoft.AspNetCore.Identity
+
+@inject MasterDbContext MasterDb
+@inject ISnackbar       Snackbar
+
+<MudDialog Style="min-width:480px;">
+    <DialogContent>
+        @if (_korisnik is null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudGrid Spacing="2" Class="mt-1">
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_ime"
+                                  Label="Ime"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Value="@_korisnik.Email"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel="true"
+                                  ReadOnly="true"
+                                  HelperText="Email se ne može menjati" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox @bind-Value="_aktivan"
+                                 Label="Aktivan"
+                                 Color="Color.Primary" />
+                </MudItem>
+
+                @if (_korisnik.ZadnjaPrijava.HasValue)
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            Zadnja prijava: @_korisnik.ZadnjaPrijava.Value.ToString("dd.MM.yyyy HH:mm")
+                        </MudText>
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.LockReset"
+                               OnClick="@(() => _prikaziResetLozinke = !_prikaziResetLozinke)">
+                        Resetuj lozinku
+                    </MudButton>
+                </MudItem>
+
+                @if (_prikaziResetLozinke)
+                {
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_novaLozinka"
+                                      Label="Nova lozinka"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      InputType="InputType.Password"
+                                      HelperText="Minimum 6 karaktera" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_potvrda"
+                                      Label="Potvrda nove lozinke"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel="true"
+                                      InputType="InputType.Password" />
+                    </MudItem>
+                }
+
+                @if (_greska is not null)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+                    </MudItem>
+                }
+
+            </MudGrid>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Sacuvaj"
+                   Disabled="@(_korisnik is null || _ucitava)">
+            @(_ucitava ? "Čuvanje..." : "Sačuvaj izmene")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int KorisnikId { get; set; }
+
+    private WebKorisnik? _korisnik;
+    private string       _ime              = string.Empty;
+    private bool         _aktivan;
+    private bool         _prikaziResetLozinke;
+    private string       _novaLozinka      = string.Empty;
+    private string       _potvrda          = string.Empty;
+    private bool         _ucitava;
+    private string?      _greska;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _korisnik = await MasterDb.WebKorisnici.FindAsync(KorisnikId);
+        if (_korisnik is not null)
+        {
+            _ime     = _korisnik.Ime ?? string.Empty;
+            _aktivan = _korisnik.Aktivan == 1;
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (_korisnik is null) return;
+        _greska = null;
+
+        if (_prikaziResetLozinke)
+        {
+            if (_novaLozinka.Length < 6)
+            {
+                _greska = "Nova lozinka mora imati minimum 6 karaktera.";
+                return;
+            }
+            if (_novaLozinka != _potvrda)
+            {
+                _greska = "Lozinke se ne poklapaju.";
+                return;
+            }
+        }
+
+        _ucitava = true;
+        StateHasChanged();
+
+        try
+        {
+            _korisnik.Ime    = _ime.Trim();
+            _korisnik.Aktivan = _aktivan ? 1 : 0;
+
+            if (_prikaziResetLozinke && _novaLozinka.Length >= 6)
+            {
+                var hasher = new PasswordHasher<object>();
+                _korisnik.LozinkaHash = hasher.HashPassword(new object(), _novaLozinka);
+            }
+
+            await MasterDb.SaveChangesAsync();
+
+            Snackbar.Add("Pristup uspešno ažuriran.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            _greska = $"Greška pri čuvanju: {ex.Message}";
+        }
+        finally
+        {
+            _ucitava = false;
+        }
+    }
+}

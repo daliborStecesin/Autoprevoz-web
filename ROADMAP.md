@@ -58,7 +58,78 @@ FAZA 1 — Plate ← SLEDEĆE
 - [ ] SEF API integracija
 - [ ] PDV evidencija
 - [ ] Analitika EPP
+# ROADMAP — Dodatak (buduće faze)
+*Zabeleženo: Jun 2026*
 
+---
+
+## 📋 FAZA 8 — Self-Service Onboarding (SaaS registracija)
+*Cilj: Korisnik se sam registruje preko landing page-a, bez intervencije DAK-SOFT-a*
+
+### Flow registracije
+- [ ] Landing page → dugme "Testiraj odmah"
+- [ ] Korak 1: email + lozinka + odabir zemlje
+- [ ] Korak 2: unos PIB-a (validacija: max 13 cifara)
+      - Za Srbiju: PIB → povlačenje podataka firme preko API (NBS)
+- [ ] Dugme "Započni test" (oslobađa se kad je PIB validan)
+
+### ProvisioningService (master baza)
+- [ ] Naziv baze = prefiks zemlje + PIB (npr. rs111784317)
+      - rs = Srbija, ba = Bosna... (izbegava sudar PIB-ova iz raznih zemalja)
+- [ ] INSERT tbl_licence: PIB, ConnectionString
+      - ConnectionString = isti template, menja se samo Initial Catalog
+- [ ] Vrati IdLicence
+- [ ] INSERT tbl_web_korisnici: email, hash, IdLicence, Privilegija=Admin, IdKorisnika=1
+- [ ] Izvrši seed skriptu: CREATE DATABASE {naziv} + sve tabele + seed admin
+- [ ] Loading indikator dok se baza kreira
+
+### Tehnički zahtevi
+- Master SQL nalog mora imati dozvolu CREATE DATABASE
+- Seed skripta = kompletna šema (.sql) koja se izvršava programski
+- Radi samo na sopstvenom serveru (ne shared hosting)
+
+### Prelazak demo → plaćeni
+- [ ] Reset baze jednim klikom (ista baza, status reset)
+- [ ] Opcija: migracija baze na klijentov localhost (DAK-SOFT ručno menja ConnectionString)
+
+---
+
+## 📋 FAZA 9 — Licenciranje (mesečna naplata)
+*Cilj: Automatska kontrola trajanja licence*
+
+- [ ] Datum licence u master tbl_licence (samo DAK-SOFT pristup)
+- [ ] Keširanje datuma u lokalnu bazu (da se ne povezuje na master pri svakom pokretanju)
+- [ ] Prozor za licenciranje: pokupi datum iz master + dugme "Aktiviraj"
+- [ ] Mesečno produženje uz izdavanje fakture
+- [ ] Ideja: aktivacija zahteva preuzimanje PDF fakture
+
+---
+
+## 📋 FAZA 10 — Modularnost + Lager modul (drugi softver)
+*Cilj: Deljenje koda sa softverom za trgovinu, moduli pali/gasi po licenci*
+
+### Zajednički moduli (već postoje ili planirani)
+- E-faktura, Finansije, Predračuni, Otpremnice, Fakturisanje
+
+### Novi moduli iz softvera za trgovinu
+- [ ] Lager (artikli, stanje)
+- [ ] Kalkulacije
+- [ ] Ulaz / izlaz artikala
+- [ ] Prilagođen unos faktura (više elemenata nego transport)
+
+### Sistem modula
+- [ ] Pali/gasi modul po licenci (kao transportModulAktivan)
+- [ ] tbl_moduli kontroliše dostupnost
+- [ ] Jedna baza koda, razni profili klijenata (transport / trgovina / oba)
+
+---
+
+## ⚠️ NAPOMENA o prioritetima
+Ove faze (8, 9, 10) su STRATEŠKE i dolaze TEK kada je transport modul
+završen i stabilan, sa prvim aktivnim klijentima. NE krećemo sa njima
+dok osnovni transport flow (ture, nalozi, fakture) ne radi savršeno.
+
+Trenutni fokus: dovršiti transport, korisnici/audit, fakturisanje.
 ## 📝 Napomene za Claude Code
 
 ### Tehnički stack
