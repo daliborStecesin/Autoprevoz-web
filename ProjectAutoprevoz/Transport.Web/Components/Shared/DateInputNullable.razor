@@ -2,9 +2,9 @@
 
 @if (!string.IsNullOrEmpty(Label))
 {
-    <label style="font-size:0.7rem; color:rgba(0,0,0,0.55); display:block; margin-bottom:2px;">@Label</label>
+    <div style="font-size:0.7rem; color:rgba(0,0,0,0.55); line-height:1.3;">@Label</div>
 }
-<div style="position:relative; @ContainerStyle">
+<div style="position:relative; margin-top:1px; @ContainerStyle">
     <input type="text" value="@FmtDate(Value)" readonly
            @onclick="OpenPicker"
            style="@_baseStyle cursor:pointer; @Style" />
@@ -24,9 +24,9 @@
     private readonly string _id = "dp-" + Guid.NewGuid().ToString("N")[..8];
 
     private const string _baseStyle =
-        "width:100%; height:32px; padding:3px 7px; border:1px solid rgba(0,0,0,0.23); " +
+        "width:100%; height:32px; padding:4px 7px; border:1px solid rgba(0,0,0,0.23); " +
         "border-radius:4px; font-size:0.82rem; background:white; color:rgba(0,0,0,0.87); " +
-        "outline:none; font-family:inherit; box-sizing:border-box; margin-top:1px;";
+        "outline:none; font-family:inherit; box-sizing:border-box;";
 
     private static string FmtDate(DateTime? d) => d.HasValue ? d.Value.ToString("dd/MM/yyyy") : "";
 

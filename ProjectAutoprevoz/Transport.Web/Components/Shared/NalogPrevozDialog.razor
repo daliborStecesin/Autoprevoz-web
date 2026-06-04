@@ -15,37 +15,39 @@
 
 <MudDialog Style="width:95vw; max-width:95vw; max-height:90vh;" ContentStyle="overflow-x:hidden; overflow-y:auto;">
     <TitleContent>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                <MudIcon Icon="@Icons.Material.Filled.LocalShipping" />
-                <MudText Typo="Typo.h6">
-                    @(_nalog.IdNaloga > 0 ? $"Izmena naloga {_nalog.BrNaloga}" : "Novi nalog za prevoz")
-                </MudText>
-                <MudChip T="string" Size="Size.Small" Style="font-size:0.68rem; background:#e0e0e0; height:20px; margin-left:4px;">
-                    @(_nalog.TipNaloga ?? "SOPSTVENI")
-                </MudChip>
-                @if (!string.IsNullOrWhiteSpace(_nalog.Sastavio))
-                {
-                    <span style="font-size:0.78rem; color:rgba(0,0,0,0.55); margin-left:10px;">
-                        Sastavio: <strong style="color:#2D3E50;">@_nalog.Sastavio</strong>
-                    </span>
-                }
+        <div style="width:100%;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.LocalShipping" />
+                    <MudText Typo="Typo.h6">
+                        @(_nalog.IdNaloga > 0 ? $"Izmena naloga {_nalog.BrNaloga}" : "Novi nalog za prevoz")
+                    </MudText>
+                    <MudChip T="string" Size="Size.Small" Style="font-size:0.68rem; background:#e0e0e0; height:20px; margin-left:4px;">
+                        @(_nalog.TipNaloga ?? "SOPSTVENI")
+                    </MudChip>
+                    @if (!string.IsNullOrWhiteSpace(_nalog.Sastavio))
+                    {
+                        <span style="font-size:0.78rem; color:rgba(0,0,0,0.55); margin-left:10px;">
+                            Sastavio: <strong style="color:#2D3E50;">@_nalog.Sastavio</strong>
+                        </span>
+                    }
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudButton StartIcon="@Icons.Material.Filled.FileCopy" Variant="Variant.Outlined"
+                               Color="Color.Info" Size="Size.Small" OnClick="OtvorUcitajTemplate">
+                        Učitaj template
+                    </MudButton>
+                    <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Outlined"
+                               Color="Color.Secondary" Size="Size.Small"
+                               OnClick="@(() => { _view = "saveTemplate"; _nazivTemplatea = ""; _templateGreska = null; })">
+                        Sačuvaj kao template
+                    </MudButton>
+                    <MudChip T="string" Color="@StatusBoja()" Size="Size.Small" Style="font-weight:600; margin-right:8px; margin-left:4px;">
+                        @(_nalog.Status ?? "U TOKU")
+                    </MudChip>
+                </MudStack>
             </MudStack>
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                <MudButton StartIcon="@Icons.Material.Filled.FileCopy" Variant="Variant.Outlined"
-                           Color="Color.Info" Size="Size.Small" OnClick="OtvorUcitajTemplate">
-                    Učitaj template
-                </MudButton>
-                <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Outlined"
-                           Color="Color.Secondary" Size="Size.Small"
-                           OnClick="@(() => { _view = "saveTemplate"; _nazivTemplatea = ""; _templateGreska = null; })">
-                    Sačuvaj kao template
-                </MudButton>
-                <MudChip T="string" Color="@StatusBoja()" Size="Size.Small" Style="font-weight:600; margin-right:8px; margin-left:4px;">
-                    @(_nalog.Status ?? "U TOKU")
-                </MudChip>
-            </MudStack>
-        </MudStack>
+        </div>
     </TitleContent>
 
     <DialogContent>
@@ -127,6 +129,24 @@
     {
         <div style="padding:0 4px 4px 4px;">
 
+        @* ── Br. naloga ── *@
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+            <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Small" Style="color:#777;" />
+            <span style="font-size:0.75rem; color:#666;">Br. naloga:</span>
+            @if (_pod?.automatskiBrojevi == 0 && _nalog.IdNaloga == 0)
+            {
+                <input type="text" @bind="_brNalogaPreview"
+                       style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px;
+                              font-size:0.85rem; font-weight:600; color:#1565C0; width:150px;" />
+            }
+            else
+            {
+                <strong style="font-size:0.85rem; color:#1565C0; letter-spacing:.03em;">
+                    @(string.IsNullOrWhiteSpace(_brNalogaPreview) ? "..." : _brNalogaPreview)
+                </strong>
+            }
+        </div>
+
         @* ── Red 1: Datum dok / CMR / Ref.nalog / Status ── *@
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; margin-bottom:8px; min-width:0;">
             <div style="min-width:0;">
@@ -152,24 +172,6 @@
                 </select>
             </div>
         </div>
-
-        @* ── Br. naloga preview (samo za novi nalog) ── *@
-        @if (_nalog.IdNaloga == 0)
-        {
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; padding:5px 10px; background:#e8f5e9; border-radius:4px; border:1px solid #a5d6a7;">
-                <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Small" Color="Color.Success" />
-                <span style="font-size:0.78rem; color:rgba(0,0,0,.6); white-space:nowrap;">Br. naloga (automatski):</span>
-                @if (_pod?.automatskiBrojevi == 0)
-                {
-                    <input type="text" @bind="_brNalogaPreview"
-                           style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px; font-size:0.9rem; font-weight:600; color:#1b5e20; width:160px;" />
-                }
-                else
-                {
-                    <strong style="color:#1b5e20; font-size:0.9rem; letter-spacing:.03em;">@_brNalogaPreview</strong>
-                }
-            </div>
-        }
 
         <MudDivider Style="margin-bottom:8px;" />
 
@@ -257,13 +259,13 @@
                 }
 
                 @* Datum utovara + Mesto utovara *@
-                <div style="display:grid; grid-template-columns:40% 60%; gap:6px;">
-                    <div>
+                <div style="display:grid; grid-template-columns:2fr 3fr; gap:6px;">
+                    <div style="min-width:0; overflow:hidden;">
                         <DateInputNullable Label="Datum utovara:"
                                            Value="_nalog.DatumUtovara"
                                            ValueChanged="@(d => _nalog.DatumUtovara = d)" />
                     </div>
-                    <div>
+                    <div style="min-width:0;">
                         <div style="@Lbl">Mesto utovara:</div>
                         <div style="position:relative; margin-top:1px;">
                             <input type="text" value="@_nalog.MestoUtovara"
@@ -304,13 +306,13 @@
                 </div>
 
                 @* Datum istovara + Mesto istovara *@
-                <div style="display:grid; grid-template-columns:40% 60%; gap:6px;">
-                    <div>
+                <div style="display:grid; grid-template-columns:2fr 3fr; gap:6px;">
+                    <div style="min-width:0; overflow:hidden;">
                         <DateInputNullable Label="Datum istovara:"
                                            Value="_nalog.DatumIstovara"
                                            ValueChanged="@(d => _nalog.DatumIstovara = d)" />
                     </div>
-                    <div>
+                    <div style="min-width:0;">
                         <div style="@Lbl">Mesto istovara:</div>
                         <div style="position:relative; margin-top:1px;">
                             <input type="text" value="@_nalog.MestoIstovara"
@@ -395,16 +397,10 @@
                               style="@(Inp + "height:48px; resize:none;")" rows="2"></textarea>
                 </div>
 
-                @* Kontakt + Uslovi plaćanja *@
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                    <div>
-                        <div style="@Lbl">Kontakt:</div>
-                        <input type="text" @bind="_nalog.Kontakt" placeholder="Kontakt" style="@Inp" />
-                    </div>
-                    <div>
-                        <div style="@Lbl">Uslovi plaćanja:</div>
-                        <input type="text" @bind="_nalog.UsloviPlacanja" placeholder="Uslovi plaćanja" style="@Inp" />
-                    </div>
+                @* Kontakt — puna širina leve kolone *@
+                <div>
+                    <div style="@Lbl">Kontakt:</div>
+                    <input type="text" @bind="_nalog.Kontakt" placeholder="Kontakt..." style="@Inp" />
                 </div>
 
             </div>
@@ -467,19 +463,21 @@
                 </div>
 
                 @* Red 3+4: Cena | Vrednost (auto) — 50/50 *@
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:end;">
-                    <div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <div style="min-width:0; display:flex; flex-direction:column;">
                         <div style="@Lbl">Cena (@ValutaJM):</div>
                         <input type="number" step="0.01"
                                value="@_nalog.CenaJM?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
                                @onchange="e => _nalog.CenaJM = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.CenaJM"
-                               style="@(Inp + "height:38px; font-size:1rem; font-weight:600;")" />
+                               style="@(Inp + "height:38px; font-size:1rem; font-weight:600; flex:1;")" />
                     </div>
-                    <div style="background:#EBF3FB; border:2px solid #1565C0; border-radius:6px; padding:5px 10px;
-                                display:flex; flex-direction:column; justify-content:center; min-height:50px;">
-                        <span style="font-size:0.7rem; color:#555;">Vrednost EUR (auto)</span>
-                        <span style="font-weight:700; font-size:0.95rem; color:#1565C0;">@VrednostEUR.ToString("N2") EUR</span>
-                        <span style="font-size:0.72rem; color:#888;">= @VrednostRSD.ToString("N2") RSD</span>
+                    <div style="min-width:0; overflow:hidden; box-sizing:border-box;
+                                background:#EBF3FB; border:2px solid #1565C0; border-radius:6px;
+                                padding:3px 10px; display:flex; flex-direction:column;
+                                justify-content:center; align-items:flex-end;">
+                        <span style="font-size:0.63rem; color:#555; line-height:1.2;">Vrednost EUR (auto)</span>
+                        <span style="font-weight:700; font-size:0.88rem; color:#1565C0; line-height:1.3; white-space:nowrap;">@VrednostEUR.ToString("N2") EUR</span>
+                        <span style="font-size:0.65rem; color:#888; line-height:1.2; white-space:nowrap;">= @VrednostRSD.ToString("N2") RSD</span>
                     </div>
                 </div>
 
@@ -488,28 +486,34 @@
                 {
                     var zarada = VrednostEUR - (_nalog.PlacenTransport ?? 0m);
                     var zBoja  = zarada >= 0 ? "#2E7D32" : "#C62828";
-                    <div style="display:grid; grid-template-columns:55% 45%; gap:6px; align-items:end;">
-                        <div>
+                    <div style="display:grid; grid-template-columns:55fr 45fr; gap:6px;">
+                        <div style="min-width:0; overflow:hidden; display:flex; flex-direction:column;">
                             <div style="@Lbl">Plaćeno prevozniku (EUR):</div>
                             <input type="number" step="0.01"
                                    value="@_nalog.PlacenTransport?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
                                    @onchange="e => _nalog.PlacenTransport = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.PlacenTransport"
-                                   style="@Inp" />
+                                   style="@(Inp + "flex:1;")" />
                         </div>
-                        <div style="@($"border:1px solid {zBoja}; border-radius:5px; padding:4px 10px; background:#F8F9FA; margin-top:15px;")">
-                            <span style="font-size:0.72rem; color:#888;">Zarada (auto)</span><br />
-                            <span style="@($"font-weight:700; color:{zBoja}; font-size:0.95rem;")">@zarada.ToString("N2") EUR</span>
+                        <div style="min-width:0; overflow:hidden; box-sizing:border-box;
+                                    @($"border:1px solid {zBoja}; border-radius:5px; padding:3px 8px; background:#F8F9FA;")
+                                    display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">
+                            <span style="font-size:0.63rem; color:#888; line-height:1.2;">Zarada (auto)</span>
+                            <span style="@($"font-weight:700; color:{zBoja}; font-size:0.88rem; line-height:1.3; white-space:nowrap;")">@zarada.ToString("N2") EUR</span>
                         </div>
                     </div>
                 }
 
+                @* Uslovi plaćanja *@
+                <div>
+                    <div style="@Lbl">Uslovi plaćanja:</div>
+                    <input type="text" @bind="_nalog.UsloviPlacanja" placeholder="Uslovi plaćanja" style="@Inp" />
+                </div>
+
                 <MudDivider Style="margin:4px 0;" />
 
-                @* Ostalo *@
-
                 @* Šifra + Opis *@
-                <div style="display:grid; grid-template-columns:38% 62%; gap:6px;">
-                    <div>
+                <div style="display:grid; grid-template-columns:38fr 62fr; gap:6px;">
+                    <div style="min-width:0;">
                         <div style="@Lbl">Šifra transp.:</div>
                         <select style="@Inp" @onchange="IzaberiSifruTransporta">
                             <option value="">— odaberi —</option>
@@ -519,7 +523,7 @@
                             }
                         </select>
                     </div>
-                    <div>
+                    <div style="min-width:0; overflow:hidden;">
                         <div style="@Lbl">Opis šifre:</div>
                         <input type="text" value="@_nalog.OpisSifre" placeholder="Opis šifre"
                                style="@(Inp + "background:#F5F5F5; color:#555;")" readonly />
@@ -542,6 +546,7 @@
 
             </div>
         </div>
+
         </div>
     }
 
@@ -752,6 +757,7 @@
             .FirstOrDefaultAsync(n => n.IdNaloga == IdNaloga);
         if (existing is null) return;
         _nalog = existing;
+        _brNalogaPreview = existing.BrNaloga ?? "";
 
         if (!_nalog.CenaJM.HasValue && _nalog.CenaTransporta.HasValue)
         {
