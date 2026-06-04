@@ -24,6 +24,12 @@
                 <MudChip T="string" Size="Size.Small" Style="font-size:0.68rem; background:#e0e0e0; height:20px; margin-left:4px;">
                     @(_nalog.TipNaloga ?? "SOPSTVENI")
                 </MudChip>
+                @if (!string.IsNullOrWhiteSpace(_nalog.Sastavio))
+                {
+                    <span style="font-size:0.78rem; color:rgba(0,0,0,0.55); margin-left:10px;">
+                        Sastavio: <strong style="color:#2D3E50;">@_nalog.Sastavio</strong>
+                    </span>
+                }
             </MudStack>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                 <MudButton StartIcon="@Icons.Material.Filled.FileCopy" Variant="Variant.Outlined"
@@ -124,11 +130,9 @@
         @* ── Red 1: Datum dok / CMR / Ref.nalog / Status ── *@
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; margin-bottom:8px; min-width:0;">
             <div style="min-width:0;">
-                <div style="@Lbl">Datum dokumenta:</div>
-                <input type="date"
-                       value="@(_nalog.DatumDokumenta?.ToString("yyyy-MM-dd"))"
-                       @onchange="e => _nalog.DatumDokumenta = ParseDate(e.Value?.ToString())"
-                       style="@Inp" />
+                <DateInputNullable Label="Datum dokumenta:"
+                                   Value="_nalog.DatumDokumenta"
+                                   ValueChanged="@(d => _nalog.DatumDokumenta = d)" />
             </div>
             <div style="min-width:0;">
                 <div style="@Lbl">CMR:</div>
@@ -144,6 +148,7 @@
                     <option value="U TOKU">U TOKU</option>
                     <option value="ZAVRSEN">ZAVRŠEN</option>
                     <option value="OTKAZAN">OTKAZAN</option>
+                    <option value="FAKTURISAN">FAKTURISAN</option>
                 </select>
             </div>
         </div>
@@ -254,11 +259,9 @@
                 @* Datum utovara + Mesto utovara *@
                 <div style="display:grid; grid-template-columns:40% 60%; gap:6px;">
                     <div>
-                        <div style="@Lbl">Datum utovara:</div>
-                        <input type="date"
-                               value="@(_nalog.DatumUtovara?.ToString("yyyy-MM-dd"))"
-                               @onchange="e => _nalog.DatumUtovara = ParseDate(e.Value?.ToString())"
-                               style="@Inp" />
+                        <DateInputNullable Label="Datum utovara:"
+                                           Value="_nalog.DatumUtovara"
+                                           ValueChanged="@(d => _nalog.DatumUtovara = d)" />
                     </div>
                     <div>
                         <div style="@Lbl">Mesto utovara:</div>
@@ -303,11 +306,9 @@
                 @* Datum istovara + Mesto istovara *@
                 <div style="display:grid; grid-template-columns:40% 60%; gap:6px;">
                     <div>
-                        <div style="@Lbl">Datum istovara:</div>
-                        <input type="date"
-                               value="@(_nalog.DatumIstovara?.ToString("yyyy-MM-dd"))"
-                               @onchange="e => _nalog.DatumIstovara = ParseDate(e.Value?.ToString())"
-                               style="@Inp" />
+                        <DateInputNullable Label="Datum istovara:"
+                                           Value="_nalog.DatumIstovara"
+                                           ValueChanged="@(d => _nalog.DatumIstovara = d)" />
                     </div>
                     <div>
                         <div style="@Lbl">Mesto istovara:</div>
@@ -349,41 +350,41 @@
                     </div>
                 </div>
 
-                @* Izvozno + Uvozno carinjenje — isti red *@
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                    <div>
-                        <div style="@Lbl">Izvozno carinjenje:</div>
-                        <div style="position:relative; margin-top:1px;">
-                            <input type="text" value="@_nalog.IzvoznoCarinjenje"
-                                   @oninput="@(e => { _nalog.IzvoznoCarinjenje = e.Value?.ToString(); _openAuto = "izvCar"; })"
-                                   @onblur="@(async () => await ZatвориAuto("izvCar"))"
-                                   placeholder="Izvozno carinjenje..." style="@Inp" />
-                            @if (_openAuto == "izvCar" && _hIzvCarinjenje.Count > 0)
-                            {
-                                <div style="@DropStyle">
-                                    @foreach (var s in _hIzvCarinjenje.Take(5)) { var v = s;
-                                        <div @onclick="() => { _nalog.IzvoznoCarinjenje = v; _openAuto = null; }" style="@DropItem">@s</div>
-                                    }
-                                </div>
-                            }
-                        </div>
+                @* Izvozno carinjenje — ceo red *@
+                <div>
+                    <div style="@Lbl">Izvozno carinjenje:</div>
+                    <div style="position:relative; margin-top:1px;">
+                        <input type="text" value="@_nalog.IzvoznoCarinjenje"
+                               @oninput="@(e => { _nalog.IzvoznoCarinjenje = e.Value?.ToString(); _openAuto = "izvCar"; })"
+                               @onblur="@(async () => await ZatвориAuto("izvCar"))"
+                               placeholder="Izvozno carinjenje..." style="@Inp" />
+                        @if (_openAuto == "izvCar" && _hIzvCarinjenje.Count > 0)
+                        {
+                            <div style="@DropStyle">
+                                @foreach (var s in _hIzvCarinjenje.Take(5)) { var v = s;
+                                    <div @onclick="() => { _nalog.IzvoznoCarinjenje = v; _openAuto = null; }" style="@DropItem">@s</div>
+                                }
+                            </div>
+                        }
                     </div>
-                    <div>
-                        <div style="@Lbl">Uvozno carinjenje:</div>
-                        <div style="position:relative; margin-top:1px;">
-                            <input type="text" value="@_nalog.UvoznoCarinjenje"
-                                   @oninput="@(e => { _nalog.UvoznoCarinjenje = e.Value?.ToString(); _openAuto = "uvCar"; })"
-                                   @onblur="@(async () => await ZatвориAuto("uvCar"))"
-                                   placeholder="Uvozno carinjenje..." style="@Inp" />
-                            @if (_openAuto == "uvCar" && _hUvCarinjenje.Count > 0)
-                            {
-                                <div style="@DropStyle">
-                                    @foreach (var s in _hUvCarinjenje.Take(5)) { var v = s;
-                                        <div @onclick="() => { _nalog.UvoznoCarinjenje = v; _openAuto = null; }" style="@DropItem">@s</div>
-                                    }
-                                </div>
-                            }
-                        </div>
+                </div>
+
+                @* Uvozno carinjenje — ceo red *@
+                <div>
+                    <div style="@Lbl">Uvozno carinjenje:</div>
+                    <div style="position:relative; margin-top:1px;">
+                        <input type="text" value="@_nalog.UvoznoCarinjenje"
+                               @oninput="@(e => { _nalog.UvoznoCarinjenje = e.Value?.ToString(); _openAuto = "uvCar"; })"
+                               @onblur="@(async () => await ZatвориAuto("uvCar"))"
+                               placeholder="Uvozno carinjenje..." style="@Inp" />
+                        @if (_openAuto == "uvCar" && _hUvCarinjenje.Count > 0)
+                        {
+                            <div style="@DropStyle">
+                                @foreach (var s in _hUvCarinjenje.Take(5)) { var v = s;
+                                    <div @onclick="() => { _nalog.UvoznoCarinjenje = v; _openAuto = null; }" style="@DropItem">@s</div>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
 
@@ -406,13 +407,6 @@
                     </div>
                 </div>
 
-                @* Napomena *@
-                <div>
-                    <div style="@Lbl">Napomena:</div>
-                    <textarea @bind="_nalog.Napomena1" placeholder="Napomena..."
-                              style="@(Inp + "height:44px; resize:none;")" rows="2"></textarea>
-                </div>
-
             </div>
 
             @* ═══════ DESNA KOLONA ═══════ *@
@@ -428,11 +422,10 @@
                         </select>
                     </div>
                     <div>
-                        <div style="@Lbl">Datum kursa:</div>
-                        <input type="date"
-                               value="@((_nalog.DatumKursa ?? DateTime.Today).ToString("yyyy-MM-dd"))"
-                               @onchange="PrimiDatumKursa"
-                               style="@Inp" />
+                        <DateInputNullable Label="Datum kursa:"
+                                           Value="_nalog.DatumKursa"
+                                           ValueChanged="@(d => _nalog.DatumKursa = d)"
+                                           DateChanged="PrimiDatumKursaNullable" />
                     </div>
                     <div>
                         <div style="@Lbl">Kurs EUR:</div>
@@ -473,22 +466,20 @@
                     </div>
                 </div>
 
-                @* Red 3: Cena (veće polje) *@
-                <div>
-                    <div style="@Lbl">Cena (@ValutaJM):</div>
-                    <input type="number" step="0.01"
-                           value="@_nalog.CenaJM?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
-                           @onchange="e => _nalog.CenaJM = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.CenaJM"
-                           style="@(Inp + "height:38px; font-size:1rem; font-weight:600;")" />
-                </div>
-
-                @* Red 4: Vrednost (auto prikaz) *@
-                <div style="background:#EBF3FB; border:2px solid #1565C0; border-radius:6px; padding:6px 12px;
-                            display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:0.75rem; color:#555;">Vrednost EUR (auto)</span>
-                    <div style="text-align:right;">
-                        <span style="font-weight:700; font-size:1.1rem; color:#1565C0;">@VrednostEUR.ToString("N2") EUR</span>
-                        <span style="font-size:0.75rem; color:#888; margin-left:8px;">= @VrednostRSD.ToString("N2") RSD</span>
+                @* Red 3+4: Cena | Vrednost (auto) — 50/50 *@
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:end;">
+                    <div>
+                        <div style="@Lbl">Cena (@ValutaJM):</div>
+                        <input type="number" step="0.01"
+                               value="@_nalog.CenaJM?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
+                               @onchange="e => _nalog.CenaJM = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.CenaJM"
+                               style="@(Inp + "height:38px; font-size:1rem; font-weight:600;")" />
+                    </div>
+                    <div style="background:#EBF3FB; border:2px solid #1565C0; border-radius:6px; padding:5px 10px;
+                                display:flex; flex-direction:column; justify-content:center; min-height:50px;">
+                        <span style="font-size:0.7rem; color:#555;">Vrednost EUR (auto)</span>
+                        <span style="font-weight:700; font-size:0.95rem; color:#1565C0;">@VrednostEUR.ToString("N2") EUR</span>
+                        <span style="font-size:0.72rem; color:#888;">= @VrednostRSD.ToString("N2") RSD</span>
                     </div>
                 </div>
 
@@ -535,41 +526,18 @@
                     </div>
                 </div>
 
+                @* Napomena *@
+                <div>
+                    <div style="@Lbl">Napomena:</div>
+                    <textarea @bind="_nalog.Napomena1" placeholder="Napomena..."
+                              style="@(Inp + "height:44px; resize:none;")" rows="2"></textarea>
+                </div>
+
                 @* Interni komentar *@
                 <div>
                     <div style="@Lbl">Interni komentar:</div>
                     <textarea @bind="_nalog.InterniKomentar" placeholder="Interni komentar..."
                               style="@(Inp + "height:44px; resize:none;")" rows="2"></textarea>
-                </div>
-
-                @* Fakturisanje + Sastavio — isti red *@
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                    <div>
-                        <div style="@Lbl">Fakturisanje:</div>
-                        <select @bind="_statusFakturisanja" style="@Inp">
-                            <option value="NIJE">NIJE FAKTURISANO</option>
-                            <option value="FAKTURISANJE">FAKTURISANJE</option>
-                            <option value="FAKTURISANO">FAKTURISANO</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div style="@Lbl">Sastavio:</div>
-                        <div style="position:relative; margin-top:1px;">
-                            <input type="text" value="@_nalog.Sastavio"
-                                   @oninput="@(e => { _nalog.Sastavio = e.Value?.ToString(); _openAuto = "sastavio"; })"
-                                   @onblur="@(async () => await ZatвориAuto("sastavio"))"
-                                   placeholder="Ime i prezime..." style="@Inp" />
-                            @{ var fS = Filtruj(_hSastavio, _nalog.Sastavio); }
-                            @if (_openAuto == "sastavio" && fS.Count > 0)
-                            {
-                                <div style="@DropStyle">
-                                    @foreach (var s in fS) { var v = s;
-                                        <div @onclick="() => { _nalog.Sastavio = v; _openAuto = null; }" style="@DropItem">@s</div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
                 </div>
 
             </div>
@@ -630,7 +598,6 @@
     private List<string> _hAdresaI       = [];
     private List<string> _hIzvCarinjenje = [];
     private List<string> _hUvCarinjenje  = [];
-    private List<string> _hSastavio      = [];
     private string? _openAuto;
 
     private bool    _ucitava;
@@ -686,9 +653,10 @@
 
     private Color StatusBoja() => _nalog.Status switch
     {
-        "ZAVRSEN" => Color.Success,
-        "OTKAZAN" => Color.Error,
-        _         => Color.Warning
+        "ZAVRSEN"    => Color.Success,
+        "OTKAZAN"    => Color.Error,
+        "FAKTURISAN" => Color.Info,
+        _            => Color.Warning
     };
 
     private List<string> Filtruj(List<string> lista, string? input) =>
@@ -811,7 +779,6 @@
         _hAdresaI       = await q.Where(n => n.AdresaIstovara     != null && n.AdresaIstovara     != "").Select(n => n.AdresaIstovara!).Distinct().OrderBy(s => s).ToListAsync();
         _hIzvCarinjenje = await q.Where(n => n.IzvoznoCarinjenje  != null && n.IzvoznoCarinjenje  != "").Select(n => n.IzvoznoCarinjenje!).Distinct().OrderBy(s => s).ToListAsync();
         _hUvCarinjenje  = await q.Where(n => n.UvoznoCarinjenje   != null && n.UvoznoCarinjenje   != "").Select(n => n.UvoznoCarinjenje!).Distinct().OrderBy(s => s).ToListAsync();
-        _hSastavio      = await q.Where(n => n.Sastavio           != null && n.Sastavio           != "").Select(n => n.Sastavio!).Distinct().OrderBy(s => s).ToListAsync();
     }
 
     private async Task PrimiDatumKursa(ChangeEventArgs e)
@@ -820,6 +787,13 @@
         _nalog.DatumKursa = datum;
         if (datum.HasValue)
             try { _nalog.KursEUR = await NbsKurs.GetKursAsync(datum.Value); } catch { }
+    }
+
+    private async Task PrimiDatumKursaNullable(DateTime? d)
+    {
+        _nalog.DatumKursa = d;
+        if (d.HasValue)
+            try { _nalog.KursEUR = await NbsKurs.GetKursAsync(d.Value); } catch { }
     }
 
     private void AzurirajPartnere(string pretraga, ref List<Partner> predlozi)

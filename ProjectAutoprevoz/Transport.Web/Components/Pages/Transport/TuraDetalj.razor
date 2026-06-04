@@ -31,13 +31,10 @@
     {
         <MudChip T="string" Size="Size.Small" Color="@StatusBoja(_tura.Status)"
                  Style="margin-left:8px;">@_tura.Status</MudChip>
-        @if (_tura.Cena.HasValue && _tura.Cena.Value != 0)
-        {
-            <span class="ml-auto" style="font-size:0.88rem; color:#1565C0; font-weight:700;
+        <span class="ml-auto" style="font-size:0.88rem; color:#1565C0; font-weight:700;
                                          background:#e3f0ff; padding:3px 10px; border-radius:12px;">
-                💶 Vrednost: @_tura.Cena.Value.ToString("N2") EUR
-            </span>
-        }
+            💶 Vrednost: @((_tura.Cena ?? 0).ToString("N2")) EUR
+        </span>
     }
 </div>
 
