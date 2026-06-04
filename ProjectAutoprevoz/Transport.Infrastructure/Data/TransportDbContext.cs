@@ -3,14 +3,50 @@ using Transport.Domain.Entities;
 
 namespace Transport.Infrastructure.Data;
 
-/// <summary>
-/// Glavni DbContext za Autoprevoz aplikaciju
-/// Mapira na postojeću SQL Server bazu "kasa" verzije 7.86
-/// </summary>
 public class TransportDbContext : DbContext
 {
-    public TransportDbContext(DbContextOptions<TransportDbContext> options) : base(options)
+    private readonly ICurrentUser? _currentUser;
+
+    public TransportDbContext(DbContextOptions<TransportDbContext> options, ICurrentUser? currentUser = null)
+        : base(options)
     {
+        _currentUser = currentUser;
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        var userId = _currentUser?.GetIdKorisnika() ?? 0;
+        if (userId > 0)
+        {
+            var now = DateTime.Now;
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.Entity is IAuditable auditable)
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        auditable.Uneo       = userId;
+                        auditable.DatumUnosa = now;
+                        auditable.Izmenio     = userId;
+                        auditable.DatumIzmene = now;
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        auditable.Izmenio     = userId;
+                        auditable.DatumIzmene = now;
+                        // Ne diraj Uneo/DatumUnosa — ostaje originalni kreator
+                        entry.Property(nameof(IAuditable.Uneo)).IsModified       = false;
+                        entry.Property(nameof(IAuditable.DatumUnosa)).IsModified  = false;
+                    }
+                }
+                else if (entry.Entity is Plata plata && entry.State != EntityState.Unchanged)
+                {
+                    plata.Izmenio     = userId;
+                    plata.DatumIzmene = now;
+                }
+            }
+        }
+        return await base.SaveChangesAsync(ct);
     }
 
     // Partneri i finansije

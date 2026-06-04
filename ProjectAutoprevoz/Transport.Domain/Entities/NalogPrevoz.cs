@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Transport.Domain.Entities;
 
 [Table("tbl_NalogPrevoz")]
-public class NalogPrevoz
+public class NalogPrevoz : IAuditable
 {
     [Key]
     [Column("idNaloga")]
@@ -195,4 +195,9 @@ public class NalogPrevoz
     public int? Brisano { get; set; }
 
     public virtual PutniNalogKamion? Tura { get; set; }
+
+    public int?      Uneo        { get; set; }
+    public DateTime? DatumUnosa  { get; set; }
+    public int?      Izmenio     { get; set; }
+    public DateTime? DatumIzmene { get; set; }
 }

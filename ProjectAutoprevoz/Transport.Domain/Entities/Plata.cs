@@ -54,4 +54,7 @@ public class Plata
     public DateTime? datumUnosa { get; set; }
 
     public int brisano { get; set; } = 0;
+
+    public int?      Izmenio     { get; set; }
+    public DateTime? DatumIzmene { get; set; }
 }

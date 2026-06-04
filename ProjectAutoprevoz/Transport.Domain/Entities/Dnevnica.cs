@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Transport.Domain.Entities;
 
 [Table("tbl_dnevnice")]
-public class Dnevnica
+public class Dnevnica : IAuditable
 {
     [Key]
     [Column("idDnevnica")]
@@ -64,4 +64,9 @@ public class Dnevnica
     public DateTime? datumIsplate { get; set; }
 
     public decimal? akontacija { get; set; }
+
+    public int?      Uneo        { get; set; }
+    public DateTime? DatumUnosa  { get; set; }
+    public int?      Izmenio     { get; set; }
+    public DateTime? DatumIzmene { get; set; }
 }

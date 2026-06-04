@@ -9,6 +9,7 @@
 @inject INbsKursService    NbsKurs
 @inject IJSRuntime         JS
 @inject IDialogService     Dialog
+@inject ITenantService     TenantService
 
 <MudDialog Style="width:95vw; max-width:95vw; max-height:90vh;" ContentStyle="overflow-x:hidden; overflow-y:auto;">
     <TitleContent>
@@ -755,6 +756,8 @@
                 Brisano        = 0,
                 KursEUR        = Tura?.KursEUR ?? 1m,
                 Kolicina       = 1m,
+                Sastavio       = TenantService.GetImeKorisnika(),
+                IdDispecer     = TenantService.GetIdKorisnika(),
             };
         }
 

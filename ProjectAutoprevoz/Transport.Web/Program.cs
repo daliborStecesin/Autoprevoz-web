@@ -1,4 +1,5 @@
 using Transport.Web.Components;
+using Transport.Infrastructure;
 using Transport.Infrastructure.Data;
 using Transport.Application.Interfaces;
 using Transport.Application.Services;
@@ -17,7 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 // TransportDbContext koristi connection string klijentove baze iz tenant cookie-ja
 builder.Services.AddScoped<TransportDbContext>(sp =>
 {
-    var tenant = sp.GetRequiredService<ITenantService>();
+    var tenant      = sp.GetRequiredService<ITenantService>();
+    var currentUser = sp.GetRequiredService<ICurrentUser>();
     var config  = sp.GetRequiredService<IConfiguration>();
     var raw = tenant.IsAuthenticated()
         ? tenant.GetConnectionString()
@@ -33,7 +35,7 @@ builder.Services.AddScoped<TransportDbContext>(sp =>
     var opts = new DbContextOptionsBuilder<TransportDbContext>()
         .UseSqlServer(csb.ConnectionString)
         .Options;
-    return new TransportDbContext(opts);
+    return new TransportDbContext(opts, currentUser);
 });
 
 // ============================================================================
@@ -67,6 +69,7 @@ builder.Services.AddHttpContextAccessor();
 // TENANT — čita auth iz HTTP cookie-ja (dostupno u SSR i interactive)
 // ============================================================================
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<ICurrentUser, CurrentUserService>();
 
 // ============================================================================
 // UI COMPONENTS — MudBlazor

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Transport.Domain.Entities;
 
 [Table("tbl_troskovi")]
-public class Trosak
+public class Trosak : IAuditable
 {
     [Key]
     public int trosakId { get; set; }
@@ -40,4 +40,9 @@ public class Trosak
     public int brisano       { get; set; } = 0;   // int NOT NULL DEFAULT 0
 
     public Vozilo? Vozilo { get; set; }
+
+    public int?      Uneo        { get; set; }
+    public DateTime? DatumUnosa  { get; set; }
+    public int?      Izmenio     { get; set; }
+    public DateTime? DatumIzmene { get; set; }
 }

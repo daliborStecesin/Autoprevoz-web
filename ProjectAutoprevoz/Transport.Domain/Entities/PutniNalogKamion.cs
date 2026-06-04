@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Transport.Domain.Entities;
 
 [Table("tbl_putniNalogKamion")]
-public class PutniNalogKamion
+public class PutniNalogKamion : IAuditable
 {
     [Key]
     [Column("idNaloga")]
@@ -195,4 +195,9 @@ public class PutniNalogKamion
     public decimal? Potrosnja { get; set; }
 
     public virtual ICollection<NalogPrevoz> Nalozi { get; set; } = [];
+
+    public int?      Uneo        { get; set; }
+    public DateTime? DatumUnosa  { get; set; }
+    public int?      Izmenio     { get; set; }
+    public DateTime? DatumIzmene { get; set; }
 }
