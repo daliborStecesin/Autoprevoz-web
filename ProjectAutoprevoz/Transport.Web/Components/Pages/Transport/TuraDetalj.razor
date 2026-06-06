@@ -98,6 +98,14 @@ else if (_tura is not null)
 
                 @* Vozač 1 *@
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Vozač 1:</MudText>
+                @if (_jeAgencijski)
+                {
+                    <MudTextField @bind-Value="_tura.Vozac1"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Ime i prezime vozača..." Class="mb-2" />
+                }
+                else
+                {
                 <div style="position:relative; margin-bottom:8px; margin-top:2px;">
                     @if (_selV1 is null)
                     {
@@ -131,9 +139,18 @@ else if (_tura is not null)
                         </MudPaper>
                     }
                 </div>
+                }
 
                 @* Vozač 2 *@
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač 2:</MudText>
+                @if (_jeAgencijski)
+                {
+                    <MudTextField @bind-Value="_tura.Vozac2"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Ime i prezime vozača..." Class="mb-2" />
+                }
+                else
+                {
                 <div style="position:relative; margin-bottom:8px; margin-top:2px;">
                     @if (_selV2 is null)
                     {
@@ -167,9 +184,18 @@ else if (_tura is not null)
                         </MudPaper>
                     }
                 </div>
+                }
 
                 @* Vozilo *@
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozilo:</MudText>
+                @if (_jeAgencijski)
+                {
+                    <MudTextField @bind-Value="_tura.Vozilo"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Reg. oznaka vozila..." Class="mb-2" />
+                }
+                else
+                {
                 <div style="position:relative; margin-bottom:8px; margin-top:2px;">
                     @if (_selVozilo is null)
                     {
@@ -207,9 +233,18 @@ else if (_tura is not null)
                         </MudPaper>
                     }
                 </div>
+                }
 
                 @* Prikolica *@
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Prikolica:</MudText>
+                @if (_jeAgencijski)
+                {
+                    <MudTextField @bind-Value="_tura.Prikolica"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Reg. oznaka prikolice..." Class="mb-2" />
+                }
+                else
+                {
                 <div style="position:relative; margin-bottom:8px; margin-top:2px;">
                     @if (_selPrikolica is null)
                     {
@@ -243,10 +278,11 @@ else if (_tura is not null)
                                 <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selPrikolica.marka @_selPrikolica.oznaka</span>
                             </div>
                             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                           OnClick="@(() => { _selPrikolica = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
+                                           OnClick="@(() => { _selPrikolica = null; _tura.IdPrikolice = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
                         </MudPaper>
                     }
                 </div>
+                }
 
                 @* ── Accordion paneli (ručni, bez MudExpansionPanels) ── *@
 
@@ -867,6 +903,7 @@ else if (_tura is not null)
     private List<Vozilo>       _sviVozila     = [];
     private List<Sifarnik>     _vrsteTroskova = [];
     private bool               _ucitava = true;
+    private bool _jeAgencijski => _tura?.VrstaPrevoza == "AGENCIJSKI";
 
     // Vozač 1 dropdown
     private string _v1Pretraga   = ""; private List<Vozac> _v1Predlozi = []; private Vozac? _selV1;
@@ -984,11 +1021,21 @@ else if (_tura is not null)
     private async Task OnVrstaChanged(ChangeEventArgs e)
     {
         if (_tura is null) return;
-        _tura.VrstaPrevoza = e.Value?.ToString() ?? "SOPSTVENI";
+        var nova  = e.Value?.ToString() ?? "SOPSTVENI";
+        var stara = _tura.VrstaPrevoza;
+        _tura.VrstaPrevoza = nova;
+
+        if (nova == "AGENCIJSKI" && stara != "AGENCIJSKI")
+        {
+            _selV1        = null; _tura.IdVozaca1   = null;
+            _selV2        = null; _tura.IdVozaca2   = null;
+            _selVozilo    = null; _tura.IdVozila    = null;
+            _selPrikolica = null; _tura.IdPrikolice = null;
+        }
 
         if (_pod?.koristiOdvojeneBrojeve != 1) return;
 
-        bool agenc  = _tura.VrstaPrevoza == "AGENCIJSKI";
+        bool agenc  = nova == "AGENCIJSKI";
         int    brojac = agenc ? (_pod?.brTureAgencijski ?? 1) : (_pod?.Broj_Kalkulacije ?? 1);
         string format = agenc
             ? (_pod?.formatBrojaTureAgencijski ?? "broj-godina4")
@@ -1016,7 +1063,9 @@ else if (_tura is not null)
             if (_tura.IdVozila.HasValue)
                 _selVozilo = _sviVozila.FirstOrDefault(v => v.VoziloId == _tura.IdVozila);
 
-            if (!string.IsNullOrWhiteSpace(_tura.Prikolica))
+            if (_tura.IdPrikolice.HasValue)
+                _selPrikolica = _sviVozila.FirstOrDefault(v => v.VoziloId == _tura.IdPrikolice);
+            else if (_tura.VrstaPrevoza == "SOPSTVENI" && !string.IsNullOrWhiteSpace(_tura.Prikolica))
                 _selPrikolica = _sviVozila.FirstOrDefault(v => v.registarskaOznaka == _tura.Prikolica);
 
             var _today = DateTime.Today.ToString("yyyy-MM-dd");
@@ -1149,6 +1198,7 @@ else if (_tura is not null)
             dbTura.Vozac2         = _tura.Vozac2;
             dbTura.IdVozila       = _tura.IdVozila;
             dbTura.Vozilo         = _tura.Vozilo;
+            dbTura.IdPrikolice    = _tura.IdPrikolice;
             dbTura.Prikolica      = _tura.Prikolica;
             dbTura.DatumPolaska   = _tura.DatumPolaska;
             dbTura.DatumIzlaska   = _tura.DatumIzlaska;
@@ -1367,7 +1417,7 @@ else if (_tura is not null)
     private void IzaberiPrikolicu(Vozilo vz)
     {
         _selPrikolica = vz; _prikolicaPredlozi = []; _prikolicaPretraga = "";
-        if (_tura is not null) _tura.Prikolica = vz.registarskaOznaka;
+        if (_tura is not null) { _tura.IdPrikolice = vz.VoziloId; _tura.Prikolica = vz.registarskaOznaka; }
     }
 
     private void AzurirajPrikolice(string pretraga)
