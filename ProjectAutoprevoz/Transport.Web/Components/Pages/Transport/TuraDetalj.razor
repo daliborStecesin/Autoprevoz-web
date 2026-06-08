@@ -574,7 +574,7 @@ else if (_tura is not null)
                                                  color:#1565C0; font-size:0.82rem;">
                                         @context.Item.CenaTransporta?.ToString("N2")
                                         @if (!string.IsNullOrWhiteSpace(context.Item.ValutaTure))
-                                        { <span style="font-size:0.72rem; color:#666;"> @context.Item.ValutaTure</span> }
+                                        { <span style="font-size:0.72rem; color:#666;"> @(context.Item.ValutaTure.Contains("RSD") ? "RSD" : "EUR")</span> }
                                     </span>
                                 </CellTemplate>
                             </TemplateColumn>

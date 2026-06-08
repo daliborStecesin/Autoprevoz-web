@@ -11,7 +11,7 @@
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
 
-<PageTitle>Nalog za transport @(_nalog?.BrNaloga ?? "...") — Stampa</PageTitle>
+<PageTitle>@(_nalog is not null ? $"Nalog {_nalog.BrNaloga}" : "Nalog za transport")</PageTitle>
 
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,22 +45,27 @@
     .napomena-box { border: 1px dashed #666; padding: 8px 12px; margin-top: 10px;
                     font-size: 9pt; min-height: 40px; background: #fafafa; }
 
-    .cena-box { border: 2px solid #1a237e; padding: 10px 16px; text-align: center; display: inline-block; min-width: 200px; }
-    .cena-box .lbl { font-size: 8.5pt; color: #555; }
-    .cena-box .iznos { font-size: 16pt; font-weight: bold; color: #1a237e; }
-    .cena-box .valuta { font-size: 9pt; font-weight: normal; }
+    /* ── Strana 2 — Cena + Uslovi ── */
+    .page-break { page-break-before: always; padding-top: 6px; }
+    .page-break .print-header { margin-bottom: 8px; }
 
-    .potpisi { display: flex; justify-content: space-between; margin-top: 40px; }
-    .potpisi .blok-p { min-width: 200px; text-align: center; }
-    .potpisi .linija { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 8.5pt; }
+    .cena-traka { display: flex; justify-content: space-between; align-items: baseline;
+                  border-top: 1px solid #333; border-bottom: 1px solid #333;
+                  padding: 6px 0; margin: 4px 0 3px; }
+    .cena-traka .lbl { font-size: 8.5pt; color: #555; }
+    .cena-traka .iznos-mali { font-size: 12pt; font-weight: bold; color: #1a237e; }
+    .cena-traka .nalog-br { font-size: 9.5pt; }
+    .cena-traka .nalog-br strong { color: #1a237e; }
+    .uslovi-placanja { font-size: 8.5pt; color: #444; margin-bottom: 8px; }
 
-    /* ── Strana 2 — Uslovi ── */
-    .page-break { page-break-before: always; padding-top: 20px; }
-    .uslovi-naslov { font-size: 12pt; font-weight: bold; text-align: center;
-                     margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 6px; }
-    .uslovi-text { font-size: 8.5pt; line-height: 1.7; color: #222; }
-    .uslovi-text p { margin-bottom: 8px; }
+    .uslovi-naslov { font-size: 11pt; font-weight: bold; text-align: center;
+                     margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    .uslovi-text { font-size: 8.1pt; line-height: 1.4; color: #222; }
+    .uslovi-text p { margin-bottom: 4px; }
     .uslovi-text strong { font-weight: bold; }
+    .uslovi-text .uslovi-stavka { padding-left: 12px; position: relative; }
+    .uslovi-text .uslovi-stavka::before { content: "•"; position: absolute; left: 2px; color: #555; }
+    .uslovi-text .uslovi-naglasak { font-weight: bold; text-align: center; margin-top: 6px; }
 
     .no-print { margin-top: 20px; text-align: center; padding-bottom: 16px; }
     .no-print button { padding: 6px 18px; font-size: 10pt; cursor: pointer; border: 1px solid #999;
@@ -79,10 +84,13 @@
     .print-doc-meta .doc-line { font-size: 9.5pt; line-height: 1.7; }
     .print-doc-meta .doc-line strong { color: #1a237e; }
 
+    /* @@page { margin: 0 } uklanja prostor u kome browser ispisuje URL/datum/broj strane */
+    @@page { margin: 0; }
+
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
-        @@page { margin: 1.5cm; }
+        .wrap { padding: 14mm 16mm; }
         .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
 </style>
@@ -138,11 +146,25 @@ else
     <div class="two-col">
         <div class="blok">
             <div class="naslov">Nalogodavac (stranka)</div>
-            <div class="vrednost">@(_nalog.Uvoznik ?? "—")</div>
+            <div class="vrednost">@(_nalogodavac?.Naziv ?? _nalog.Uvoznik ?? "—")</div>
+            @if (_nalogodavac is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(_nalogodavac.Adresa) || !string.IsNullOrWhiteSpace(_nalogodavac.Mesto))
+                { <div class="sub">@_nalogodavac.Adresa@(!string.IsNullOrWhiteSpace(_nalogodavac.Adresa) && !string.IsNullOrWhiteSpace(_nalogodavac.Mesto) ? ", " : "")@_nalogodavac.Mesto</div> }
+                @if (!string.IsNullOrWhiteSpace(_nalogodavac.PIB))
+                { <div class="sub">PIB: @_nalogodavac.PIB</div> }
+            }
         </div>
         <div class="blok">
             <div class="naslov">Prevoznik</div>
-            <div class="vrednost">@(_nalog.Napomena2 ?? (_firma?.NazivFirme ?? "SOPSTVENI"))</div>
+            <div class="vrednost">@(_prevoznik?.Naziv ?? _nalog.Napomena2 ?? (_firma?.NazivFirme ?? "SOPSTVENI"))</div>
+            @if (_prevoznik is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(_prevoznik.Adresa) || !string.IsNullOrWhiteSpace(_prevoznik.Mesto))
+                { <div class="sub">@_prevoznik.Adresa@(!string.IsNullOrWhiteSpace(_prevoznik.Adresa) && !string.IsNullOrWhiteSpace(_prevoznik.Mesto) ? ", " : "")@_prevoznik.Mesto</div> }
+                @if (!string.IsNullOrWhiteSpace(_prevoznik.PIB))
+                { <div class="sub">PIB: @_prevoznik.PIB</div> }
+            }
             @if (!string.IsNullOrWhiteSpace(_nalog.Vozac))
             { <div class="sub">Vozač: @_nalog.Vozac</div> }
             @if (!string.IsNullOrWhiteSpace(_nalog.Vozilo))
@@ -158,9 +180,7 @@ else
             @if (!string.IsNullOrWhiteSpace(_nalog.AdresaUtovara))
             { <div class="sub">@_nalog.AdresaUtovara</div> }
             @if (_nalog.DatumUtovara.HasValue)
-            { <div class="sub">Datum: @_nalog.DatumUtovara.Value.ToString("dd.MM.yyyy HH:mm")</div> }
-            @if (!string.IsNullOrWhiteSpace(_nalog.IzvoznoCarinjenje))
-            { <div class="sub">Carinjenje: @_nalog.IzvoznoCarinjenje</div> }
+            { <div class="sub">Datum: @_nalog.DatumUtovara.Value.ToString("dd.MM.yyyy")</div> }
         </div>
         <div class="blok">
             <div class="naslov">Mesto istovara</div>
@@ -168,11 +188,25 @@ else
             @if (!string.IsNullOrWhiteSpace(_nalog.AdresaIstovara))
             { <div class="sub">@_nalog.AdresaIstovara</div> }
             @if (_nalog.DatumIstovara.HasValue)
-            { <div class="sub">Datum: @_nalog.DatumIstovara.Value.ToString("dd.MM.yyyy HH:mm")</div> }
-            @if (!string.IsNullOrWhiteSpace(_nalog.UvoznoCarinjenje))
-            { <div class="sub">Carinjenje: @_nalog.UvoznoCarinjenje</div> }
+            { <div class="sub">Datum: @_nalog.DatumIstovara.Value.ToString("dd.MM.yyyy")</div> }
         </div>
     </div>
+
+    @* Carinjenje — zasebne kocke, prikazuju se samo ako ima teksta *@
+    @if (!string.IsNullOrWhiteSpace(_nalog.IzvoznoCarinjenje))
+    {
+        <div class="blok" style="margin-bottom:10px;">
+            <div class="naslov">Izvozno carinjenje</div>
+            <div class="vrednost" style="font-size:9.5pt; font-weight:normal;">@_nalog.IzvoznoCarinjenje</div>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_nalog.UvoznoCarinjenje))
+    {
+        <div class="blok" style="margin-bottom:10px;">
+            <div class="naslov">Uvozno carinjenje</div>
+            <div class="vrednost" style="font-size:9.5pt; font-weight:normal;">@_nalog.UvoznoCarinjenje</div>
+        </div>
+    }
 
     @* Podaci o robi *@
     @if (!string.IsNullOrWhiteSpace(_nalog.PodaciORobi))
@@ -183,29 +217,19 @@ else
         </div>
     }
 
-    @* Finansije + Kontakt *@
+    @* Dokumentacija + Kontakt *@
     <div class="two-col">
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            @* Cena transporta *@
-            <div style="text-align:center;">
-                <div class="cena-box">
-                    <div class="lbl">Cena transporta</div>
-                    <div class="iznos">@_nalog.CenaTransporta?.ToString("N2") <span class="valuta">@(_nalog.ValutaTure?.Split(' ').LastOrDefault() ?? "EUR")</span></div>
-                    @if (!string.IsNullOrWhiteSpace(_nalog.UsloviPlacanja))
-                    { <div class="lbl" style="margin-top:4px;">@_nalog.UsloviPlacanja</div> }
+        <div>
+            @if (!string.IsNullOrWhiteSpace(_nalog.CMR) || !string.IsNullOrWhiteSpace(_nalog.Nalog))
+            {
+                <div class="blok">
+                    <div class="naslov">Dokumentacija</div>
+                    @if (!string.IsNullOrWhiteSpace(_nalog.CMR))
+                    { <div class="info-row"><span class="lbl">CMR broj:</span><span class="val">@_nalog.CMR</span></div> }
+                    @if (!string.IsNullOrWhiteSpace(_nalog.Nalog))
+                    { <div class="info-row"><span class="lbl">Ref. nalog klijenta:</span><span class="val">@_nalog.Nalog</span></div> }
                 </div>
-            </div>
-            @* CMR / Nalog referentni *@
-            <div>
-                @if (!string.IsNullOrWhiteSpace(_nalog.CMR))
-                {
-                    <div class="info-row"><span class="lbl">CMR broj:</span><span class="val">@_nalog.CMR</span></div>
-                }
-                @if (!string.IsNullOrWhiteSpace(_nalog.Nalog))
-                {
-                    <div class="info-row"><span class="lbl">Ref. nalog klijenta:</span><span class="val">@_nalog.Nalog</span></div>
-                }
-            </div>
+            }
         </div>
         <div>
             @* Kontakt *@
@@ -233,19 +257,6 @@ else
         Prevoz se vrši prema CMR Konvenciji i opštim uslovima prevoza. Uslovi na poleđini naloga.
     </div>
 
-    @* Potpisi *@
-    <div class="potpisi">
-        <div class="blok-p">
-            <div class="linija">Nalogodavac</div>
-        </div>
-        <div class="blok-p">
-            <div class="linija">Prevoznik / Dispečer</div>
-        </div>
-        <div class="blok-p">
-            <div class="linija">Vozač</div>
-        </div>
-    </div>
-
 </div>
 
 @* ══════════════════════════════════════════════
@@ -253,32 +264,58 @@ else
    ══════════════════════════════════════════════ *@
 <div class="wrap page-break">
 
-    <div class="uslovi-naslov">OPŠTI USLOVI PREVOZA ROBE</div>
+    @* Zaglavlje: logo + firma (isto kao prva strana) *@
+    <div class="print-header">
+
+        @if (!string.IsNullOrEmpty(_logoBase64))
+        {
+            <img src="@_logoBase64" class="print-logo" alt="Logo" />
+        }
+
+        <div class="print-firma-podaci firm-block">
+            @if (_firma is not null)
+            {
+                <div class="naziv">@_firma.NazivFirme</div>
+                <div>@_firma.Adresa, @_firma.PosBroj @_firma.Mesto</div>
+                <div>PIB: @_firma.PIB &nbsp;&nbsp; MB: @_firma.MaticniBroj</div>
+            }
+        </div>
+
+        <div class="print-doc-meta">
+            <div class="doc-title">NALOG ZA TRANSPORT</div>
+            <div class="doc-line">Broj: <strong>@_nalog.BrNaloga</strong></div>
+        </div>
+
+    </div>
+
+    @* Cena transporta + uslovi plaćanja *@
+    <div class="cena-traka">
+        <div><span class="lbl">Cena transporta:</span> <span class="iznos-mali">@CenaTransportaZaStampu?.ToString("N2") @(_nalog.ValutaTure?.Contains("RSD") == true ? "RSD" : "EUR")</span></div>
+        <div class="nalog-br"><span class="lbl">Nalog:</span> <strong>@_nalog.BrNaloga</strong></div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(_nalog.UsloviPlacanja))
+    {
+        <div class="uslovi-placanja"><span class="lbl">Uslovi plaćanja:</span> @_nalog.UsloviPlacanja</div>
+    }
+
+    <div class="uslovi-naslov">OPŠTI USLOVI NALOGA</div>
 
     <div class="uslovi-text">
-        <p><strong>1. PRIMENA CMR KONVENCIJE</strong><br />
-        Na sve ugovore o međunarodnom prevozu robe primenjuje se Konvencija o ugovoru o međunarodnom prevozu robe (CMR), usvojena u Ženevi 19. maja 1956. godine, sa Protokolom iz 1978. godine. Na domaći prevoz primenjuju se važeći propisi Republike Srbije.</p>
-
-        <p><strong>2. PREUZIMANJE ROBE</strong><br />
-        Prevoznik je dužan da preuzme robu u mestu i vreme utovara označenim u nalogu, u skladu sa uputstvima nalogodavca. Prevoznik mora proveriti tačnost podataka u CMR tovarnom listu u pogledu broja komada, oznaka i stanja ambalaže.</p>
-
-        <p><strong>3. ODGOVORNOST PREVOZNIKA</strong><br />
-        Prevoznik odgovara za potpuni ili delimični gubitak robe ili za njeno oštećenje nastalo u vremenu od preuzimanja robe do isporuke. Odgovornost prevoznika je ograničena u skladu sa CMR Konvencijom na iznos od 8,33 SDR po kilogramu bruto mase nedostajuće robe.</p>
-
-        <p><strong>4. ISPLATA VOZARINE</strong><br />
-        Vozarina i troškovi navedeni u nalogu dospevaju na plaćanje u roku i na način označen u nalogu. U slučaju kašnjenja plaćanja obračunava se zatezna kamata prema važećim propisima. Prevoznik zadržava pravo zaloge na robi do isplate svih dugovanja.</p>
-
-        <p><strong>5. ROKOVI ISPORUKE</strong><br />
-        Prevoznik je dužan da dostavi robu u roku navedenom u nalogu ili u razumnom roku ako rok nije naveden. U slučaju kašnjenja isporuke prouzrokovanog krivicom prevoznika, nalogodavac ima pravo na naknadu štete.</p>
-
-        <p><strong>6. OSIGURANJE</strong><br />
-        Prevoznik je dužan da ima ugovoreno obavezno osiguranje od odgovornosti za štetu pričinjenu trećim licima. Nalogodavac je dužan da osigura robu ukoliko želi dodatnu pokrivenost iznad zakonskog limita.</p>
-
-        <p><strong>7. REKLAMACIJE</strong><br />
-        Vidljive manjkavosti i oštećenja moraju biti naznačena na tovarnom listu pri preuzimanju robe. Primedbe na skrivena oštećenja moraju se podneti pisanim putem u roku od 7 dana od isporuke. Tužba zastareva u roku od jedne godine, a kod namere ili grube nepažnje u roku od tri godine.</p>
-
-        <p><strong>8. NADLEŽNOST</strong><br />
-        Za sve sporove koji mogu nastati iz ovog naloga za prevoz nadležan je sud prema sedištu prevoznika, ukoliko nije drugačije dogovoreno. Merodavno pravo je pravo Republike Srbije, uz primenu CMR Konvencije gde je primenjiva.</p>
+        @foreach (var (vrsta, red) in ParsirajUslove(_usloviTransporta))
+        {
+            if (vrsta == LinijaUslova.Stavka)
+            {
+                <p class="uslovi-stavka">@red</p>
+            }
+            else if (vrsta == LinijaUslova.Naglasak)
+            {
+                <p class="uslovi-naglasak">@red</p>
+            }
+            else
+            {
+                <p>@red</p>
+            }
+        }
     </div>
 
 </div>
@@ -295,8 +332,15 @@ else
 
     private NalogPrevoz? _nalog;
     private PodaciFirme? _firma;
+    private Partner?     _prevoznik;
+    private Partner?     _nalogodavac;
     private bool         _ucitava   = true;
     private string?      _logoBase64;
+    private string?      _usloviTransporta;
+
+    // AGENCIJSKI → plaća se prevozniku (placenTransport), SOPSTVENI → mi naplaćujemo (cenaTransporta)
+    private decimal? CenaTransportaZaStampu =>
+        _nalog?.TipNaloga == "AGENCIJSKI" ? _nalog.PlacenTransport : _nalog?.CenaTransporta;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -311,6 +355,17 @@ else
                               .AsNoTracking()
                               .FirstOrDefaultAsync(n => n.IdNaloga == IdNaloga);
 
+            if (_nalog?.IdPartnera is int idPrevoznika)
+            {
+                _prevoznik = await Db.Partneri.AsNoTracking()
+                                              .FirstOrDefaultAsync(p => p.Broj == idPrevoznika);
+            }
+            if (_nalog?.IdUvoznika is int idNalogodavca)
+            {
+                _nalogodavac = await Db.Partneri.AsNoTracking()
+                                                .FirstOrDefaultAsync(p => p.Broj == idNalogodavca);
+            }
+
             // Logo: učitaj samo ako je aktiviran u podešavanjima
             var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
             if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
@@ -318,6 +373,10 @@ else
                 var mime = _firma.logoMimeType ?? "image/png";
                 _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
             }
+
+            _usloviTransporta = string.IsNullOrWhiteSpace(pod?.usloviTransporta)
+                                ? PodrazumevaniUsloviTransporta
+                                : pod!.usloviTransporta;
         }
         catch { }
         finally { _ucitava = false; StateHasChanged(); }
@@ -328,4 +387,53 @@ else
             await JS.InvokeVoidAsync("window.print");
         }
     }
+
+    private enum LinijaUslova { Tekst, Stavka, Naglasak }
+
+    // Linije koje počinju sa "*" prikazuju se kao stavke (bullet), a linije
+    // koje se završavaju sa "!!!" kao istaknute (centrirane, podebljane) napomene.
+    private static IEnumerable<(LinijaUslova Vrsta, string Tekst)> ParsirajUslove(string? tekst)
+    {
+        if (string.IsNullOrWhiteSpace(tekst)) yield break;
+
+        foreach (var linija in tekst.Replace("\r\n", "\n").Split('\n'))
+        {
+            var red = linija.Trim();
+            if (red.Length == 0) continue;
+
+            if (red.StartsWith('*'))
+                yield return (LinijaUslova.Stavka, red.TrimStart('*', ' ').Trim());
+            else if (red.EndsWith("!!!"))
+                yield return (LinijaUslova.Naglasak, red);
+            else
+                yield return (LinijaUslova.Tekst, red);
+        }
+    }
+
+    private static readonly string PodrazumevaniUsloviTransporta = string.Join('\n', new[]
+    {
+        "Primalac naloga prihvata sledeće uslove:",
+        "* Zaštita imena poslovnih partnera mora biti zagarantovana, direktan kontakt sa našim klijentom bez našeg znanja je najstrožije zabranjen.",
+        "* Pretovar, dotovar bez našeg znanja nije dozvoljen.",
+        "* Eventualna nezgoda, kvar ili bilo kakvo odugovlačenje sa datumom utovara/istovara, mora nam se odmah javiti u pismenoj formi. Vozilo mora imati CMR osiguranje, u suprotnom svi naknadni troškovi ili nezgode idu na Vas. Ako nam odbiju od vozarine (2%-5%) prenećemo taj trošak na Vas. CMR osiguranje nam se mora dostaviti pre utovara. U suprotnom se ne priznaje. Plaćanje transporta nije moguće bez originala, pečatiranog i potpisanog CMR-a bez ikakvih primedbi od strane primaoca. U slučaju bilo kakvih problema odmah nas kontaktirajte.",
+        "* Kamioni imaju 24 sata za utovar i 48 sati za istovar besplatno. Subota posle 16h i nedelja se ne računaju u pomenuto vreme.",
+        "* Vozač mora prisustvovati utovaru/istovaru i robu primiti/predati uredno i po broju koleta prema papirima, koji moraju biti uredno pečatirani i potpisani.",
+        "* Vozač je odgovoran za osovinsko opterećenje vozila i dužan je da vodi računa o pravilnom rasporedu tereta.",
+        "* Za ukupno opterećenje vozila vozač ima pravo na naknadu shodno dogovoru uz original pečatiranu priznanicu.",
+        "* Prilikom utovara španeri su obavezni. Vozila na utovar moraju doći ispravna i čista, sa ispravnom ceradom.",
+        "* Bilo kakvi naknadni dogovori sa isporučiocem/primaocem robe, a mimo naših naloga i znanja su zabranjeni.",
+        "* Bilo kakav nedostatak ili oštećenje robe od strane carinika ili špeditera MORA biti upisano u CMR, u suprotnom vozač će biti zadužen za svaki neupisani nedostatak robe.",
+        "* Ako vozač dobije T5 ili TC11 dokument obavezno ga mora overiti na zadnjoj Evropskoj granici i nama ga u originalu dostaviti. EX/T dokument obavezno dostavite nama jer je to uslov za naplatu vozarine.",
+        "* U slučaju da bilo koji od navedenih uslova nije zadovoljen ne možemo Vam garantovati isplatu vozarine ili nekog dela iste. U slučaju spora za obe strane nadležan je Sud u mestu izdavaoca.",
+        "* Molimo Vas da ukoliko postoje dodatni troškovi (ic, pregledi i slično) da nas o istom obavestite do termina prispeća vozila. Naknadno prijavljene troškove nećemo biti u mogućnosti da prihvatimo. Račun ili priznanicu nam prosledite uz fakturu.",
+        "* Ukoliko količina robe odstupa od one prema nalogu a konstatuje se na dan utovara, o istom Vas molimo da nas odmah obavestite kako bismo dogovorili dalje korake. Naknadnu promenu cene nismo u mogućnosti da prihvatimo.",
+        "* Rok za dostavu originalne dokumentacije je 7 dana po realizaciji usluge.",
+        "* U slučaju nedolaska na utovar ili otkazivanja ugovorenog prevoza, zaračunaćemo Vam naše troškove u iznosu od 30% od ugovorene cene prevoza.",
+        "* Primalac naloga je dužan da nam u roku od 10 dana dostavi Potvrdu o rezidentnosti radi izbegavanja dvostrukog oporezivanja. U protivnom, transport neće biti plaćen, ili će cena biti umanjena prilikom plaćanja za iznos poreza od 25%.",
+        "",
+        "Ovu stranu naloga ne smete pokazivati na utovaru i istovaru!!!",
+        "Uslovi naplate vozarine!!!",
+        "Naš nalog važi i bez vaše pismene potvrde!!!",
+        "Srećan put!!!",
+    });
 }
