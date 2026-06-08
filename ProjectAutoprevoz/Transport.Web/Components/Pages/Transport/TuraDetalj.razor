@@ -436,7 +436,11 @@ else if (_tura is not null)
                 </div>
                 <div class="d-flex justify-space-between align-center mt-1">
                     <span style="color:#555;">Troškovi ture:</span>
-                    <strong style="color:#c62828;">@((_tura?.Vrednost ?? 0).ToString("N2")) RSD</strong>
+                    <strong style="color:#c62828;">@_ukupniTroskoviTureEUR.ToString("N2") EUR</strong>
+                </div>
+                <div class="d-flex justify-space-between align-center mt-1">
+                    <span style="color:#555; font-weight:600;">Zarada:</span>
+                    <strong style="font-size:0.95rem; color:@(_zaradaTure >= 0 ? "#2e7d32" : "#c62828");">@_zaradaTure.ToString("N2") EUR</strong>
                 </div>
             </div>
 
@@ -615,72 +619,105 @@ else if (_tura is not null)
                          BadgeColor="Color.Warning">
 
                 @* Inline forma za dodavanje troška *@
-                <MudPaper Elevation="0" Class="pa-2 mb-3"
+                <MudPaper Elevation="0" Class="pa-3 mb-3"
                           Style="background:#f5f7fa; border-radius:6px; border:1px solid rgba(0,0,0,0.08);">
                     <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;" Class="mb-2">DODAJ TROŠAK</MudText>
-                    <MudGrid Spacing="1">
-                        <MudItem xs="6" sm="2">
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Datum:</MudText>
-                            <input type="date" @bind="_tDatum"
-                                   style="width:100%; padding:4px 6px; border:1px solid rgba(0,0,0,0.23);
-                                          border-radius:4px; font-size:0.8rem; background:white; height:33px;" />
-                        </MudItem>
-                        <MudItem xs="12" sm="3">
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta troška:</MudText>
-                            <select @bind="_tVrsta"
-                                    style="width:100%; padding:4px 6px; border:1px solid rgba(0,0,0,0.23);
-                                           border-radius:4px; font-size:0.8rem; background:white; height:33px;">
-                                <option value="">— odaberi —</option>
-                                @foreach (var s in _vrsteTroskova)
-                                {
-                                    <option value="@s.naziv">@s.naziv</option>
-                                }
-                            </select>
-                        </MudItem>
-                        <MudItem xs="6" sm="2">
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Tip:</MudText>
-                            <select @bind="_tTip"
-                                    style="width:100%; padding:4px 6px; border:1px solid rgba(0,0,0,0.23);
-                                           border-radius:4px; font-size:0.8rem; background:white; height:33px;">
-                                <option value="ZEMLJA">ZEMLJA</option>
-                                <option value="INOSTRANSTVO">INOSTRANSTVO</option>
-                            </select>
-                        </MudItem>
-                        <MudItem xs="6" sm="2">
-                            <MudNumericField T="decimal?" Value="_tVrednost"
-                                             Label="Vrednost (RSD)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                             Format="N2" HideSpinButtons="true"
-                                             ValueChanged="@((decimal? v) => { _tVrednost = v; _tVrednostEUR = v.HasValue && _tKurs > 0 ? Math.Round(v.Value / _tKurs, 2) : null; })" />
-                        </MudItem>
-                        <MudItem xs="6" sm="2">
-                            <MudNumericField T="decimal" @bind-Value="_tKurs"
-                                             Label="Kurs EUR" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                             Format="N4" HideSpinButtons="true" />
-                        </MudItem>
-                        <MudItem xs="6" sm="1">
-                            <MudNumericField T="decimal?" @bind-Value="_tVrednostEUR"
-                                             Label="EUR" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                             Format="N2" HideSpinButtons="true" />
-                        </MudItem>
-                        <MudItem xs="6" sm="12" Class="d-flex align-end">
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                                       StartIcon="@Icons.Material.Filled.Add"
-                                       OnClick="DodajTrosak" FullWidth="false">
-                                Dodaj
-                            </MudButton>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
 
-                @* Trosak toolbar *@
-                <div class="d-flex gap-2 mb-2">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Delete"
-                               Disabled="@(_selTrosak is null)"
-                               OnClick="BrisiTrosak">
-                        Briši trošak
-                    </MudButton>
-                </div>
+                    <div class="d-flex gap-3">
+                        @* Leva strana: dva reda — (Datum/Vrsta/Tip) i (Vrednost RSD/Kurs/Vrednost EUR) *@
+                        <div class="d-flex flex-column gap-2" style="flex: 1 1 auto;">
+                            @* RED 1: Datum (širi) | Vrsta troška | Tip *@
+                            <div class="d-flex gap-3">
+                                <div style="flex: 0 0 170px;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Datum:</MudText>
+                                    <DateInput @bind-Value="_tDatumStr" />
+                                </div>
+                                <div style="flex: 1 1 auto;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta troška:</MudText>
+                                    <select @bind="_tVrsta"
+                                            style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23);
+                                                   border-radius:4px; font-size:0.875rem; background:white; height:38px;
+                                                   box-sizing:border-box; font-family:inherit;">
+                                        <option value="">— odaberi —</option>
+                                        @foreach (var s in _vrsteTroskova)
+                                        {
+                                            <option value="@s.naziv">@s.naziv</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div style="flex: 0 0 160px;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Tip:</MudText>
+                                    <select @bind="_tTip" @bind:after="OnTTipPromenjen"
+                                            style="width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,0.23);
+                                                   border-radius:4px; font-size:0.875rem; background:white; height:38px;
+                                                   box-sizing:border-box; font-family:inherit;">
+                                        <option value="ZEMLJA">ZEMLJA</option>
+                                        <option value="INOSTRANSTVO">INOSTRANSTVO</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            @* RED 2: Vrednost RSD | Kurs EUR | Vrednost EUR *@
+                            <div class="d-flex gap-3">
+                                <div style="flex: 1 1 0;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">
+                                        Vrednost RSD @(_tTip == "ZEMLJA" ? "(unos):" : "(računato):")
+                                    </MudText>
+                                    <MudNumericField T="decimal?" Value="_tVrednost"
+                                                     Placeholder="0,00"
+                                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ReadOnly="@(_tTip == "INOSTRANSTVO")"
+                                                     Style="@(_tTip == "INOSTRANSTVO" ? "background:#eceff1; border-radius:4px;" : "")"
+                                                     ValueChanged="@((decimal? v) => OnVrednostRsdPromenjena(v))" />
+                                </div>
+                                <div style="flex: 1 1 0;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Kurs EUR:</MudText>
+                                    <MudNumericField T="decimal" Value="_tKurs"
+                                                     Placeholder="0,0000"
+                                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N4" HideSpinButtons="true"
+                                                     ValueChanged="@((decimal v) => OnKursPromenjen(v))" />
+                                </div>
+                                <div style="flex: 1 1 0;">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">
+                                        Vrednost EUR @(_tTip == "INOSTRANSTVO" ? "(unos):" : "(računato):")
+                                    </MudText>
+                                    <MudNumericField T="decimal?" Value="_tVrednostEUR"
+                                                     Placeholder="0,00"
+                                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ReadOnly="@(_tTip == "ZEMLJA")"
+                                                     Style="@(_tTip == "ZEMLJA" ? "background:#eceff1; border-radius:4px;" : "")"
+                                                     ValueChanged="@((decimal? v) => OnVrednostEurPromenjena(v))" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Desna strana: Opis — razvučen preko oba reda *@
+                        <div style="flex: 0 0 280px; display:flex; flex-direction:column;">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Opis:</MudText>
+                            <MudTextField @bind-Value="_tOpis" Placeholder="Opis troška (opciono)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Lines="3" Style="height:100%; width:100%;" />
+                        </div>
+                    </div>
+
+                    @* RED 3: checkboxi (Trošak / Gotovinski) — u ravni sa dugmetom DODAJ *@
+                    <div class="d-flex align-center justify-space-between mt-3">
+                        <div class="d-flex align-center gap-4">
+                            <MudCheckBox T="bool" Value="_tIdeTroskovnik" ValueChanged="@((bool v) => _tIdeTroskovnik = v)"
+                                         Label="Trošak" Dense="true" Class="ma-0" />
+                            <MudCheckBox T="bool" Value="_tJeGotovinski" ValueChanged="@((bool v) => _tJeGotovinski = v)"
+                                         Label="Gotovinski" Dense="true" Class="ma-0" />
+                        </div>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="DodajTrosak">
+                            Dodaj trošak
+                        </MudButton>
+                    </div>
+                </MudPaper>
 
                 @if (_troskovi.Count == 0)
                 {
@@ -688,15 +725,16 @@ else if (_tura is not null)
                 }
                 else
                 {
-                    <MudDataGrid T="Trosak" Items="_troskovi" Dense="true" Striped="true" Hover="true"
-                                 RowClick="@(args => { _selTrosak = args.Item; StateHasChanged(); })"
-                                 RowStyleFunc="@TrosakRowStyle">
+                    <MudDataGrid T="Trosak" Items="_troskovi" Dense="true" Striped="true" Hover="true">
                         <Columns>
                             <TemplateColumn Title="Datum" SortBy="x => x.datum" HeaderStyle="width:90px;">
                                 <CellTemplate><span style="font-size:0.8rem;">@context.Item.datum?.ToString("dd.MM.yy")</span></CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Vrsta troška" SortBy="x => x.vrstaTroska">
                                 <CellTemplate><span style="font-size:0.82rem;">@(context.Item.vrstaTroska ?? "—")</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Opis" SortBy="x => x.opis">
+                                <CellTemplate><span style="font-size:0.8rem; color:#555;">@(context.Item.opis ?? "—")</span></CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Tip" SortBy="x => x.tip" HeaderStyle="width:90px;">
                                 <CellTemplate>
@@ -707,21 +745,14 @@ else if (_tura is not null)
                                     </MudChip>
                                 </CellTemplate>
                             </TemplateColumn>
-                            <TemplateColumn Title="Vrednost (RSD)" SortBy="x => x.vrednost" HeaderStyle="width:110px; text-align:right;">
+                            <TemplateColumn Title="Vrednost RSD" SortBy="x => x.vrednost" HeaderStyle="width:110px; text-align:right;">
                                 <CellTemplate>
                                     <span style="display:block; text-align:right; font-size:0.82rem;">
                                         @context.Item.vrednost?.ToString("N2")
                                     </span>
                                 </CellTemplate>
                             </TemplateColumn>
-                            <TemplateColumn Title="Kurs" SortBy="x => x.kurs" HeaderStyle="width:70px; text-align:right;">
-                                <CellTemplate>
-                                    <span style="display:block; text-align:right; font-size:0.78rem; color:#666;">
-                                        @context.Item.kurs?.ToString("N4")
-                                    </span>
-                                </CellTemplate>
-                            </TemplateColumn>
-                            <TemplateColumn Title="EUR" SortBy="x => x.vrednostEUR" HeaderStyle="width:80px; text-align:right;">
+                            <TemplateColumn Title="Vrednost EUR" SortBy="x => x.vrednostEUR" HeaderStyle="width:90px; text-align:right;">
                                 <CellTemplate>
                                     <span style="display:block; text-align:right; font-weight:600;
                                                  font-size:0.82rem; color:#1565C0;">
@@ -729,14 +760,44 @@ else if (_tura is not null)
                                     </span>
                                 </CellTemplate>
                             </TemplateColumn>
+                            <TemplateColumn Title="Ide u troškove" HeaderStyle="width:100px; text-align:center;">
+                                <CellTemplate>
+                                    <div class="d-flex justify-center">
+                                        <MudCheckBox T="bool" Value="@(context.Item.ideTroskovnik == 1)"
+                                                     ValueChanged="@((bool v) => AzurirajIdeTroskovnik(context.Item, v))"
+                                                     Dense="true" />
+                                    </div>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Gotovinski" HeaderStyle="width:90px; text-align:center;">
+                                <CellTemplate>
+                                    <div class="d-flex justify-center">
+                                        <MudCheckBox T="bool" Value="@(context.Item.jeGotovinski == 1)"
+                                                     ValueChanged="@((bool v) => AzurirajJeGotovinski(context.Item, v))"
+                                                     Dense="true" />
+                                    </div>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="" HeaderStyle="width:50px;">
+                                <CellTemplate>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                   OnClick="@(() => BrisiTrosak(context.Item))" />
+                                </CellTemplate>
+                            </TemplateColumn>
                         </Columns>
                     </MudDataGrid>
 
-                    <MudPaper Elevation="0" Class="pa-2 mt-1"
-                              Style="background:#f0f4f8; border-radius:4px; font-size:0.82rem;">
-                        <div class="d-flex gap-4">
-                            <span>Ukupno RSD: <strong>@_troskovi.Sum(t => t.vrednost ?? 0).ToString("N2")</strong></span>
-                            <span>Ukupno EUR: <strong style="color:#1565C0;">@_troskovi.Sum(t => t.vrednostEUR ?? 0).ToString("N2")</strong></span>
+                    <MudPaper Elevation="0" Class="pa-3 mt-2"
+                              Style="background:#f0f4f8; border-radius:6px; font-size:0.84rem; border:1px solid #d0dae4;">
+                        <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;" Class="mb-1">OBRAČUN (EUR)</MudText>
+                        <div class="d-flex justify-space-between"><span style="color:#555;">Ukupno troškovi (EUR):</span> <strong>@_ukupnoTroskoviEUR.ToString("N2")</strong></div>
+                        <div class="d-flex justify-space-between"><span style="color:#555;">Plaćeno prevozniku (EUR):</span> <strong>@_placenoPrevozniku.ToString("N2")</strong></div>
+                        <div class="d-flex justify-space-between"><span style="color:#555;">Ukupni troškovi ture (EUR):</span> <strong style="color:#c62828;">@_ukupniTroskoviTureEUR.ToString("N2")</strong></div>
+                        <div class="d-flex justify-space-between"><span style="color:#555;">Vrednost ture (nalozi, EUR):</span> <strong style="color:#1565C0;">@((_tura?.Cena ?? 0).ToString("N2"))</strong></div>
+                        <MudDivider Class="my-1" />
+                        <div class="d-flex justify-space-between align-center">
+                            <span style="font-weight:600; color:#2D3E50;">ZARADA TURE (EUR):</span>
+                            <strong style="font-size:1.05rem; color:@(_zaradaTure >= 0 ? "#2e7d32" : "#c62828");">@_zaradaTure.ToString("N2")</strong>
                         </div>
                     </MudPaper>
                 }
@@ -921,13 +982,30 @@ else if (_tura is not null)
     private string _dolazakDatum = DateTime.Today.ToString("yyyy-MM-dd"); private string _dolazakVreme = "23:00";
 
     // Trosak inline forma
-    private DateTime _tDatum        = DateTime.Today;
+    private DateTime _tDatum          = DateTime.Today;
+    private string _tDatumStr
+    {
+        get => _tDatum.ToString("yyyy-MM-dd");
+        set { if (DateTime.TryParse(value, out var d)) _tDatum = d; }
+    }
     private string?  _tVrsta;
-    private string   _tTip          = "ZEMLJA";
+    private string   _tTip            = "ZEMLJA";
+    private string?  _tOpis;
     private decimal? _tVrednost;
-    private decimal  _tKurs         = 1m;
+    private decimal  _tKurs           = 1m;
     private decimal? _tVrednostEUR;
-    private Trosak?  _selTrosak;
+    private bool     _tIdeTroskovnik  = true;
+    private bool     _tJeGotovinski   = true;
+
+    // Obračun troškova/zarade ture (sve u EUR)
+    private decimal _ukupnoTroskoviEUR
+        => _troskovi.Where(t => t.ideTroskovnik == 1).Sum(t => t.vrednostEUR ?? 0);
+    private decimal _placenoPrevozniku
+        => _nalozi.Sum(n => n.PlacenTransport ?? 0);
+    private decimal _ukupniTroskoviTureEUR
+        => _ukupnoTroskoviEUR + _placenoPrevozniku;
+    private decimal _zaradaTure
+        => (_tura?.Cena ?? 0) - _ukupniTroskoviTureEUR;
 
     // Nalog selekcija
     private NalogPrevoz? _selNalog;
@@ -1067,6 +1145,9 @@ else if (_tura is not null)
                 _selPrikolica = _sviVozila.FirstOrDefault(v => v.VoziloId == _tura.IdPrikolice);
             else if (_tura.VrstaPrevoza == "SOPSTVENI" && !string.IsNullOrWhiteSpace(_tura.Prikolica))
                 _selPrikolica = _sviVozila.FirstOrDefault(v => v.registarskaOznaka == _tura.Prikolica);
+
+            if (_tura.KursEUR.HasValue && _tura.KursEUR > 0)
+                _tKurs = _tura.KursEUR.Value;
 
             var _today = DateTime.Today.ToString("yyyy-MM-dd");
             _polazakDatum = _tura.DatumPolaska?.ToString("yyyy-MM-dd") ?? _today;
@@ -1292,6 +1373,38 @@ else if (_tura is not null)
         StateHasChanged();
     }
 
+    // ── Dvosmerna konverzija valute (RSD ↔ EUR), zavisno od Tipa ──
+    private void OnTTipPromenjen()
+    {
+        if (_tTip == "ZEMLJA")
+            _tVrednostEUR = _tVrednost.HasValue && _tKurs > 0 ? Math.Round(_tVrednost.Value / _tKurs, 2) : null;
+        else
+            _tVrednost = _tVrednostEUR.HasValue ? Math.Round(_tVrednostEUR.Value * _tKurs, 2) : null;
+    }
+
+    private void OnVrednostRsdPromenjena(decimal? v)
+    {
+        _tVrednost = v;
+        if (_tTip == "ZEMLJA")
+            _tVrednostEUR = v.HasValue && _tKurs > 0 ? Math.Round(v.Value / _tKurs, 2) : null;
+    }
+
+    private void OnVrednostEurPromenjena(decimal? v)
+    {
+        _tVrednostEUR = v;
+        if (_tTip == "INOSTRANSTVO")
+            _tVrednost = v.HasValue ? Math.Round(v.Value * _tKurs, 2) : null;
+    }
+
+    private void OnKursPromenjen(decimal v)
+    {
+        _tKurs = v;
+        if (_tTip == "ZEMLJA")
+            _tVrednostEUR = _tVrednost.HasValue && _tKurs > 0 ? Math.Round(_tVrednost.Value / _tKurs, 2) : null;
+        else
+            _tVrednost = _tVrednostEUR.HasValue ? Math.Round(_tVrednostEUR.Value * _tKurs, 2) : null;
+    }
+
     private async Task DodajTrosak()
     {
         if (string.IsNullOrWhiteSpace(_tVrsta))
@@ -1305,11 +1418,17 @@ else if (_tura is not null)
             idNaloga      = Id,
             datum         = _tDatum,
             vrstaTroska   = _tVrsta,
+            tipDokumenta  = _tura?.Vozilo,
+            idDokumenta   = _tura?.IdVozila?.ToString(),
+            idVozila      = _tura?.IdVozila,
+            idVozaca      = _tura?.IdVozaca1,
             tip           = _tTip,
             vrednost      = _tVrednost,
             kurs          = _tKurs > 0 ? _tKurs : null,
             vrednostEUR   = _tVrednostEUR,
-            ideTroskovnik = 1,
+            opis          = _tOpis,
+            ideTroskovnik = _tIdeTroskovnik ? 1 : 0,
+            jeGotovinski  = _tJeGotovinski ? 1 : 0,
             brisano       = 0
         };
 
@@ -1322,9 +1441,12 @@ else if (_tura is not null)
             await Db.SaveChangesAsync();
 
             // Reset forme
-            _tVrednost    = null;
-            _tVrednostEUR = null;
-            _tVrsta       = null;
+            _tVrednost      = null;
+            _tVrednostEUR   = null;
+            _tVrsta         = null;
+            _tOpis          = null;
+            _tIdeTroskovnik = true;
+            _tJeGotovinski  = true;
             StateHasChanged();
         }
         catch (Exception ex)
@@ -1333,10 +1455,9 @@ else if (_tura is not null)
         }
     }
 
-    private async Task BrisiTrosak()
+    private async Task BrisiTrosak(Trosak t)
     {
-        if (_selTrosak is null) return;
-        var dbT = await Db.Troskovi.FirstOrDefaultAsync(t => t.trosakId == _selTrosak.trosakId);
+        var dbT = await Db.Troskovi.FirstOrDefaultAsync(x => x.trosakId == t.trosakId);
         if (dbT is not null)
         {
             dbT.brisano = 1;
@@ -1345,15 +1466,43 @@ else if (_tura is not null)
         await UcitajTroskove();
         RecalcTuraTotals();
         await Db.SaveChangesAsync();
-        _selTrosak = null;
+        StateHasChanged();
+    }
+
+    private async Task AzurirajIdeTroskovnik(Trosak t, bool vrednost)
+    {
+        var dbT = await Db.Troskovi.FirstOrDefaultAsync(x => x.trosakId == t.trosakId);
+        if (dbT is null) return;
+        dbT.ideTroskovnik = vrednost ? 1 : 0;
+        await Db.SaveChangesAsync();
+        t.ideTroskovnik = dbT.ideTroskovnik;
+        RecalcTuraTotals();
+        await Db.SaveChangesAsync();
+        StateHasChanged();
+    }
+
+    private async Task AzurirajJeGotovinski(Trosak t, bool vrednost)
+    {
+        var dbT = await Db.Troskovi.FirstOrDefaultAsync(x => x.trosakId == t.trosakId);
+        if (dbT is null) return;
+        dbT.jeGotovinski = vrednost ? 1 : 0;
+        await Db.SaveChangesAsync();
+        t.jeGotovinski = dbT.jeGotovinski;
         StateHasChanged();
     }
 
     private void RecalcTuraTotals()
     {
         if (_tura is null) return;
-        _tura.Cena    = _nalozi.Sum(n => n.CenaTransporta);
-        _tura.Vrednost = _troskovi.Sum(t => t.vrednost ?? 0);
+        _tura.Cena = _nalozi.Sum(n => n.CenaTransporta);
+
+        var aktivni = _troskovi.Where(t => t.ideTroskovnik == 1).ToList();
+        var ukupnoEUR         = aktivni.Sum(t => t.vrednostEUR ?? 0);
+        var placenoPrevozniku = _nalozi.Sum(n => n.PlacenTransport ?? 0);
+
+        _tura.Vrednost            = ukupnoEUR + placenoPrevozniku;
+        _tura.VrednostTroskovaDom = aktivni.Where(t => t.tip == "ZEMLJA").Sum(t => t.vrednost ?? 0);
+        _tura.VrednostTroskovaIno = aktivni.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
     }
 
     private async Task UpisiDnevnice(Vozac vozac, string? idVStr)
@@ -1465,11 +1614,6 @@ else if (_tura is not null)
 
     private string NalogRowStyle(NalogPrevoz item, int _)
         => item.IdNaloga == _selNalog?.IdNaloga
-            ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
-            : string.Empty;
-
-    private string TrosakRowStyle(Trosak item, int _)
-        => item.trosakId == _selTrosak?.trosakId
             ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
             : string.Empty;
 
