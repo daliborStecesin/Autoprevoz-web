@@ -326,6 +326,66 @@ else if (_tura is not null)
                     }
                 </div>
 
+                @* Panel: Dnevnice *@
+                <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:6px;">
+                    <div @onclick="OnPanelDnevniceToggle"
+                         style="display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 12px; cursor:pointer; user-select:none;
+                                background:#fafafa; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                            <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" />
+                            Dnevnice
+                        </div>
+                        <MudIcon Icon="@(_panelDnevnice ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="color:#888;" />
+                    </div>
+                    @if (_panelDnevnice)
+                    {
+                        <div style="padding:8px 12px 10px;">
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.caption" Style="color:#1565C0; font-weight:600;" Class="mb-1">U ZEMLJI (RSD)</MudText>
+                                    <MudNumericField T="decimal?" Value="_tura.CenaDnevnicaDom"
+                                                     Label="Cena dnevnice (RSD)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.CenaDnevnicaDom = v; IzracunajDnevniceTure(); })" />
+                                    <div class="d-flex justify-space-between mt-2">
+                                        <span style="color:#555; font-size:0.82rem;">Br. sati:</span>
+                                        <strong style="font-size:0.82rem;">@((_tura.SatiDom ?? 0).ToString("N1"))</strong>
+                                    </div>
+                                    <div class="d-flex justify-space-between mt-1">
+                                        <span style="color:#555; font-size:0.82rem;">Br. dnevnica:</span>
+                                        <strong style="font-size:0.82rem;">@((_tura.DnevnicaDom ?? 0).ToString("N2"))</strong>
+                                    </div>
+                                    <div class="d-flex justify-space-between mt-1">
+                                        <span style="color:#555; font-size:0.82rem;">Vrednost:</span>
+                                        <strong style="font-size:0.85rem; color:#1565C0;">@((_tura.VrednostDnevnicaDom ?? 0).ToString("N2")) RSD</strong>
+                                    </div>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.caption" Style="color:#c62828; font-weight:600;" Class="mb-1">U INOSTRANSTVU (EUR)</MudText>
+                                    <MudNumericField T="decimal?" Value="_tura.CenaDnevnicaIno"
+                                                     Label="Cena dnevnice (EUR)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? v) => { _tura.CenaDnevnicaIno = v; IzracunajDnevniceTure(); })" />
+                                    <div class="d-flex justify-space-between mt-2">
+                                        <span style="color:#555; font-size:0.82rem;">Br. sati:</span>
+                                        <strong style="font-size:0.82rem;">@((_tura.SatiIno ?? 0).ToString("N1"))</strong>
+                                    </div>
+                                    <div class="d-flex justify-space-between mt-1">
+                                        <span style="color:#555; font-size:0.82rem;">Br. dnevnica:</span>
+                                        <strong style="font-size:0.82rem;">@((_tura.DnevnicaIno ?? 0).ToString("N2"))</strong>
+                                    </div>
+                                    <div class="d-flex justify-space-between mt-1">
+                                        <span style="color:#555; font-size:0.82rem;">Vrednost:</span>
+                                        <strong style="font-size:0.85rem; color:#c62828;">@((_tura.VrednostDnevnicaIno ?? 0).ToString("N2")) EUR</strong>
+                                    </div>
+                                </MudItem>
+                            </MudGrid>
+                        </div>
+                    }
+                </div>
+
                 @* Panel: Kilometraža i gorivo *@
                 <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:6px;">
                     <div @onclick="OnPanelKmToggle"
@@ -1018,6 +1078,7 @@ else if (_tura is not null)
 
     // Accordion stanje panela
     private bool _panelDatumi    = false;
+    private bool _panelDnevnice  = false;
     private bool _panelKm        = false;
     private bool _panelFinansije = false;
 
@@ -1041,9 +1102,11 @@ else if (_tura is not null)
         // Učitaj stanje accordion panela po korisniku
         var uid = TenantService.GetIdKorisnika();
         var pDatumi    = await DefaultValues.GetDefault("tura", "panel_datumi",    uid);
+        var pDnevnice  = await DefaultValues.GetDefault("tura", "panel_dnevnice",  uid);
         var pKm        = await DefaultValues.GetDefault("tura", "panel_km",        uid);
         var pFinansije = await DefaultValues.GetDefault("tura", "panel_finansije",  uid);
         if (pDatumi    is not null) _panelDatumi    = pDatumi    == "True";
+        if (pDnevnice  is not null) _panelDnevnice  = pDnevnice  == "True";
         if (pKm        is not null) _panelKm        = pKm        == "True";
         if (pFinansije is not null) _panelFinansije = pFinansije == "True";
 
@@ -1061,6 +1124,7 @@ else if (_tura is not null)
         => DefaultValues.SaveDefault("tura", kljuc, val.ToString(), TenantService.GetIdKorisnika());
 
     private async Task OnPanelDatumiToggle()    { _panelDatumi    = !_panelDatumi;    await SacuvajPanelState("panel_datumi",    _panelDatumi); }
+    private async Task OnPanelDnevniceToggle()  { _panelDnevnice  = !_panelDnevnice;  await SacuvajPanelState("panel_dnevnice",  _panelDnevnice); }
     private async Task OnPanelKmToggle()        { _panelKm        = !_panelKm;        await SacuvajPanelState("panel_km",        _panelKm); }
     private async Task OnPanelFinansijeToggle() { _panelFinansije = !_panelFinansije; await SacuvajPanelState("panel_finansije",  _panelFinansije); }
 
@@ -1086,6 +1150,8 @@ else if (_tura is not null)
             DatumUlaska    = DateTime.Now,
             DatumDolaska   = DateTime.Now,
             KursEUR        = kurs,
+            CenaDnevnicaDom = _cenaDomaca,
+            CenaDnevnicaIno = _cenaIno,
             Brisano        = 0
         };
 
@@ -1094,6 +1160,8 @@ else if (_tura is not null)
         _izlazakDatum = today; _izlazakVreme = "12:00";
         _ulazakDatum  = today; _ulazakVreme  = "18:00";
         _dolazakDatum = today; _dolazakVreme = "23:00";
+
+        IzracunajDnevniceTure();
     }
 
     private async Task OnVrstaChanged(ChangeEventArgs e)
@@ -1158,6 +1226,10 @@ else if (_tura is not null)
             _ulazakVreme  = _tura.DatumUlaska?.ToString("HH:mm") ?? "18:00";
             _dolazakDatum = _tura.DatumDolaska?.ToString("yyyy-MM-dd") ?? _polazakDatum;
             _dolazakVreme = _tura.DatumDolaska?.ToString("HH:mm") ?? "23:00";
+
+            _tura.CenaDnevnicaDom ??= _cenaDomaca;
+            _tura.CenaDnevnicaIno ??= _cenaIno;
+            IzracunajDnevniceTure();
 
             await UcitajNaloge();
             await UcitajTroskove();
@@ -1587,6 +1659,7 @@ else if (_tura is not null)
         _tura.DatumIzlaska = ParsajDatumVreme(_izlazakDatum, _izlazakVreme);
         _tura.DatumUlaska  = ParsajDatumVreme(_ulazakDatum,  _ulazakVreme);
         _tura.DatumDolaska = ParsajDatumVreme(_dolazakDatum, _dolazakVreme);
+        IzracunajDnevniceTure();
     }
 
     private static DateTime? ParsajDatumVreme(string datum, string vreme)
@@ -1594,6 +1667,52 @@ else if (_tura is not null)
         if (!DateTime.TryParse(datum, out var d)) return null;
         if (TimeSpan.TryParse(vreme, out var t)) d = d.Add(t);
         return d;
+    }
+
+    // ── Obračun dnevnica na turi (ista logika kao u DnevnicaDialog) ──
+
+    private void IzracunajDnevniceTure()
+    {
+        if (_tura is null) return;
+
+        var polazak = ParsajDatumVreme(_polazakDatum, _polazakVreme);
+        var izlazak = ParsajDatumVreme(_izlazakDatum, _izlazakVreme);
+        var ulazak  = ParsajDatumVreme(_ulazakDatum,  _ulazakVreme);
+        var dolazak = ParsajDatumVreme(_dolazakDatum, _dolazakVreme);
+        if (polazak is null || izlazak is null || ulazak is null || dolazak is null) return;
+
+        var trajanjeDom = (izlazak.Value - polazak.Value) + (dolazak.Value - ulazak.Value);
+        var minDom = (int)Math.Floor(trajanjeDom.TotalMinutes);
+        _tura.SatiDom     = minDom / 60m;
+        _tura.DnevnicaDom = IzracunajDnevnicePoMinutima(minDom);
+
+        var trajanjeIno = ulazak.Value - izlazak.Value;
+        var minIno = (int)Math.Floor(trajanjeIno.TotalMinutes);
+        _tura.SatiIno     = minIno / 60m;
+        _tura.DnevnicaIno = IzracunajDnevnicePoMinutima(minIno);
+
+        _tura.SatiNaPutuDom = _tura.SatiDom;
+        _tura.SatiNaPutuIno = _tura.SatiIno;
+        _tura.SatiNaPutuUK  = (_tura.SatiDom ?? 0) + (_tura.SatiIno ?? 0);
+
+        _tura.VrednostDnevnicaDom = _tura.DnevnicaDom * _tura.CenaDnevnicaDom;
+        _tura.VrednostDnevnicaIno = _tura.DnevnicaIno * _tura.CenaDnevnicaIno;
+    }
+
+    private static decimal IzracunajDnevnicePoMinutima(int totalMin)
+    {
+        if (totalMin < 0) return -1m;
+        const int M8  = 8  * 60;
+        const int M12 = 12 * 60;
+        const int M24 = 24 * 60;
+        if (totalMin < M8)  return 0m;
+        if (totalMin < M12) return 0.5m;
+        int     full = totalMin / M24;
+        int     rest = totalMin % M24;
+        decimal res  = full;
+        if      (rest >= M12) res += 1m;
+        else if (rest >= M8)  res += 0.5m;
+        return res;
     }
 
     private void IzracunajPredjeno()

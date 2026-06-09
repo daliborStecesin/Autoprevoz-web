@@ -11,7 +11,7 @@
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
 
-<PageTitle>Troskovnik @(_tura?.BrNaloga ?? "...") — Stampa</PageTitle>
+<PageTitle>Troskovnik @(_tura?.BrNaloga ?? "...")</PageTitle>
 
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -61,12 +61,14 @@
 
     .print-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
 
+    /* @@page { margin: 0 } uklanja prostor za browser URL/datum/broj strane */
+    @@page { size: A4; margin: 0; }
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
         thead th, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @@page { margin: 1.5cm; }
+        .wrap { padding: 1.5cm; }
     }
 </style>
 
@@ -123,161 +125,87 @@ else
             <div class="zag-row"><span class="lbl">Gorivo utrošeno:</span><span class="val">@_tura.GorivoUtroseno?.ToString("N1") L</span></div>
         </div>
         <div class="zag-col">
-            <div class="zag-row"><span class="lbl">Kurs EUR:</span><span class="val">@_tura.KursEUR?.ToString("N4")</span></div>
+            <div class="zag-row"><span class="lbl">Kurs EUR za turu:</span><span class="val">@_tura.KursEUR?.ToString("N4")</span></div>
             <div class="zag-row"><span class="lbl">Akontacija DOM:</span><span class="val">@_tura.AkontacijaDom?.ToString("N2") RSD</span></div>
             <div class="zag-row"><span class="lbl">Akontacija INO:</span><span class="val">@_tura.AkontacijaIno?.ToString("N2") EUR</span></div>
+            <div class="zag-row"><span class="lbl">Visina dnevnice u zemlji:</span><span class="val">@_tura.CenaDnevnicaDom?.ToString("N2") RSD</span></div>
+            <div class="zag-row"><span class="lbl">Visina dnevnice u inostranstvu:</span><span class="val">@_tura.CenaDnevnicaIno?.ToString("N2") EUR</span></div>
         </div>
     </div>
 
-    @* ── Nalozi za prevoz ── *@
-    @if (_nalozi.Count > 0)
-    {
-        <div class="sekcija-naslov">NALOZI ZA PREVOZ (@_nalozi.Count)</div>
-        <table>
-            <thead>
-                <tr>
-                    <th style="width:100px;">Br. naloga</th>
-                    <th>Nalogodavac</th>
-                    <th>Prevoznik</th>
-                    <th>Utovarna / Istovarna stanica</th>
-                    <th style="width:80px;" class="ra">Cena</th>
-                    <th style="width:60px;" class="ra">Valuta</th>
-                    <th style="width:80px;" class="ra">Plaćeno</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var n in _nalozi)
-                {
-                    <tr>
-                        <td>@n.BrNaloga</td>
-                        <td>@(n.Uvoznik ?? "—")</td>
-                        <td>@(n.Napomena2 ?? "SOPSTVENI")</td>
-                        <td style="font-size:8pt;">@(n.MestoUtovara ?? "—") → @(n.MestoIstovara ?? "—")</td>
-                        <td class="ra">@n.CenaTransporta?.ToString("N2")</td>
-                        <td class="ca">@(n.ValutaTure ?? "EUR")</td>
-                        <td class="ra">@n.PlacenTransport?.ToString("N2")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        <div style="text-align:right; font-size:8.5pt; margin-bottom:8px;">
-            Ukupno: <strong>@_nalozi.Sum(n => n.CenaTransporta ?? 0).ToString("N2") EUR</strong> &nbsp;|&nbsp;
-            Naplaćeno: <strong>@_nalozi.Sum(n => n.PlacenTransport ?? 0).ToString("N2") EUR</strong>
-        </div>
-    }
-
-    @* ── Troškovi ── *@
+    @* ── Troškovi (samo gotovinski) ── *@
     @if (_troskovi.Count > 0)
     {
-        <div class="sekcija-naslov">TROŠKOVI TURE (@_troskovi.Count)</div>
+        <div class="sekcija-naslov">LISTA TROŠKOVA TURE (@_troskovi.Count)</div>
         <table>
             <thead>
                 <tr>
-                    <th style="width:80px;">Datum</th>
-                    <th>Vrsta troška</th>
-                    <th style="width:90px;" class="ca">Tip</th>
-                    <th style="width:100px;" class="ra">Vrednost (RSD)</th>
-                    <th style="width:70px;" class="ra">Kurs EUR</th>
-                    <th style="width:80px;" class="ra">Vrednost (EUR)</th>
+                    <th style="width:110px;">Tip troška</th>
+                    <th>Opis</th>
+                    <th style="width:100px;" class="ra">Iznos RSD</th>
+                    <th style="width:100px;" class="ra">Iznos EUR</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var t in _troskovi)
                 {
                     <tr>
-                        <td>@t.datum?.ToString("dd.MM.yy")</td>
-                        <td>@(t.vrstaTroska ?? "—")</td>
                         <td class="ca">@(t.tip ?? "—")</td>
-                        <td class="ra">@t.vrednost?.ToString("N2")</td>
-                        <td class="ra">@t.kurs?.ToString("N4")</td>
-                        <td class="ra">@t.vrednostEUR?.ToString("N2")</td>
+                        <td>@(t.vrstaTroska ?? "—")</td>
+                        <td class="ra">@(t.tip == "ZEMLJA" ? t.vrednost?.ToString("N2") : "")</td>
+                        <td class="ra">@(t.tip == "INOSTRANSTVO" ? t.vrednostEUR?.ToString("N2") : "")</td>
                     </tr>
                 }
             </tbody>
         </table>
-        <div style="text-align:right; font-size:8.5pt; margin-bottom:8px;">
-            Ukupno RSD: <strong>@_troskovi.Sum(t => t.vrednost ?? 0).ToString("N2")</strong> &nbsp;|&nbsp;
-            Ukupno EUR: <strong>@_troskovi.Sum(t => t.vrednostEUR ?? 0).ToString("N2")</strong>
-        </div>
     }
 
-    @* ── Dnevnice ── *@
-    @if (_dnevnice.Count > 0)
-    {
-        <div class="sekcija-naslov">DNEVNICE VOZAČA (@_dnevnice.Count)</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Vozač</th>
-                    <th style="width:90px;" class="ca">Tip dnevnice</th>
-                    <th style="width:70px;" class="ra">Sati</th>
-                    <th style="width:70px;" class="ra">Br. dnevnica</th>
-                    <th style="width:80px;" class="ra">Cena</th>
-                    <th style="width:90px;" class="ra">Ukupno (RSD)</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var dn in _dnevnice)
-                {
-                    <tr>
-                        <td>@(dn.vozac ?? "—")</td>
-                        <td class="ca">@dn.tipDnevnice</td>
-                        <td class="ra">@dn.brCasova?.ToString("N1")</td>
-                        <td class="ra">@dn.brojDnevnica?.ToString("N2")</td>
-                        <td class="ra">@dn.dnevnica?.ToString("N2")</td>
-                        <td class="ra"><strong>@dn.Ukupno?.ToString("N2")</strong></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        <div style="text-align:right; font-size:8.5pt; margin-bottom:8px;">
-            Ukupno dnevnice: <strong>@_dnevnice.Sum(d => d.Ukupno ?? 0).ToString("N2") RSD</strong>
+    @* ── Obračun putnog naloga ── *@
+    <div class="sekcija-naslov">OBRAČUN PUTNOG NALOGA</div>
+    <div class="zaglavlje">
+        <div class="zag-col">
+            <div class="zag-row"><span class="lbl">Datum i sat početka putovanja:</span><span class="val">@_tura.DatumPolaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="zag-row"><span class="lbl">Datum i sat prelaska granice u odlasku:</span><span class="val">@_tura.DatumIzlaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="zag-row"><span class="lbl">Datum i sat prelaska granice u dolasku:</span><span class="val">@_tura.DatumUlaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
+            <div class="zag-row"><span class="lbl">Datum i sat završetka putovanja:</span><span class="val">@_tura.DatumDolaska?.ToString("dd.MM.yyyy HH:mm")</span></div>
         </div>
-    }
+        <div class="zag-col">
+            <div class="zag-row"><span class="lbl">Sati u zemlji:</span><span class="val">@_tura.SatiDom?.ToString("N1")</span></div>
+            <div class="zag-row"><span class="lbl">Broj dnevnica u zemlji:</span><span class="val">@_tura.DnevnicaDom?.ToString("N2")</span></div>
+            <div class="zag-row"><span class="lbl">Sati u inostranstvu:</span><span class="val">@_tura.SatiIno?.ToString("N1")</span></div>
+            <div class="zag-row"><span class="lbl">Broj dnevnica u inostranstvu:</span><span class="val">@_tura.DnevnicaIno?.ToString("N2")</span></div>
+        </div>
+        <div class="zag-col">
+            <div class="zag-row"><span class="lbl">Pripadajući iznos dnevnica u zemlji:</span><span class="val">@_tura.VrednostDnevnicaDom?.ToString("N2") RSD</span></div>
+            <div class="zag-row"><span class="lbl">Pripadajući iznos dnevnica u inostranstvu:</span><span class="val">@_tura.VrednostDnevnicaIno?.ToString("N2") EUR</span></div>
+        </div>
+    </div>
 
-    @* ── Finansijski obračun ── *@
+    @* ── Obračun isplate (gotovinski troškovi + dnevnice) ── *@
     @{
-        var vrednostTure  = _nalozi.Sum(n => n.CenaTransporta ?? 0);
-        var troskoviEUR   = _troskovi.Sum(t => t.vrednostEUR ?? 0);
-        var troskoviRSD   = _troskovi.Sum(t => t.vrednost ?? 0);
-        var dnevniceUk    = _dnevnice.Sum(d => d.Ukupno ?? 0);
-        var kurs          = (_tura.KursEUR ?? 0) > 0 ? (_tura.KursEUR ?? 1) : 1;
-        var troskoviUkEUR = troskoviEUR + (dnevniceUk / kurs);
-        var neto          = vrednostTure - troskoviUkEUR;
+        var kurs           = (_tura.KursEUR ?? 0) > 0 ? (_tura.KursEUR ?? 1) : 1;
+        var gotInoEUR      = _troskovi.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
+        var gotDomRSD      = _troskovi.Where(t => t.tip == "ZEMLJA").Sum(t => t.vrednost ?? 0);
+        var dnevniceDomRSD = _tura.VrednostDnevnicaDom ?? 0;
+        var dnevniceInoEUR = _tura.VrednostDnevnicaIno ?? 0;
+        var zaIsplatuEUR   = gotInoEUR + dnevniceInoEUR;
+        var zaIsplatuRSD   = gotDomRSD + dnevniceDomRSD;
+        var euroURSD       = zaIsplatuEUR * kurs;
+        var ukupnoRSD      = zaIsplatuRSD + euroURSD;
     }
     <div class="obracun-box">
-        <div style="font-weight:bold; font-size:10pt; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;">FINANSIJSKI OBRAČUN</div>
+        <div style="font-weight:bold; font-size:10pt; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;">OBRAČUN ISPLATE</div>
         <div class="red">
-            <span>Vrednost ture (EUR):</span>
-            <span>@vrednostTure.ToString("N2")</span>
-        </div>
-        <div class="red">
-            <span>Kurs EUR:</span>
-            <span>@_tura.KursEUR?.ToString("N4")</span>
-        </div>
-        <div class="red minus">
-            <span>Troškovi (EUR):</span>
-            <span>- @troskoviEUR.ToString("N2")</span>
-        </div>
-        <div class="red minus">
-            <span>Dnevnice (RSD):</span>
-            <span>- @dnevniceUk.ToString("N2")</span>
-        </div>
-        <div class="red minus">
-            <span>Dnevnice (EUR):</span>
-            <span>- @(dnevniceUk / kurs).ToString("N2")</span>
+            <span>Za isplatu EUR:</span>
+            <span>@zaIsplatuEUR.ToString("N2")</span>
         </div>
         <div class="red">
-            <span>Akontacija DOM (RSD):</span>
-            <span>@_tura.AkontacijaDom?.ToString("N2")</span>
-        </div>
-        <div class="red">
-            <span>Akontacija INO (EUR):</span>
-            <span>@_tura.AkontacijaIno?.ToString("N2")</span>
+            <span>Za isplatu RSD:</span>
+            <span>@zaIsplatuRSD.ToString("N2") &nbsp;|&nbsp; @euroURSD.ToString("N2")</span>
         </div>
         <div class="red total">
-            <span>Neto zarada (EUR):</span>
-            <span>@neto.ToString("N2")</span>
+            <span>UKUPNO RSD:</span>
+            <span>@ukupnoRSD.ToString("N2")</span>
         </div>
     </div>
 
@@ -309,9 +237,7 @@ else
     [Parameter] public int Id { get; set; }
 
     private PutniNalogKamion? _tura;
-    private List<NalogPrevoz> _nalozi   = [];
     private List<Trosak>      _troskovi = [];
-    private List<Dnevnica>    _dnevnice = [];
     private PodaciFirme?      _firma;
     private string?           _logoBase64;
     private bool              _ucitava  = true;
@@ -337,10 +263,9 @@ else
 
             if (_tura is not null)
             {
-                var brNaloga = _tura.BrNaloga;
-                _nalozi   = await Db.NaloziZaPrevoz.Where(n => n.IdPutnogNaloga == Id).AsNoTracking().ToListAsync();
-                _troskovi = await Db.Troskovi.Where(t => t.idNaloga == Id).AsNoTracking().ToListAsync();
-                _dnevnice = await Db.Dnevnice.Where(d => d.brNaloga == brNaloga).AsNoTracking().ToListAsync();
+                _troskovi = await Db.Troskovi
+                    .Where(t => t.idNaloga == Id && t.jeGotovinski == 1 && t.brisano == 0)
+                    .AsNoTracking().ToListAsync();
             }
         }
         catch { }

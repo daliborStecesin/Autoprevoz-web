@@ -1,192 +1,111 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Maj 2026*
+*Poslednje ažuriranje: Jun 2026*
+
+Blazor Server SaaS za transport firme (Srbija/region). Rewrite WinForms aplikacije.
+Multi-tenant: master baza `daksoft` (login/licence) + klijentske baze (podaci).
+Vlasnik: DAK-SOFT (Dalibor Stečešin).
+
+---
 
 ## ✅ ZAVRŠENO
-- Infrastruktura, Login, Multi-tenant
-- Dashboard (podsetnici, važni datumi, kurs)
-- Partneri + NBS integracija + žiro računi
-- Vozači/Zaposleni + tip isplate
+
+### Osnova
+- Infrastruktura, Login, Multi-tenant (TenantService, ap_conn cookie)
+- Dashboard (kurs EUR, podsetnici, važni datumi vozila + zaposlenih, ime korisnika)
+- Vizuelni identitet (#2D3E50 / #3D8EB9)
+
+### Moduli
+- Partneri + NBS SOAP integracija + žiro računi
+- Zaposleni + tip isplate + registracija kao web korisnik
 - Vozila + Važni datumi + filter stranica
 - Podsetnici (CRUD, ponavljanje, popup)
 - Podaci firme + Banke
 - NBS Kurs servis + Kursna lista
-- Vizuelni identitet (#2D3E50)
-- Troškovi (lista, unos, štampa, podela na mesece)
-- Dnevnice (lista, unos, obračun, 4 vrste štampe, troškovi uz dnevnicu)
+- Troškovi (modul: CRUD, filteri, NBS kurs, podela na mesece, štampa)
+- Dnevnice (modul: CRUD, obračun po minutima, 4 vrste štampe, označi plaćeno)
+- Plate (4 vrste isplate)
+- Šifarnici
+- Dozvole MUP (tbl_DozvoleMinistarstva, batch unos)
+- Podešavanja (4 taba: opšta, brojevi dokumenata, izgled štampe, e-fakture)
 
-## 🎯 Trenutno radimo
-FAZA 1 — Plate ← SLEDEĆE
+### Sistem
+- BrojDokumentaService (formati: broj/godina2/godina4/mesec, provera duplikata)
+- Multi-korisnik (registracija, login, aktivacija/deaktivacija, kaskadna deaktivacija)
+- Audit trag (uneo/izmenio automatski preko SaveChanges override na svim tabelama)
+- SEF integracija (ISefService/SefApiClient, lista PDV oslobođenja)
 
-## 📋 FAZA 1 — Preostalo
-- [ ] Plate /plate
-- [ ] Šifarnici /podesavanja/sifarnici
-- [ ] Dozvole MUP /dozvole
+### Transport (CORE — završen)
+- Ture (collapsible forma, agencijski/sopstveni, brojevi po tipu, paneli sa pamćenjem)
+- Nalozi za prevoz (kompletna forma, lista, Excel export, template učitaj/sačuvaj)
+- Štampa naloga (2 strane, logo, nalogodavac+prevoznik, carinjenje conditional,
+  cena na drugoj strani, opšti uslovi iz podešavanja sa fallback)
+- Štampa putnog naloga (landscape, zvanični obrazac, 2 strane HTML)
+- Troškovi ture (unos, dvosmerna konverzija RSD↔EUR, 2 checkboxa, obračun zarade u EUR)
+- Dnevnice na turi (obračun sati/dnevnica, collapsible panel)
+- Štampa troškovnika (samo gotovinski + dnevnice, obračun isplate za banku)
 
-## 📋 FAZA 2 — Transport
-- [ ] Ture/Nalozi za prevoz /ture
-- [ ] Putni nalozi /putni-nalozi
-- [ ] CMR dokumenti /cmr
-- [ ] Statistika tura
-- [ ] Statistika vozila
+---
 
-## 📋 FAZA 3 — Finansije
+## 🎯 TRENUTNO RADIMO / SLEDEĆE
+1. Dnevnice → Plate (insert iz naloga, 2 dugmeta: troškovi ture / dnevnice vozaču) ← SLEDEĆE
+2. Skenirani dokumenti
+3. **DEPLOY NA TEST SERVER** (nekoliko naprednih klijenata testira naloge)
+
+---
+
+## 📋 PREOSTALO — TRANSPORT (dovršiti)
+- [ ] Dnevnice → Plate
+      - Na unosu dnevnica dva dugmeta:
+        "Dodaj u troškove ture" (gotovinski trošak, za keš iz banke)
+        "Dodaj u dnevnice vozaču" (sekcija PLATE)
+      - Logika: država priznaje samo dnevnice za izvlačenje keša, ali vozač
+        se stvarno plati kroz PLATE (npr. po km)
+- [ ] Cena × Količina na nalozima (vrednost = cena × količina)
+- [ ] Statistika tura (po dispečeru — IdKorisnika, po vozaču, vozilu)
+- [ ] Statistika naloga
+- [ ] CMR dokumenti
+
+## 📋 SKENIRANI DOKUMENTI (zaseban segment)
+- [ ] Upload fajlova (PDF, JPG)
+- [ ] Vezivanje za: nalog/turu, vozača, vozilo, partnera, firmu
+- [ ] Odluka o čuvanju: baza (varbinary) vs server (path) vs cloud storage
+      (bitno za multi-tenant SaaS — baza raste; razmotriti pred implementaciju)
+- [ ] Pregled i download
+- [ ] Zaseban modul vezan za firmu (ne samo po dokumentu)
+
+## 📋 FINANSIJE
 - [ ] Kartice partnera
 - [ ] Unos finansija
 - [ ] Dužnici
 - [ ] Moja dugovanja
+- [ ] Uplate
 - [ ] Štampa kartica
 
-## 📋 FAZA 4 — Fakturisanje
+## 📋 FAKTURISANJE
 - [ ] Novi račun
 - [ ] Arhiva računa
-- [ ] Gotovski računi
-- [ ] Predračuni/Ponude
+- [ ] Gotovinski računi
+- [ ] Predračuni / Ponude
 - [ ] Otpremnice
+- [ ] Veza nalog → faktura (status FAKTURISAN automatski)
 
-## 📋 FAZA 5 — Podešavanja sistema
-- [ ] Korisnici i privilegije
-- [ ] Opšta podešavanja
-- [ ] Šifarnici (već u Fazi 1)
-- [ ] Podešavanja e-fakture
+## 📋 PODEŠAVANJA SISTEMA (dovršiti)
+- [ ] Korisnici i privilegije (fine dozvole po modulima — vidi dole)
+- [ ] Podešavanja e-fakture (delom urađeno u tabu E-fakture)
 
-## 📋 FAZA 6 — Dokumenta
-- [ ] Potvrda o katicnosti vozača
-- [ ] Skenirani dokumenti
-- [ ] Planer
+## 📋 NIVOI PRISTUPA / PRIVILEGIJE (odloženo)
+*Za sad svi korisnici su Admin. Fine privilegije dolaze kasnije.*
+- [ ] tbl_role (template role: Admin, Korisnik, Vozač, Računovođa, Readonly)
+- [ ] tbl_role_moduli (mozeCitati, mozeUnositi, mozeMenjati, mozeBrisati)
+- [ ] Firm admini upravljaju svojim korisnicima nezavisno
+- [ ] Provera idRole iz sesije pri pristupu modulima
 
-## 📋 FAZA 7 — E-fakture
-- [ ] SEF API integracija
-- [ ] PDV evidencija
-- [ ] Analitika EPP
-# ROADMAP — Dodatak (buduće faze)
-*Zabeleženo: Jun 2026*
+## 📋 DOKUMENTA / OSTALO
+- [ ] Potvrda o kvalifikovanosti vozača
+- [ ] Planer (kalendarski prikaz obaveza: dnevno/nedeljno/mesečno)
 
----
-
-## 📋 FAZA 8 — Self-Service Onboarding (SaaS registracija)
-*Cilj: Korisnik se sam registruje preko landing page-a, bez intervencije DAK-SOFT-a*
-
-### Flow registracije
-- [ ] Landing page → dugme "Testiraj odmah"
-- [ ] Korak 1: email + lozinka + odabir zemlje
-- [ ] Korak 2: unos PIB-a (validacija: max 13 cifara)
-      - Za Srbiju: PIB → povlačenje podataka firme preko API (NBS)
-- [ ] Dugme "Započni test" (oslobađa se kad je PIB validan)
-
-### ProvisioningService (master baza)
-- [ ] Naziv baze = prefiks zemlje + PIB (npr. rs111784317)
-      - rs = Srbija, ba = Bosna... (izbegava sudar PIB-ova iz raznih zemalja)
-- [ ] INSERT tbl_licence: PIB, ConnectionString
-      - ConnectionString = isti template, menja se samo Initial Catalog
-- [ ] Vrati IdLicence
-- [ ] INSERT tbl_web_korisnici: email, hash, IdLicence, Privilegija=Admin, IdKorisnika=1
-- [ ] Izvrši seed skriptu: CREATE DATABASE {naziv} + sve tabele + seed admin
-- [ ] Loading indikator dok se baza kreira
-
-### Tehnički zahtevi
-- Master SQL nalog mora imati dozvolu CREATE DATABASE
-- Seed skripta = kompletna šema (.sql) koja se izvršava programski
-- Radi samo na sopstvenom serveru (ne shared hosting)
-
-### Prelazak demo → plaćeni
-- [ ] Reset baze jednim klikom (ista baza, status reset)
-- [ ] Opcija: migracija baze na klijentov localhost (DAK-SOFT ručno menja ConnectionString)
-
----
-
-## 📋 FAZA 9 — Licenciranje (mesečna naplata)
-*Cilj: Automatska kontrola trajanja licence*
-
-- [ ] Datum licence u master tbl_licence (samo DAK-SOFT pristup)
-- [ ] Keširanje datuma u lokalnu bazu (da se ne povezuje na master pri svakom pokretanju)
-- [ ] Prozor za licenciranje: pokupi datum iz master + dugme "Aktiviraj"
-- [ ] Mesečno produženje uz izdavanje fakture
-- [ ] Ideja: aktivacija zahteva preuzimanje PDF fakture
-
----
-
-## 📋 FAZA 10 — Modularnost + Lager modul (drugi softver)
-*Cilj: Deljenje koda sa softverom za trgovinu, moduli pali/gasi po licenci*
-
-### Zajednički moduli (već postoje ili planirani)
-- E-faktura, Finansije, Predračuni, Otpremnice, Fakturisanje
-
-### Novi moduli iz softvera za trgovinu
-- [ ] Lager (artikli, stanje)
-- [ ] Kalkulacije
-- [ ] Ulaz / izlaz artikala
-- [ ] Prilagođen unos faktura (više elemenata nego transport)
-
-### Sistem modula
-- [ ] Pali/gasi modul po licenci (kao transportModulAktivan)
-- [ ] tbl_moduli kontroliše dostupnost
-- [ ] Jedna baza koda, razni profili klijenata (transport / trgovina / oba)
-
----
-
-## ⚠️ NAPOMENA o prioritetima
-Ove faze (8, 9, 10) su STRATEŠKE i dolaze TEK kada je transport modul
-završen i stabilan, sa prvim aktivnim klijentima. NE krećemo sa njima
-dok osnovni transport flow (ture, nalozi, fakture) ne radi savršeno.
-
-Trenutni fokus: dovršiti transport, korisnici/audit, fakturisanje.
-## 📝 Napomene za Claude Code
-
-### Tehnički stack
-- Blazor Server .NET 9, MudBlazor 7
-- EF Core 8, SQL Server
-- Master baza: daksoft
-- Klijentska baza: kasa
-- Multi-tenant: TenantService
-
-### UI/UX Standardi (obavezno poštovati!)
-Padajući meni za autocomplete:
-- @onfocusin → otvori sve opcije
-- @onfocusout sa delay 150ms → zatvori
-- Kucanje filtrira Contains OrdinalIgnoreCase
-- Odabrana vrednost = MudPaper sa X dugmetom
-- position:absolute; z-index:9999
-
-Štampa modula:
-- Posebna print stranica sa EmptyLayout
-- Otvara se u novom tabu
-- Prima filtere kroz query string
-- Auto-print na load
-- Zaglavlje: naziv firme + naslov + period
-- Footer: ukupni iznosi + potpisi
-
-### Pravila
-1. NIKAD ne menjati šemu bez dogovora
-2. Soft delete uvek (brisano=1 ili aktivan=0)
-3. Sav UI tekst na srpskom
-4. Decimal za novac, 2 ili 4 decimale
-5. Global Query Filter za soft delete
-6. tbl_sifarnik za sve tipove/šifre
-7. Kurs EUR iz INbsKursService
-8. Audit: uneo + datumUnosa na svim tabelama
-9. Privilegije: proveriti idRole iz sesije
-
-### Connection strings
-- Master: appsettings.json → "Master"
-- Klijent: TenantService.GetConnectionString()
-  - Upload fajlova (PDF, JPG)
-  - Vezivanje za: vozača, vozilo, 
-    partnera, turu, firmu
-  - Čuvanje u bazi (varbinary) ili 
-    na serveru (path) — odlučiti
-  - Pregled i download
-
-- [ ] **Planer** `/planer`
-  - Kalendarski prikaz obaveza
-  - Dnevno/nedeljno/mesečno
-
----
-
-## 📋 FAZA 7 — E-fakture (na kraju)
-*Cilj: Poreska usklađenost za Srbiju*
-
-- [ ] SEF API integracija
-- [ ] Slanje faktura na SEF
+## 📋 E-FAKTURE (poreska usklađenost — Srbija)
+- [ ] Slanje faktura na SEF (osnova ISefService postoji)
 - [ ] Praćenje statusa
 - [ ] PDV evidencija
 - [ ] Analitika EPP (uvoz CSV)
@@ -195,32 +114,96 @@ Padajući meni za autocomplete:
 
 ---
 
-## 🎯 Trenutno radimo
-**FAZA 1 — Dnevnice** `/dnevnice` ← SLEDEĆE
+## 🚀 STRATEŠKE FAZE (TEK posle stabilnog transporta + prvih klijenata)
+*NE krećemo dok osnovni transport flow ne radi savršeno u produkciji.*
+
+### FAZA 8 — Self-Service Onboarding (SaaS registracija)
+*Cilj: korisnik se sam registruje preko landing page-a, bez intervencije DAK-SOFT-a*
+
+Flow registracije:
+- [ ] Landing page → dugme "Testiraj odmah"
+- [ ] Korak 1: email + lozinka + odabir zemlje
+- [ ] Korak 2: unos PIB-a (validacija: max 13 cifara)
+      - Za Srbiju: PIB → povlačenje podataka firme preko NBS API
+- [ ] Dugme "Započni test" (aktivno kad je PIB validan)
+
+ProvisioningService (master baza):
+- [ ] Naziv baze = prefiks zemlje + PIB (npr. rs111784317)
+      - rs=Srbija, ba=Bosna... (izbegava sudar PIB-ova iz raznih zemalja)
+- [ ] INSERT tbl_licence: PIB, ConnectionString
+      - ConnectionString = isti template, menja se SAMO Initial Catalog
+- [ ] INSERT tbl_web_korisnici: email, hash, IdLicence, Privilegija=Admin
+- [ ] Izvrši seed skriptu: CREATE DATABASE + sve tabele + seed admin
+- [ ] Loading indikator dok se baza kreira
+
+Tehnički zahtevi:
+- Master SQL nalog mora imati CREATE DATABASE dozvolu
+- CREATE DATABASE NE može u transakciji; seed mora biti idempotentan
+- Seed = kompletna šema (.sql) izvršena programski (= migracija_full.sql)
+- Radi samo na sopstvenom serveru (ne shared hosting)
+
+Prelazak demo → plaćeni:
+- [ ] Reset baze jednim klikom (ista baza, status reset — bez migracije)
+- [ ] Opcija: migracija baze na klijentov localhost (ručno menja ConnectionString)
+- [ ] Cloud baza = premium opcija (+~8€/mes); localhost klijenti preko
+      Network Library=DBMSSOCN connection stringa (već radi)
+
+### ADMIN PANEL — DAK-SOFT super-admin (samo vlasnik)
+*Cilj: centralno mesto za upravljanje SVIM klijentima/licencama/bazama.
+Nivo iznad svih firmi — pristup samo DAK-SOFT (super-admin u master bazi).
+Alat kroz koji se radi licenciranje i onboarding (povezano sa Fazama 8/9).*
+
+Pristup:
+- [ ] Zaseban login / zaštićena ruta, samo super-admin (flag u master bazi)
+- [ ] Odvojeno od običnog klijentskog interfejsa
+
+Licence (tbl_licence):
+- [ ] Lista svih licenci/klijenata sa statusom (aktivna / istekla / demo)
+- [ ] Datum isteka + produženje licence
+- [ ] Aktiviraj / deaktiviraj licencu
+- [ ] Prikaz/izmena ConnectionString svake baze
+- [ ] Koji moduli su uključeni po licenci (transport / trgovina / oba)
+
+Klijenti / nadzor:
+- [ ] Pregled svih firmi (naziv, PIB, broj korisnika)
+- [ ] Poslednja aktivnost (ZadnjaPrijava korisnika po firmi)
+- [ ] Statistika logovanja
+- [ ] (opciono) pregled grešaka / logova
+
+Onboarding / baze (pre Faze 8 self-service — ručno):
+- [ ] Ručno kreiranje nove licence + baze (CREATE DATABASE + seed)
+- [ ] Reset demo baze
+- [ ] Migracija baze (localhost ↔ cloud)
+- [ ] Pokretanje migracija (migracija_full.sql) nad izabranom bazom
+
+### FAZA 9 — Licenciranje (mesečna naplata)
+*Cilj: automatska kontrola trajanja licence (upravljano kroz Admin Panel)*
+- [ ] Datum licence u master tbl_licence (samo DAK-SOFT pristup)
+- [ ] Keširanje datuma u lokalnu bazu (da se ne povezuje na master pri svakom pokretanju)
+- [ ] Prozor za licenciranje: pokupi datum iz master + dugme "Aktiviraj"
+- [ ] Mesečno produženje uz izdavanje fakture
+- [ ] Aktivacija može zahtevati preuzimanje PDF fakture
+
+### FAZA 10 — Modularnost + Lager modul
+*Cilj: deljenje koda sa softverom za trgovinu, moduli pali/gasi po licenci*
+
+Zajednički moduli (postoje ili planirani):
+- E-faktura, Finansije, Predračuni, Otpremnice, Fakturisanje
+
+Novi moduli iz softvera za trgovinu:
+- [ ] Lager (artikli, stanje)
+- [ ] Kalkulacije
+- [ ] Ulaz / izlaz artikala
+- [ ] Prilagođen unos faktura (više elemenata nego transport)
+
+Sistem modula:
+- [ ] Pali/gasi modul po licenci (kao transportModulAktivan)
+- [ ] tbl_moduli kontroliše dostupnost
+- [ ] Jedna baza koda, razni profili klijenata (transport / trgovina / oba)
 
 ---
 
-## 📝 Napomene za Claude Code
-
-### Tehnički stack
-- Blazor Server .NET 9, MudBlazor 7
-- EF Core 8, SQL Server
-- Master baza: daksoft (tbl_licence, 
-  tbl_web_korisnici)
-- Klijentska baza: kasa (sve ostale tabele)
-- Multi-tenant: TenantService čita 
-  ap_conn cookie
-
-### Pravila
-1. NIKAD ne menjati šemu postojećih tabela
-   bez dogovora
-2. Soft delete uvek (brisano=1 ili aktivan=0)
-3. Sav UI tekst na srpskom
-4. Decimal za novac, 2 ili 4 decimale
-5. Global Query Filter za soft delete
-6. Koristiti tbl_sifarnik za sve tipove/šifre
-7. Kurs EUR iz INbsKursService (već postoji)
-
-### Connection strings
-- Master: appsettings.json → "Master"
-- Klijent: TenantService.GetConnectionString()
+## ⚠️ NAPOMENA O PRIORITETIMA
+Faze 8/9/10 su STRATEŠKE. Trenutni fokus: dovršiti transport (dnevnice→plate,
+skenirani dokumenti), pa DEPLOY na test server za prve klijente. Tehnička pravila,
+arhitektura i mapiranja → vidi CLAUDE.md.
