@@ -59,10 +59,22 @@ Sav UI tekst na srpskom.
 8. Audit: `uneo`/`datumUnosa` pri INSERT, `izmenio`/`datumIzmene` pri UPDATE — automatski
 9. Privilegije: proveriti idRole iz sesije (za sad svi Admin — vidi dole)
 
-## MIGRACIJE BAZE (VAŽNO za deploy)
-Kad god menjaš šemu baze (nova kolona, nova tabela, ALTER):
-1. Dodaj izvršni SQL u `migracija_full.sql` (idempotentno — `IF NOT EXISTS`)
-2. Zabeleži u `MIGRACIJE.md` (datum, šta, zašto)
+## SQL MIGRACIJE — OBAVEZNO
+Folder: `/sql/`
+- `01_CREATE_kasa_template.sql` — blanko baza za novog klijenta (109 tabela, verzija 200)
+- `02_MIGRACIJA_postojeci_klijent.sql` — ALTER za stare klijente (idempotentno, 4 sekcije)
+
+**PRAVILO: Svaka promena šeme baze MORA da se doda u OBA fajla istovremeno:**
+- U `01_CREATE`: kolona ide direktno u CREATE TABLE definiciju + INSERT seed ako treba
+- U `02_MIGRACIJA`: kolona ide kao `IF COL_LENGTH IS NULL → ALTER TABLE ADD`,
+  nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
+  novi seed kao `IF NOT EXISTS → INSERT`
+
+`verzijaBaze` u `tbl_Podesavanja` = 200 (Blazor migracija).
+Svaka buduća migracija inkrementira ovaj broj.
+
+Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
+tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
 Razdvojiti jasno: izmene na MASTER bazi (`daksoft`) vs KLIJENTSKOJ bazi.
 
 ---
@@ -224,16 +236,17 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - [x] **Troškovi ture** (unos, dvosmerna konverzija, 2 checkboxa, obračun zarade u EUR)
 - [x] **Dnevnice na turi** (obračun sati/dnevnica, panel)
 - [x] **Štampa troškovnika** (samo gotovinski, obračun isplate, dnevnice)
-- [ ] Dnevnice → Plate (insert iz naloga, 2 dugmeta) ← SLEDEĆE
+- [x] **SQL migracije** (01_CREATE blanko baza + 02_MIGRACIJA za stare klijente, /sql/ folder)
+- [ ] Deploy na test server ← SLEDEĆE
 - [ ] Skenirani dokumenti (nalozi, vozači, vozila, firma)
 - [ ] Finansije
 - [ ] Fakturisanje
 - [ ] E-fakture
 
 ## TRENUTNI FOKUS
-Završen transport core (ture, nalozi, štampe, troškovi, dnevnice na turi).
-Sledeće: dnevnice→plate, skenirani dokumenti. Zatim DEPLOY NA TEST SERVER
-za nekoliko naprednih klijenata (testiranje naloga).
+SQL migracije završene (oba fajla u /sql/ folderu).
+Sledeće: DEPLOY NA TEST SERVER za napredne klijente.
+Posle deploya: dnevnice→plate, skenirani dokumenti, finansije.
 
 ## BUDUĆE FAZE (NE raditi sad — kontekst, detalji u ROADMAP.md)
 - FAZA 8: Self-service onboarding (PIB → kreiraj bazu rs{PIB})
@@ -249,4 +262,3 @@ Racun, GotovinskiRacun, Otpremnica, Ponuda, Artikal,
 ObavestenjePP, VatDeductionRecord (imaju polja ali ne IAuditable).
 Partner: DatumUnosa/DatumIzmene su [NotMapped] — nisu u bazi
 (dodati kolone + mapiranje ako zatreba audit za partnere).
-

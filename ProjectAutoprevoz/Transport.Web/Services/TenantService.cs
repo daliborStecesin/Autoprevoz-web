@@ -1,10 +1,13 @@
+using Microsoft.EntityFrameworkCore;
 using Transport.Application.Interfaces;
+using Transport.Infrastructure.Data;
 
 namespace Transport.Web.Services;
 
 public class TenantService : ITenantService
 {
     private readonly IHttpContextAccessor _http;
+    private readonly MasterDbContext _master;
 
     private string? _cachedConn;
     private string? _cachedFirma;
@@ -12,7 +15,11 @@ public class TenantService : ITenantService
     private int?    _cachedUserId;
     private int?    _cachedLicenceId;
 
-    public TenantService(IHttpContextAccessor http) => _http = http;
+    public TenantService(IHttpContextAccessor http, MasterDbContext master)
+    {
+        _http   = http;
+        _master = master;
+    }
 
     public void SetTenant(string connectionString, string nazivFirme, int idKorisnika, int privilegija, int idLicence = 0)
     {
@@ -25,7 +32,21 @@ public class TenantService : ITenantService
     public string GetConnectionString()
     {
         if (_cachedConn is not null) return _cachedConn;
-        _cachedConn = _http.HttpContext?.Request.Cookies["ap_conn"] ?? string.Empty;
+
+        var idLicence = GetIdLicence();
+        if (idLicence <= 0)
+        {
+            _cachedConn = string.Empty;
+            return _cachedConn;
+        }
+
+        // Connection string se ne čuva u cookie-ju (security + veličina cookie-ja na mobilnom) —
+        // učitava se iz master baze preko idLicence pri svakom requestu.
+        _cachedConn = _master.Licence
+            .Where(l => l.IdLicence == idLicence)
+            .Select(l => l.ConnectionString)
+            .FirstOrDefault() ?? string.Empty;
+
         return _cachedConn;
     }
 

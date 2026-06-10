@@ -126,14 +126,15 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
     var opts = new CookieOptions
     {
         HttpOnly  = true,
+        Secure    = false,
         SameSite  = SameSiteMode.Lax,
+        Path      = "/",
         Expires   = DateTimeOffset.UtcNow.AddHours(8)
     };
 
     korisnik.ZadnjaPrijava = DateTime.Now;
     await db.SaveChangesAsync();
 
-    ctx.Response.Cookies.Append("ap_conn",    licenca.ConnectionString      ?? string.Empty, opts);
     ctx.Response.Cookies.Append("ap_firma",   licenca.Naziv                ?? string.Empty, opts);
     ctx.Response.Cookies.Append("ap_ime",     korisnik.Ime                 ?? string.Empty, opts);
     ctx.Response.Cookies.Append("ap_priv",    korisnik.Privilegija.ToString(),              opts);
@@ -180,13 +181,14 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
 // ============================================================================
 app.MapGet("/api/auth/logout", (HttpContext ctx) =>
 {
-    ctx.Response.Cookies.Delete("ap_conn");
-    ctx.Response.Cookies.Delete("ap_firma");
-    ctx.Response.Cookies.Delete("ap_ime");
-    ctx.Response.Cookies.Delete("ap_priv");
-    ctx.Response.Cookies.Delete("ap_user");
-    ctx.Response.Cookies.Delete("ap_transport");
-    ctx.Response.Cookies.Delete("ap_licence");
+    var deleteOpts = new CookieOptions { Path = "/" };
+    ctx.Response.Cookies.Delete("ap_conn",      deleteOpts);
+    ctx.Response.Cookies.Delete("ap_firma",     deleteOpts);
+    ctx.Response.Cookies.Delete("ap_ime",       deleteOpts);
+    ctx.Response.Cookies.Delete("ap_priv",      deleteOpts);
+    ctx.Response.Cookies.Delete("ap_user",      deleteOpts);
+    ctx.Response.Cookies.Delete("ap_transport", deleteOpts);
+    ctx.Response.Cookies.Delete("ap_licence",   deleteOpts);
     return Results.Redirect("/login");
 });
 
