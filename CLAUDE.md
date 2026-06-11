@@ -237,16 +237,25 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - [x] **Dnevnice na turi** (obračun sati/dnevnica, panel)
 - [x] **Štampa troškovnika** (samo gotovinski, obračun isplate, dnevnice)
 - [x] **SQL migracije** (01_CREATE blanko baza + 02_MIGRACIJA za stare klijente, /sql/ folder)
-- [ ] Deploy na test server ← SLEDEĆE
+- [x] **Deploy na test server** (95.211.62.35, nginx + Kestrel na :5001, login/SignalR rade)
+- [ ] Dnevnice → Plate ← SLEDEĆE
 - [ ] Skenirani dokumenti (nalozi, vozači, vozila, firma)
 - [ ] Finansije
 - [ ] Fakturisanje
 - [ ] E-fakture
 
 ## TRENUTNI FOKUS
-SQL migracije završene (oba fajla u /sql/ folderu).
-Sledeće: DEPLOY NA TEST SERVER za napredne klijente.
-Posle deploya: dnevnice→plate, skenirani dokumenti, finansije.
+Deploy na test server završen i proveren (desktop + mobilni, login + SignalR rade).
+Sledeće: DNEVNICE → PLATE — na unosu dnevnica dva dugmeta:
+"Dodaj u troškove ture" (gotovinski trošak) i "Dodaj u dnevnice vozaču" (sekcija PLATE).
+Detalji logike u sekciji "DNEVNICE → PLATE (planirano, sledeći korak)" gore.
+
+## NAPOMENA — nginx na test serveru (95.211.62.35)
+Login ide preko `/api/auth/login-form` (form POST, ne fetch — radi pouzdano i na mobilnom).
+nginx mora imati `proxy_set_header Connection $connection_upgrade;` (ne hardkodovano
+"keep-alive") i `proxy_read_timeout 100s;` na location bloku za `/_blazor` (SignalR
+WebSocket/long-poll), inače Blazor circuit upada u reconnect petlju ("konekcija nestane").
+Config: `/etc/nginx/sites-enabled/daksoft` (port 80 → 127.0.0.1:5001).
 
 ## BUDUĆE FAZE (NE raditi sad — kontekst, detalji u ROADMAP.md)
 - FAZA 8: Self-service onboarding (PIB → kreiraj bazu rs{PIB})
