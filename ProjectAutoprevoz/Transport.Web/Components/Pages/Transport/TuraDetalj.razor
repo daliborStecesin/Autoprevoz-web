@@ -11,6 +11,7 @@
 @inject ITenantService        TenantService
 @inject INbsKursService       NbsKurs
 @inject TransportDbContext    Db
+@inject IDbContextFactory<TransportDbContext> DbFactory
 @inject IDialogService        Dialog
 @inject ISnackbar             Snackbar
 @inject NavigationManager     Nav
@@ -892,35 +893,66 @@ else if (_tura is not null)
                         var ukupnoDnevnice = dnevniceVozaca.Sum(d => d.Ukupno ?? 0);
 
                         <MudPaper Elevation="1" Class="pa-3 mb-3">
+                            @{
+                                var pSt = GetPlataPanel(i, v);
+                            }
                             @* Vozač header *@
-                            <div class="d-flex justify-space-between align-center mb-2">
-                                <div>
-                                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;">
-                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />
-                                        Vozač @i: @v.Ime @v.Prezime
+                            <div class="mb-2">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />
+                                    Vozač @i: @v.Ime @v.Prezime
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(v.tipIsplate))
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        Podrazumevani tip isplate: <strong>@v.tipIsplate</strong>
                                     </MudText>
-                                    @if (!string.IsNullOrWhiteSpace(v.tipIsplate))
-                                    {
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                            Tip isplate: <strong>@v.tipIsplate</strong>
-                                        </MudText>
-                                    }
-                                </div>
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small"
-                                           StartIcon="@Icons.Material.Filled.Money"
-                                           OnClick="@(async () => await UpisiDnevnice(v, idVStr))">
-                                    Upiši dnevnice
-                                </MudButton>
+                                }
                             </div>
 
-                            @* Dnevnice grid *@
-                            @if (dnevniceVozaca.Count == 0)
+                            @* Brzi pregled (plata + dnevnice) *@
+                            @if (pSt.IznosPlate > 0 || ukupnoDnevnice > 0)
                             {
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Nema dnevnica za ovu turu.</MudText>
+                                <MudPaper Elevation="0" Class="pa-2 mb-2"
+                                          Style="background:#f0f4f8; border-radius:4px; font-size:0.82rem; border:1px solid #d8e0e8;">
+                                    <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;" Class="mb-1 d-block">
+                                        <MudIcon Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Class="mr-1" />
+                                        Brzi pregled
+                                    </MudText>
+                                    @if (pSt.IznosPlate > 0)
+                                    {
+                                        @if (pSt.IznosPlate != pSt.ZaIsplatu)
+                                        {
+                                            <div class="d-flex justify-space-between">
+                                                <span>Plata (@NazivMetodaIsplate(pSt.TipIsplate)):</span>
+                                                <strong>@pSt.IznosPlate.ToString("N2") @pSt.Valuta</strong>
+                                            </div>
+                                        }
+                                        <div class="d-flex justify-space-between">
+                                            <span>Za isplatu (@NazivMetodaIsplate(pSt.TipIsplate)):</span>
+                                            <strong style="color:#1565C0;">@pSt.ZaIsplatu.ToString("N2") @pSt.Valuta</strong>
+                                        </div>
+                                    }
+                                    @if (ukupnoDnevnice > 0)
+                                    {
+                                        <div class="d-flex justify-space-between">
+                                            <span>Dnevnice (upisane):</span>
+                                            <strong>@ukupnoDnevnice.ToString("N2") RSD</strong>
+                                        </div>
+                                    }
+                                </MudPaper>
                             }
-                            else
+
+                            @* ── Dnevnice (sekundarno) ── *@
+                            <MudDivider Class="my-2" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1 d-block">
+                                <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Class="mr-1" />
+                                Dnevnice
+                            </MudText>
+
+                            @if (dnevniceVozaca.Count > 0)
                             {
-                                <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="font-size:0.8rem;">
+                                <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="font-size:0.8rem;" Class="mb-2">
                                     <thead>
                                         <tr>
                                             <th>Tip</th>
@@ -949,55 +981,167 @@ else if (_tura is not null)
                                         }
                                     </tbody>
                                 </MudSimpleTable>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
-                                    Ukupno dnevnice: <strong>@ukupnoDnevnice.ToString("N2")</strong>
-                                </MudText>
                             }
 
-                            @* Plata kalkulacija *@
-                            @{
-                                decimal? kalkulisanaPlata = v.tipIsplate switch
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" sm="6">
+                                    <MudNumericField T="decimal?" Value="@GetCenaDnevniceDom(i)"
+                                                     Label="Cena dnevnice DOM (RSD)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? val) => SetCenaDnevniceDom(i, val))" />
+                                    <div class="d-flex justify-space-between mt-1" style="font-size:0.75rem; color:#888;">
+                                        <span>Br. dnevnica (iz datuma): <strong>@((_tura.DnevnicaDom ?? 0).ToString("N1"))</strong></span>
+                                        <strong style="color:#1565C0;">@(VrednostDnevnicaDomZaVozaca(i).ToString("N2")) RSD</strong>
+                                    </div>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudNumericField T="decimal?" Value="@GetCenaDnevniceIno(i)"
+                                                     Label="Cena dnevnice INO (EUR)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true"
+                                                     ValueChanged="@((decimal? val) => SetCenaDnevniceIno(i, val))" />
+                                    <div class="d-flex justify-space-between mt-1" style="font-size:0.75rem; color:#888;">
+                                        <span>Br. dnevnica (iz datuma): <strong>@((_tura.DnevnicaIno ?? 0).ToString("N1"))</strong></span>
+                                        <strong style="color:#c62828;">@(VrednostDnevnicaInoZaVozaca(i).ToString("N2")) EUR</strong>
+                                    </div>
+                                </MudItem>
+                            </MudGrid>
+                            <div class="d-flex gap-2 mt-2">
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
+                                           StartIcon="@Icons.Material.Filled.PersonAddAlt"
+                                           OnClick="@(async () => await DodajDnevniceVozacu(v, idVStr, i))">
+                                    Dodaj dnevnice vozaču
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
+                                           StartIcon="@Icons.Material.Filled.ReceiptLong"
+                                           OnClick="@(async () => await DodajDnevniceUTroskove(v, i))">
+                                    Dodaj u troškove ture
+                                </MudButton>
+                            </div>
+
+                            @* ── Plata vozača (primarno) ── *@
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:700; color:#2D3E50;" Class="mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Small" Class="mr-1" />
+                                Plata vozača
+                            </MudText>
+                            <MudGrid Spacing="2" Class="plata-red">
+                                <MudItem xs="12" sm="3">
+                                    <NativniSelect Label="Način isplate" Value="@pSt.TipIsplate"
+                                                   ValueChanged="@(val => OnTipIsplateChanged(i, val ?? pSt.TipIsplate))">
+                                        <option value="PROCENAT">Procenat od ture</option>
+                                        <option value="PO_KM">Po kilometru</option>
+                                        <option value="DNEVNICA">Dnevnice</option>
+                                        <option value="FIXNO">Fiksna plata</option>
+                                    </NativniSelect>
+                                </MudItem>
+
+                                @if (pSt.TipIsplate == "PROCENAT")
                                 {
-                                    "PROCENAT" when v.procenatZaPlatu.HasValue =>
-                                        _tura.Cena * (v.procenatZaPlatu.Value / 100m),
-                                    "KM" when v.cenaPoKm.HasValue && _tura.Predjeno.HasValue =>
-                                        _tura.Predjeno.Value * v.cenaPoKm.Value,
-                                    "FIXNO" when v.fixnoPlata.HasValue =>
-                                        v.fixnoPlata.Value,
-                                    _ => null
-                                };
-                            }
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.Procenat" Label="Procenat (%)"
+                                                       Format="N2"
+                                                       ValueChanged="@((decimal? val) => { pSt.Procenat = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3" Class="d-flex align-center">
+                                        <span style="color:#555; font-size:0.82rem;">Vrednost ture: <strong>@((_tura.Cena ?? 0).ToString("N2")) EUR</strong></span>
+                                    </MudItem>
+                                }
+                                else if (pSt.TipIsplate == "PO_KM")
+                                {
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.Km" Label="Kilometri"
+                                                       Format="N0"
+                                                       ValueChanged="@((decimal? val) => { pSt.Km = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.CenaPoKm" Label="Cena po km"
+                                                       Format="N2"
+                                                       ValueChanged="@((decimal? val) => { pSt.CenaPoKm = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <NativniSelect Label="Valuta" @bind-Value="pSt.Valuta">
+                                            <option value="RSD">RSD</option>
+                                            <option value="EUR">EUR</option>
+                                        </NativniSelect>
+                                    </MudItem>
+                                }
+                                else if (pSt.TipIsplate == "DNEVNICA")
+                                {
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.CenaDnevnica" Label="Cena dnevnice (EUR)"
+                                                       Format="N2"
+                                                       ValueChanged="@((decimal? val) => { pSt.CenaDnevnica = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.BrojDnevnica" Label="Broj dnevnica"
+                                                       Format="N2"
+                                                       ValueChanged="@((decimal? val) => { pSt.BrojDnevnica = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                }
+                                else if (pSt.TipIsplate == "FIXNO")
+                                {
+                                    <MudItem xs="6" sm="3">
+                                        <NativniInput TValue="decimal?" Value="@pSt.FixnoPlata" Label="Fiksna plata"
+                                                       Format="N2"
+                                                       ValueChanged="@((decimal? val) => { pSt.FixnoPlata = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <NativniSelect Label="Valuta" @bind-Value="pSt.Valuta">
+                                            <option value="RSD">RSD</option>
+                                            <option value="EUR">EUR</option>
+                                        </NativniSelect>
+                                    </MudItem>
+                                }
+                            </MudGrid>
 
-                            @if (kalkulisanaPlata.HasValue || ukupnoDnevnice > 0)
-                            {
-                                <MudPaper Elevation="0" Class="pa-2 mt-2"
-                                          Style="background:#f0f4f8; border-radius:4px; font-size:0.82rem;">
-                                    @if (kalkulisanaPlata.HasValue)
-                                    {
-                                        <div class="d-flex justify-space-between">
-                                            <span>Plata (@v.tipIsplate):</span>
-                                            <strong>@kalkulisanaPlata.Value.ToString("N2") RSD</strong>
-                                        </div>
-                                    }
-                                    @if (ukupnoDnevnice > 0)
-                                    {
-                                        <div class="d-flex justify-space-between">
-                                            <span>Dnevnice:</span>
-                                            <strong>@ukupnoDnevnice.ToString("N2") RSD</strong>
-                                        </div>
-                                    }
-                                    @if (kalkulisanaPlata.HasValue && ukupnoDnevnice > 0)
-                                    {
-                                        <MudDivider Class="my-1" />
-                                        <div class="d-flex justify-space-between">
-                                            <span><strong>Ukupno:</strong></span>
-                                            <strong style="color:#1565C0; font-size:0.9rem;">
-                                                @((kalkulisanaPlata.Value + ukupnoDnevnice).ToString("N2")) RSD
-                                            </strong>
-                                        </div>
-                                    }
-                                </MudPaper>
-                            }
+                            <MudGrid Spacing="2" Class="mt-1">
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="pSt.Opis" Label="Opis" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-1"
+                                       StartIcon="@(pSt.PrikaziNapredno ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                       OnClick="@(() => pSt.PrikaziNapredno = !pSt.PrikaziNapredno)">
+                                Napredno (avans)
+                            </MudButton>
+                            <MudCollapse Expanded="@pSt.PrikaziNapredno">
+                                <MudGrid Spacing="2" Class="mt-1">
+                                    <MudItem xs="6" sm="3">
+                                        <MudNumericField T="decimal?" Value="@pSt.Avans" Label="Avans"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         Format="N2" HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? val) => { pSt.Avans = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <MudNumericField T="decimal?" Value="@pSt.VracenAvans" Label="Vraćen avans"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         Format="N2" HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? val) => { pSt.VracenAvans = val; PrekalkulisiPlatu(pSt); })" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudCollapse>
+
+                            <MudPaper Elevation="0" Class="pa-2 mt-2"
+                                      Style="background:#f0f4f8; border-radius:4px; font-size:0.82rem;">
+                                <div class="d-flex justify-space-between">
+                                    <span>Iznos plate:</span>
+                                    <strong>@pSt.IznosPlate.ToString("N2") @pSt.Valuta</strong>
+                                </div>
+                                <MudDivider Class="my-1" />
+                                <div class="d-flex justify-space-between">
+                                    <span><strong>Za isplatu:</strong></span>
+                                    <strong style="color:#1565C0; font-size:0.9rem;">@pSt.ZaIsplatu.ToString("N2") @pSt.Valuta</strong>
+                                </div>
+                            </MudPaper>
+
+                            <div class="mt-2">
+                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Save"
+                                           OnClick="@(async () => await UpisiPlatu(v, idVStr, i))">
+                                    Upiši platu
+                                </MudButton>
+                            </div>
 
                         </MudPaper>
                     }
@@ -1074,6 +1218,32 @@ else if (_tura is not null)
     private decimal _cenaDomaca = 3380m;
     private decimal _cenaIno    = 90m;
 
+    // Dnevnice po vozaču (Plata/Dnevnice sekcija) — cena dnevnice editabilna po panelu
+    private decimal? _cenaDnevniceDomV1;
+    private decimal? _cenaDnevniceInoV1;
+    private decimal? _cenaDnevniceDomV2;
+    private decimal? _cenaDnevniceInoV2;
+
+    // Plata po vozaču (Plata sekcija) — stanje obračuna po panelu (1=vozač1, 2=vozač2)
+    private class PlataPanelState
+    {
+        public string TipIsplate = "PROCENAT";
+        public decimal? Procenat;
+        public decimal? Km;
+        public decimal? CenaPoKm;
+        public decimal? FixnoPlata;
+        public decimal? BrojDnevnica;
+        public decimal? CenaDnevnica;
+        public decimal? Avans = 0;
+        public decimal? VracenAvans = 0;
+        public string Valuta = "EUR";
+        public string Opis = "";
+        public decimal IznosPlate;
+        public decimal ZaIsplatu;
+        public bool PrikaziNapredno;
+    }
+    private readonly Dictionary<int, PlataPanelState> _platePaneli = [];
+
     private Podesavanja? _pod;
 
     // Accordion stanje panela
@@ -1098,6 +1268,9 @@ else if (_tura is not null)
         _cenaDomaca = await PovuciScalar("SELECT TOP 1 OpcijaDecimal1 FROM tbl_Podesavanja", 3380m);
         _cenaIno    = await PovuciScalar("SELECT TOP 1 OpcijaDecimal2 FROM tbl_Podesavanja", 90m);
         _pod        = await Db.Podesavanja.FirstOrDefaultAsync();
+
+        _cenaDnevniceDomV1 = _cenaDomaca; _cenaDnevniceInoV1 = _cenaIno;
+        _cenaDnevniceDomV2 = _cenaDomaca; _cenaDnevniceInoV2 = _cenaIno;
 
         // Učitaj stanje accordion panela po korisniku
         var uid = TenantService.GetIdKorisnika();
@@ -1156,10 +1329,11 @@ else if (_tura is not null)
         };
 
         var today = DateTime.Today.ToString("yyyy-MM-dd");
-        _polazakDatum = today; _polazakVreme = "07:00";
-        _izlazakDatum = today; _izlazakVreme = "12:00";
-        _ulazakDatum  = today; _ulazakVreme  = "18:00";
-        _dolazakDatum = today; _dolazakVreme = "23:00";
+        var sad   = DateTime.Now.ToString("HH:mm");
+        _polazakDatum = today; _polazakVreme = sad;
+        _izlazakDatum = today; _izlazakVreme = sad;
+        _ulazakDatum  = today; _ulazakVreme  = sad;
+        _dolazakDatum = today; _dolazakVreme = sad;
 
         IzracunajDnevniceTure();
     }
@@ -1230,6 +1404,9 @@ else if (_tura is not null)
             _tura.CenaDnevnicaDom ??= _cenaDomaca;
             _tura.CenaDnevnicaIno ??= _cenaIno;
             IzracunajDnevniceTure();
+
+            if (_selV1 is not null) InicijalizujPlatuPanela(1, _selV1);
+            if (_selV2 is not null) InicijalizujPlatuPanela(2, _selV2);
 
             await UcitajNaloge();
             await UcitajTroskove();
@@ -1577,23 +1754,311 @@ else if (_tura is not null)
         _tura.VrednostTroskovaIno = aktivni.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
     }
 
-    private async Task UpisiDnevnice(Vozac vozac, string? idVStr)
+    // ── Dnevnice po vozaču (Plata/Dnevnice sekcija) ──
+
+    private decimal? GetCenaDnevniceDom(int idx) => idx == 1 ? _cenaDnevniceDomV1 : _cenaDnevniceDomV2;
+    private decimal? GetCenaDnevniceIno(int idx) => idx == 1 ? _cenaDnevniceInoV1 : _cenaDnevniceInoV2;
+
+    private void SetCenaDnevniceDom(int idx, decimal? v)
+    {
+        if (idx == 1) _cenaDnevniceDomV1 = v; else _cenaDnevniceDomV2 = v;
+    }
+    private void SetCenaDnevniceIno(int idx, decimal? v)
+    {
+        if (idx == 1) _cenaDnevniceInoV1 = v; else _cenaDnevniceInoV2 = v;
+    }
+
+    private decimal VrednostDnevnicaDomZaVozaca(int idx)
+        => (_tura?.DnevnicaDom ?? 0) * (GetCenaDnevniceDom(idx) ?? 0);
+    private decimal VrednostDnevnicaInoZaVozaca(int idx)
+        => (_tura?.DnevnicaIno ?? 0) * (GetCenaDnevniceIno(idx) ?? 0);
+
+    private async Task DodajDnevniceVozacu(Vozac vozac, string? idVStr, int idx)
+    {
+        if (_tura is null || string.IsNullOrWhiteSpace(_tura.BrNaloga)) return;
+        SinkronizujDatumeKaTuri();
+
+        var brojDom      = _tura.DnevnicaDom ?? 0;
+        var cenaDom      = GetCenaDnevniceDom(idx) ?? 0;
+        var vrednostDom  = brojDom * cenaDom;
+
+        var brojIno      = _tura.DnevnicaIno ?? 0;
+        var cenaIno      = GetCenaDnevniceIno(idx) ?? 0;
+        var vrednostIno  = brojIno * cenaIno;
+
+        if (vrednostDom <= 0 && vrednostIno <= 0)
+        {
+            Snackbar.Add("Nema dnevnica za unos (vrednost je 0).", Severity.Warning);
+            return;
+        }
+
+        var imeVozaca = $"{vozac.Ime} {vozac.Prezime}";
+        var upisano   = false;
+
+        if (vrednostDom > 0 &&
+            await SacuvajDnevnicuVozaca("DOMACA", idVStr, imeVozaca, brojDom, cenaDom, vrednostDom))
+            upisano = true;
+
+        if (vrednostIno > 0 &&
+            await SacuvajDnevnicuVozaca("INOSTRANA", idVStr, imeVozaca, brojIno, cenaIno, vrednostIno))
+            upisano = true;
+
+        if (upisano)
+        {
+            await UcitajDnevnice();
+            Snackbar.Add("Dnevnice upisane vozaču.", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private async Task<bool> SacuvajDnevnicuVozaca(string tip, string? idVStr, string imeVozaca,
+        decimal brojDnevnica, decimal cena, decimal ukupno)
+    {
+        if (_tura is null) return false;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var existing = await db.Dnevnice.FirstOrDefaultAsync(d =>
+            d.brNaloga == _tura.BrNaloga && d.idVozaca == idVStr && d.tipDnevnice == tip);
+
+        if (existing is not null)
+        {
+            var izmeni = await Dialog.ShowMessageBox(
+                "Dnevnice već postoje",
+                $"Već postoje {(tip == "DOMACA" ? "domaće" : "inostrane")} dnevnice za ovaj putni nalog. Izmeniti?",
+                yesText: "Da, izmeni", cancelText: "Ne");
+            if (izmeni != true) return false;
+        }
+        else
+        {
+            existing = new Dnevnica { brNaloga = _tura.BrNaloga, tipDnevnice = tip };
+            db.Dnevnice.Add(existing);
+        }
+
+        existing.vozac          = imeVozaca;
+        existing.idVozaca       = idVStr;
+        existing.vozilo         = _tura.Vozilo;
+        existing.idVozila       = _tura.IdVozila?.ToString();
+        existing.regOznaka      = _tura.Vozilo;
+        existing.relacija       = _tura.Relacija;
+        existing.datumPolaska   = _tura.DatumPolaska;
+        existing.datumDolaska   = _tura.DatumDolaska;
+        existing.datumIzlaska   = _tura.DatumIzlaska;
+        existing.datumUlaska    = _tura.DatumUlaska;
+        existing.datumDokumenta = _tura.DatumDokumenta ?? DateTime.Today;
+        existing.brCasova       = tip == "DOMACA" ? _tura.SatiDom : _tura.SatiIno;
+        existing.brojDnevnica   = brojDnevnica;
+        existing.dnevnica       = cena;
+        existing.Ukupno         = ukupno;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task DodajDnevniceUTroskove(Vozac vozac, int idx)
     {
         if (_tura is null) return;
-        SinkronizujDatumeKaTuri();
-        var param = new DialogParameters<DnevnicaDialog>
+
+        var brojDom     = _tura.DnevnicaDom ?? 0;
+        var cenaDom     = GetCenaDnevniceDom(idx) ?? 0;
+        var vrednostDom = brojDom * cenaDom;       // RSD
+
+        var brojIno     = _tura.DnevnicaIno ?? 0;
+        var cenaIno     = GetCenaDnevniceIno(idx) ?? 0;
+        var vrednostIno = brojIno * cenaIno;       // EUR
+
+        if (vrednostDom <= 0 && vrednostIno <= 0)
         {
-            { x => x.BrNalogaEdit,         _tura.BrNaloga },
-            { x => x.IdVozacaStrEdit,       idVStr },
-            { x => x.DatumPolaskaDefault,   _tura.DatumPolaska },
-            { x => x.DatumIzlaskaDefault,   _tura.DatumIzlaska },
-            { x => x.DatumUlaskaDefault,    _tura.DatumUlaska },
-            { x => x.DatumDolaskaDefault,   _tura.DatumDolaska }
+            Snackbar.Add("Nema dnevnica za unos u troškove (vrednost je 0).", Severity.Warning);
+            return;
+        }
+
+        var imeVozaca = $"{vozac.Ime} {vozac.Prezime}";
+        var idVoz     = idx == 1 ? _tura.IdVozaca1 : _tura.IdVozaca2;
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            if (vrednostDom > 0)
+            {
+                db.Troskovi.Add(new Trosak
+                {
+                    idNaloga      = Id,
+                    datum         = DateTime.Today,
+                    vrstaTroska   = "DNEVNICA DOM",
+                    tip           = "ZEMLJA",
+                    opis          = $"Dnevnice ({imeVozaca})",
+                    vrednost      = vrednostDom,
+                    kurs          = _tKurs > 0 ? _tKurs : null,
+                    vrednostEUR   = _tKurs > 0 ? Math.Round(vrednostDom / _tKurs, 2) : null,
+                    idVozaca      = idVoz,
+                    idVozila      = _tura.IdVozila,
+                    ideTroskovnik = 0,
+                    jeGotovinski  = 1,
+                    brisano       = 0
+                });
+            }
+
+            if (vrednostIno > 0)
+            {
+                db.Troskovi.Add(new Trosak
+                {
+                    idNaloga      = Id,
+                    datum         = DateTime.Today,
+                    vrstaTroska   = "DNEVNICA INO",
+                    tip           = "INOSTRANSTVO",
+                    opis          = $"Dnevnice ({imeVozaca})",
+                    vrednost      = _tKurs > 0 ? Math.Round(vrednostIno * _tKurs, 2) : null,
+                    vrednostEUR   = vrednostIno,
+                    kurs          = _tKurs > 0 ? _tKurs : null,
+                    idVozaca      = idVoz,
+                    idVozila      = _tura.IdVozila,
+                    ideTroskovnik = 0,
+                    jeGotovinski  = 1,
+                    brisano       = 0
+                });
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        await UcitajTroskove();
+        RecalcTuraTotals();
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Dnevnice dodate u troškove ture.", Severity.Success);
+        StateHasChanged();
+    }
+
+    // ── Plata po vozaču (Plata sekcija) ──
+
+    private PlataPanelState GetPlataPanel(int idx, Vozac vozac)
+        => _platePaneli.TryGetValue(idx, out var st) ? st : InicijalizujPlatuPanela(idx, vozac);
+
+    private PlataPanelState InicijalizujPlatuPanela(int idx, Vozac vozac)
+    {
+        var brojDnevnica = (_tura?.DnevnicaDom ?? 0) + (_tura?.DnevnicaIno ?? 0);
+
+        var st = new PlataPanelState
+        {
+            TipIsplate   = !string.IsNullOrWhiteSpace(vozac.tipIsplate) ? vozac.tipIsplate! : "PROCENAT",
+            Procenat     = vozac.procenatZaPlatu,
+            Km           = _tura?.Predjeno,
+            CenaPoKm     = vozac.cenaPoKm,
+            FixnoPlata   = vozac.fixnoPlata,
+            BrojDnevnica = brojDnevnica,
+            CenaDnevnica = vozac.dnevnica ?? GetCenaDnevniceIno(idx) ?? _cenaIno,
+            Avans        = 0,
+            VracenAvans  = 0,
+            Opis         = OpisPlate()
         };
-        var dlg = await Dialog.ShowAsync<DnevnicaDialog>("Dnevnice", param,
-            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = false });
-        await dlg.Result;
-        await UcitajDnevnice();
+
+        st.Valuta = st.TipIsplate is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
+        PrekalkulisiPlatu(st);
+
+        _platePaneli[idx] = st;
+        return st;
+    }
+
+    private string OpisPlate()
+    {
+        if (_tura is null) return "";
+        var rel = _tura.Relacija ?? "";
+        if (rel.Length > 30) rel = rel[..30].TrimEnd() + "...";
+        return $"NALOG-{_tura.BrNaloga} {rel}".TrimEnd();
+    }
+
+    private static string NazivMetodaIsplate(string tip) => tip switch
+    {
+        "PROCENAT" => "procenat",
+        "PO_KM"    => "po km",
+        "DNEVNICA" => "dnevnice",
+        "FIXNO"    => "fiksno",
+        _          => tip
+    };
+
+    private void OnTipIsplateChanged(int idx, string noviTip)
+    {
+        if (!_platePaneli.TryGetValue(idx, out var st)) return;
+        st.TipIsplate = noviTip;
+        st.Valuta = noviTip is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
+        PrekalkulisiPlatu(st);
+    }
+
+    private void PrekalkulisiPlatu(PlataPanelState st)
+    {
+        var vrednostTure = _tura?.Cena ?? 0;
+        st.IznosPlate = st.TipIsplate switch
+        {
+            "PROCENAT" => Math.Round(vrednostTure * (st.Procenat ?? 0) / 100m, 2),
+            "PO_KM"    => Math.Round((st.Km ?? 0) * (st.CenaPoKm ?? 0), 2),
+            "DNEVNICA" => Math.Round((st.BrojDnevnica ?? 0) * (st.CenaDnevnica ?? 0), 2),
+            "FIXNO"    => st.FixnoPlata ?? 0,
+            _          => 0m
+        };
+
+        if (st.TipIsplate is "PROCENAT" or "DNEVNICA") st.Valuta = "EUR";
+
+        st.ZaIsplatu = st.IznosPlate - (st.Avans ?? 0) + (st.VracenAvans ?? 0);
+    }
+
+    private async Task UpisiPlatu(Vozac vozac, string? idVStr, int idx)
+    {
+        if (_tura is null || string.IsNullOrWhiteSpace(idVStr)) return;
+        if (!_platePaneli.TryGetValue(idx, out var pSt)) return;
+
+        if (pSt.IznosPlate <= 0)
+        {
+            Snackbar.Add("Iznos plate mora biti veći od nule.", Severity.Warning);
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var existing = await db.Plate.FirstOrDefaultAsync(p =>
+            p.IdTure == Id && p.idVozaca == idVStr && p.tipIsplate == pSt.TipIsplate);
+
+        if (existing is not null)
+        {
+            var izmeni = await Dialog.ShowMessageBox(
+                "Plata već postoji",
+                $"Već postoji {pSt.TipIsplate} plata za ovog vozača na ovoj turi. Izmeniti?",
+                yesText: "Da, izmeni", cancelText: "Ne");
+            if (izmeni != true) return;
+        }
+        else
+        {
+            existing = new Plata
+            {
+                idVozaca   = idVStr,
+                brisano    = 0,
+                uneo       = TenantService.GetNazivFirme(),
+                datumUnosa = DateTime.Now
+            };
+            db.Plate.Add(existing);
+        }
+
+        existing.idVozila      = _tura.IdVozila?.ToString();
+        existing.IdTure        = Id;
+        existing.tura          = pSt.Opis;
+        existing.tipIsplate    = pSt.TipIsplate;
+        existing.datum         = _tura.DatumDokumenta ?? DateTime.Today;
+        existing.izvorObracuna = "TURA";
+
+        existing.vrednostTure = pSt.TipIsplate == "PROCENAT" ? (_tura.Cena ?? 0) : null;
+        existing.procenat     = pSt.TipIsplate == "PROCENAT" ? pSt.Procenat   : null;
+        existing.km           = pSt.TipIsplate == "PO_KM"    ? pSt.Km         : null;
+        existing.cenaPoKm     = pSt.TipIsplate == "PO_KM"    ? pSt.CenaPoKm   : null;
+        existing.fixnoPlata   = pSt.TipIsplate == "FIXNO"    ? pSt.FixnoPlata : null;
+        existing.dnevnica     = pSt.TipIsplate == "DNEVNICA" ? pSt.IznosPlate : null;
+
+        existing.iznosPlate  = pSt.IznosPlate;
+        existing.avans       = pSt.Avans ?? 0;
+        existing.vracenAvans = pSt.VracenAvans ?? 0;
+        existing.zaIsplatu   = pSt.ZaIsplatu;
+        existing.valuta      = pSt.Valuta;
+        existing.KursEur     = _tKurs;
+
+        await db.SaveChangesAsync();
+        Snackbar.Add("Plata upisana.", Severity.Success);
         StateHasChanged();
     }
 
@@ -1601,11 +2066,13 @@ else if (_tura is not null)
     {
         _selV1 = v; _v1Predlozi = []; _v1Pretraga = "";
         if (_tura is not null) { _tura.IdVozaca1 = v.Broj; _tura.Vozac1 = $"{v.Ime} {v.Prezime}"; }
+        InicijalizujPlatuPanela(1, v);
     }
     private void IzaberiV2(Vozac v)
     {
         _selV2 = v; _v2Predlozi = []; _v2Pretraga = "";
         if (_tura is not null) { _tura.IdVozaca2 = v.Broj; _tura.Vozac2 = $"{v.Ime} {v.Prezime}"; }
+        InicijalizujPlatuPanela(2, v);
     }
     private void IzaberiVozilo(Vozilo vz)
     {
@@ -1659,7 +2126,33 @@ else if (_tura is not null)
         _tura.DatumIzlaska = ParsajDatumVreme(_izlazakDatum, _izlazakVreme);
         _tura.DatumUlaska  = ParsajDatumVreme(_ulazakDatum,  _ulazakVreme);
         _tura.DatumDolaska = ParsajDatumVreme(_dolazakDatum, _dolazakVreme);
+
+        EnsureChronologicalOrder();
+
         IzracunajDnevniceTure();
+    }
+
+    // Osiguraj hronološki redosled: Izlazak >= Polazak, Ulazak >= Izlazak, Dolazak >= Ulazak
+    private void EnsureChronologicalOrder()
+    {
+        if (_tura?.DatumPolaska is null || _tura.DatumIzlaska is null ||
+            _tura.DatumUlaska  is null || _tura.DatumDolaska is null) return;
+
+        if (_tura.DatumIzlaska < _tura.DatumPolaska)
+            _tura.DatumIzlaska = _tura.DatumPolaska;
+
+        if (_tura.DatumUlaska < _tura.DatumIzlaska)
+            _tura.DatumUlaska = _tura.DatumIzlaska;
+
+        if (_tura.DatumDolaska < _tura.DatumUlaska)
+            _tura.DatumDolaska = _tura.DatumUlaska;
+
+        _izlazakDatum = _tura.DatumIzlaska.Value.ToString("yyyy-MM-dd");
+        _izlazakVreme = _tura.DatumIzlaska.Value.ToString("HH:mm");
+        _ulazakDatum  = _tura.DatumUlaska.Value.ToString("yyyy-MM-dd");
+        _ulazakVreme  = _tura.DatumUlaska.Value.ToString("HH:mm");
+        _dolazakDatum = _tura.DatumDolaska.Value.ToString("yyyy-MM-dd");
+        _dolazakVreme = _tura.DatumDolaska.Value.ToString("HH:mm");
     }
 
     private static DateTime? ParsajDatumVreme(string datum, string vreme)

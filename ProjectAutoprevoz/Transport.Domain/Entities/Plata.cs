@@ -43,6 +43,15 @@ public class Plata
     [MaxLength(20)]
     public string? izvorObracuna { get; set; }
 
+    [Column("idTure")]
+    public int? IdTure { get; set; }
+
+    [Column("kursEur")]
+    public decimal? KursEur { get; set; }
+
+    [MaxLength(10)]
+    public string valuta { get; set; } = "RSD";
+
     public int isplaceno { get; set; } = 0;
 
     [Column(TypeName = "date")]

@@ -1,0 +1,33 @@
+@* Native <select> stilizovan da izgleda i poravnava se kao MudBlazor outlined polje
+   (Variant.Outlined, Margin="Dense") — label na gornjoj ivici okvira, ista visina
+   kao MudNumericField/MudTextField u istom redu. *@
+
+<div class="nativni-select-mud @Class" style="@Style">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label>@Label</label>
+    }
+    <select value="@Value" @onchange="OnChangeAsync" disabled="@Disabled">
+        @ChildContent
+    </select>
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnChange { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        if (ValueChanged.HasDelegate)
+            await ValueChanged.InvokeAsync(e.Value?.ToString());
+
+        if (OnChange.HasDelegate)
+            await OnChange.InvokeAsync(e);
+    }
+}

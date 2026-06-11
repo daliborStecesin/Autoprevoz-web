@@ -16,11 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 // DATABASE — Transport baza (kasa)
 // ============================================================================
 // TransportDbContext koristi connection string klijentove baze iz tenant cookie-ja
-builder.Services.AddScoped<TransportDbContext>(sp =>
+string ResolveTenantConnectionString(IServiceProvider sp)
 {
-    var tenant      = sp.GetRequiredService<ITenantService>();
-    var currentUser = sp.GetRequiredService<ICurrentUser>();
-    var config  = sp.GetRequiredService<IConfiguration>();
+    var tenant = sp.GetRequiredService<ITenantService>();
+    var config = sp.GetRequiredService<IConfiguration>();
     var raw = tenant.IsAuthenticated()
         ? tenant.GetConnectionString()
         : config.GetConnectionString("Transport") ?? string.Empty;
@@ -31,12 +30,27 @@ builder.Services.AddScoped<TransportDbContext>(sp =>
         TrustServerCertificate = true,
         Encrypt = false
     };
+    return csb.ConnectionString;
+}
 
+builder.Services.AddScoped<TransportDbContext>(sp =>
+{
+    var currentUser = sp.GetRequiredService<ICurrentUser>();
     var opts = new DbContextOptionsBuilder<TransportDbContext>()
-        .UseSqlServer(csb.ConnectionString)
+        .UseSqlServer(ResolveTenantConnectionString(sp))
         .Options;
     return new TransportDbContext(opts, currentUser);
 });
+
+// IDbContextFactory — za stranice koje moraju da otvaraju kratkotrajne, izolovane
+// kontekste po operaciji (izbegava "A second operation was started on this context
+// instance before a previous operation completed" kod preklapajućih async poziva
+// u istom Blazor circuit-u). Scoped da bi tenant/connection string i dalje bili
+// po korisniku/krugu.
+builder.Services.AddDbContextFactory<TransportDbContext>((sp, options) =>
+{
+    options.UseSqlServer(ResolveTenantConnectionString(sp));
+}, ServiceLifetime.Scoped);
 
 // ============================================================================
 // DATABASE — Master baza (daksoft) — licence i web korisnici
@@ -80,7 +94,10 @@ builder.Services.AddMudServices();
 // RAZOR COMPONENTS & BLAZOR
 // ============================================================================
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DetailedErrors = builder.Environment.IsDevelopment();
+    });
 
 var app = builder.Build();
 

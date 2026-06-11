@@ -101,3 +101,84 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* === Native <select>/<input> stilizovani kao MudBlazor outlined polje (Margin="Dense") ===
+   Koristi se preko NativniSelect.razor / NativniInput.razor wrapper komponenti, da bi
+   <select>/<input> u istom redu sa MudTextField/MudNumericField imali istu visinu i
+   poravnanje labele. Obe komponente dele identičan vizuelni stil. */
+.nativni-select-mud,
+.nativni-input-mud {
+    position: relative;
+    margin-top: 8px;
+}
+
+.nativni-select-mud > label,
+.nativni-input-mud > label {
+    position: absolute;
+    top: -8px;
+    left: 10px;
+    padding: 0 4px;
+    background: #fff;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.75rem;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.nativni-select-mud > select,
+.nativni-input-mud > input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid rgba(0, 0, 0, 0.23);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.87);
+    background: #fff;
+    outline: none;
+}
+
+.nativni-select-mud > select {
+    cursor: pointer;
+}
+
+.nativni-select-mud > select:hover:not(:disabled),
+.nativni-input-mud > input:hover:not(:disabled) {
+    border-color: rgba(0, 0, 0, 0.6);
+}
+
+.nativni-select-mud > select:focus,
+.nativni-input-mud > input:focus {
+    border-width: 2px;
+    padding: 0 11px;
+    border-color: #3D8EB9;
+}
+
+.nativni-select-mud > select:disabled,
+.nativni-input-mud > input:disabled {
+    color: rgba(0, 0, 0, 0.38);
+    background: rgba(0, 0, 0, 0.03);
+    cursor: default;
+}
+
+/* === Poravnanje NativniSelect/NativniInput sa preostalim MudBlazor poljima
+   (Margin="Dense") u istom redu (npr. "Plata vozača": Način isplate | Kilometri |
+   Cena po km | Valuta). Mud polja rezervišu prostor za helper/validation tekst
+   ispod inputa i imaju svoju gornju marginu — uklanjamo oboje da bi top/visina/
+   label bili na istom nivou kao kod NativniSelect/NativniInput. === */
+.plata-red .mud-input-helper-text {
+    display: none;
+}
+
+.plata-red .mud-input-control {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.plata-red .nativni-select-mud,
+.plata-red .nativni-input-mud {
+    margin-top: 0;
+}

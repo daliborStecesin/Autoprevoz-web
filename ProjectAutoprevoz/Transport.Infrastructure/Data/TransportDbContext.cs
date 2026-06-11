@@ -294,5 +294,10 @@ public class TransportDbContext : DbContext
                 }
             }
         }
+
+        // kursEur na plati zahteva 4 decimale (poklapa se sa tbl_plate.kursEur decimal(18,4))
+        modelBuilder.Entity<Plata>()
+            .Property(p => p.KursEur)
+            .HasPrecision(18, 4);
     }
 }

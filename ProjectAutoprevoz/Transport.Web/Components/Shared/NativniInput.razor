@@ -1,0 +1,76 @@
+@* Native <input> stilizovan da izgleda i poravnava se kao MudBlazor outlined polje
+   (Variant.Outlined, Margin="Dense") — vizuelni blizanac NativniSelect.razor.
+   Koristi se u redovima gde <select> i MudNumericField/MudTextField ne mogu da se
+   poravnaju zbog Mud-ovih internih margina/helper-prostora. *@
+@typeparam TValue
+@using System.Globalization
+
+<div class="nativni-input-mud @Class" style="@Style">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label>@Label</label>
+    }
+    <input type="text" inputmode="@InputMode"
+           value="@DisplayValue"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           @onchange="OnChangeAsync" />
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public string? Format { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public string InputMode { get; set; } = "decimal";
+
+    private string? DisplayValue => Value switch
+    {
+        null => null,
+        decimal d => d.ToString(Format ?? "0.##"),
+        _ => Value.ToString()
+    };
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        var converted = Konvertuj(e.Value?.ToString());
+        await ValueChanged.InvokeAsync(converted);
+    }
+
+    private static TValue? Konvertuj(string? raw)
+    {
+        var ciljniTip = Nullable.GetUnderlyingType(typeof(TValue)) ?? typeof(TValue);
+
+        if (ciljniTip == typeof(decimal))
+        {
+            var broj = ParsirajDecimal(raw);
+            return broj is null ? default : (TValue)(object)broj.Value;
+        }
+
+        if (ciljniTip == typeof(string))
+            return (TValue?)(object?)raw;
+
+        return default;
+    }
+
+    // Robustno parsiranje — prihvata i zarez i tačku kao decimalni separator,
+    // bez obzira na trenutnu kulturu servera/browsera.
+    private static decimal? ParsirajDecimal(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        raw = raw.Trim();
+
+        if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.CurrentCulture, out var d1))
+            return d1;
+
+        if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d2))
+            return d2;
+
+        var zamenjeno = raw.Contains(',') ? raw.Replace(",", ".") : raw.Replace(".", ",");
+        return decimal.TryParse(zamenjeno, NumberStyles.Any, CultureInfo.CurrentCulture, out var d3) ? d3 : null;
+    }
+}

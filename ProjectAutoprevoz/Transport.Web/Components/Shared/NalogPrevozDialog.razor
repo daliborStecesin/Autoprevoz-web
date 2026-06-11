@@ -761,8 +761,11 @@
 
         if (!_nalog.CenaJM.HasValue && _nalog.CenaTransporta.HasValue)
         {
-            _nalog.CenaJM    = _nalog.CenaTransporta;
-            _nalog.Kolicina ??= 1m;
+            _nalog.CenaJM = _nalog.CenaTransporta;
+        }
+        if (!_nalog.Kolicina.HasValue || _nalog.Kolicina == 0m)
+        {
+            _nalog.Kolicina = 1m;
         }
 
         if (_nalog.IdUvoznika.HasValue)

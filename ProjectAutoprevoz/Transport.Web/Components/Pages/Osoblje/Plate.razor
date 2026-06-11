@@ -92,12 +92,20 @@
             <MudDivider Class="mb-3" />
 
             <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Isplate po vozaču</MudText>
-            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPoVozacu.ToString("N2") RSD</MudText>
+            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPoVozacuRSD.ToString("N2") RSD</MudText>
+            @if (_sumaPoVozacuEUR != 0)
+            {
+                <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPoVozacuEUR.ToString("N2") EUR</MudText>
+            }
 
             <MudDivider Class="my-3" />
 
             <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Isplate za period</MudText>
-            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPeriod.ToString("N2") RSD</MudText>
+            <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPeriodRSD.ToString("N2") RSD</MudText>
+            @if (_sumaPeriodEUR != 0)
+            {
+                <MudText Typo="Typo.h6" Style="color:#c62828; font-weight:700;">@_sumaPeriodEUR.ToString("N2") EUR</MudText>
+            }
         </MudPaper>
     </MudItem>
 
@@ -187,6 +195,9 @@
                             <span style="display:block; text-align:right; font-weight:600;">@context.Item.zaIsplatu?.ToString("N2")</span>
                         </CellTemplate>
                     </TemplateColumn>
+                    <TemplateColumn Title="Valuta" SortBy="x => x.valuta" HeaderStyle="width:70px;">
+                        <CellTemplate>@(context.Item.valuta ?? "RSD")</CellTemplate>
+                    </TemplateColumn>
                     <TemplateColumn Title="Tip isplate" SortBy="x => x.tipIsplate">
                         <CellTemplate>@(context.Item.tipIsplate ?? "—")</CellTemplate>
                     </TemplateColumn>
@@ -231,8 +242,10 @@
     private Plata? _selektovana;
 
     private string _filterIsplaceno = "all";
-    private decimal _sumaPoVozacu;
-    private decimal _sumaPeriod;
+    private decimal _sumaPoVozacuRSD;
+    private decimal _sumaPoVozacuEUR;
+    private decimal _sumaPeriodRSD;
+    private decimal _sumaPeriodEUR;
     private bool _ucitava;
     private bool _pretrazivano;
     private DateTime _poslednjiKlik = DateTime.MinValue;
@@ -314,10 +327,19 @@
 
             _rezultati = await q.OrderByDescending(x => x.datum).ToListAsync();
 
-            _sumaPeriod = _rezultati.Sum(x => x.zaIsplatu ?? 0);
-            _sumaPoVozacu = _filterVozac is not null
-                ? _rezultati.Sum(x => x.zaIsplatu ?? 0)
-                : 0;
+            _sumaPeriodRSD = _rezultati.Where(x => (x.valuta ?? "RSD") != "EUR").Sum(x => x.zaIsplatu ?? 0);
+            _sumaPeriodEUR = _rezultati.Where(x => x.valuta == "EUR").Sum(x => x.zaIsplatu ?? 0);
+
+            if (_filterVozac is not null)
+            {
+                _sumaPoVozacuRSD = _sumaPeriodRSD;
+                _sumaPoVozacuEUR = _sumaPeriodEUR;
+            }
+            else
+            {
+                _sumaPoVozacuRSD = 0;
+                _sumaPoVozacuEUR = 0;
+            }
 
             _pretrazivano = true;
         }

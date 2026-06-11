@@ -97,12 +97,13 @@ else
                     <th>Osnovica</th>
                     <th class="right-align">Iznos plate</th>
                     <th class="right-align">Za isplatu</th>
+                    <th>Valuta</th>
                 </tr>
             </thead>
             <tbody>
                 @if (_plate.Count == 0)
                 {
-                    <tr><td colspan="6" style="text-align:center; padding:16px; color:#666;">Nema plata za izabrane filtere.</td></tr>
+                    <tr><td colspan="7" style="text-align:center; padding:16px; color:#666;">Nema plata za izabrane filtere.</td></tr>
                 }
                 else
                 {
@@ -115,6 +116,7 @@ else
                             <td>@FormatOsnovica(p)</td>
                             <td class="right-align">@p.iznosPlate?.ToString("N2")</td>
                             <td class="right-align">@p.zaIsplatu?.ToString("N2")</td>
+                            <td>@(p.valuta ?? "RSD")</td>
                         </tr>
                     }
                 }
@@ -123,10 +125,20 @@ else
 
         <div class="footer-sums">
             <table>
-                <tr>
-                    <td>Za isplatu ukupno:</td>
-                    <td>@_ukupnoZaIsplatu.ToString("N2") RSD</td>
-                </tr>
+                @if (_ukupnoRSD != 0 || _ukupnoEUR == 0)
+                {
+                    <tr>
+                        <td>Za isplatu ukupno (RSD):</td>
+                        <td>@_ukupnoRSD.ToString("N2") RSD</td>
+                    </tr>
+                }
+                @if (_ukupnoEUR != 0)
+                {
+                    <tr>
+                        <td>Za isplatu ukupno (EUR):</td>
+                        <td>@_ukupnoEUR.ToString("N2") EUR</td>
+                    </tr>
+                }
             </table>
         </div>
 
@@ -151,7 +163,8 @@ else
     private PodaciFirme? _firma;
     private string? _vozacIme;
     private string? _vozacTelefon;
-    private decimal _ukupnoZaIsplatu;
+    private decimal _ukupnoRSD;
+    private decimal _ukupnoEUR;
     private bool _ucitava = true;
     private string? _greska;
 
@@ -192,7 +205,8 @@ else
             }
 
             _plate = await q.OrderBy(x => x.datum).ToListAsync();
-            _ukupnoZaIsplatu = _plate.Sum(x => x.zaIsplatu ?? 0);
+            _ukupnoRSD = _plate.Where(x => (x.valuta ?? "RSD") != "EUR").Sum(x => x.zaIsplatu ?? 0);
+            _ukupnoEUR = _plate.Where(x => x.valuta == "EUR").Sum(x => x.zaIsplatu ?? 0);
         }
         catch (Exception ex)
         {
