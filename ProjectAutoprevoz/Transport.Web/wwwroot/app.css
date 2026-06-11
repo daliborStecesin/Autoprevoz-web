@@ -27,6 +27,24 @@ html, body {
     border-width: 2px;
 }
 
+/* Native <input> stilizovan poput MudTextField Outlined (npr. login forma) */
+.ap-input {
+    width: 100%;
+    height: 56px;
+    padding: 0 12px;
+    border: 1px solid rgba(0,0,0,.23);
+    border-radius: 4px;
+    font-size: 1rem;
+    color: rgba(0,0,0,.87);
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+}
+.ap-input:focus {
+    border-color: #2D3E50;
+    border-width: 2px;
+}
+
 a, .btn-link {
     color: #006bb7;
 }

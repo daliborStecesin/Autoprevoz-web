@@ -95,33 +95,31 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 
 // ============================================================================
-// API — Prijava: validira kredencijale i postavlja HTTP cookie
+// API — Prijava: zajednička logika za JSON (fetch) i form (POST) login
 // ============================================================================
-app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, HttpContext ctx) =>
+async Task<LoginRezultatInterno> PrijaviKorisnikaAsync(string email, string password, MasterDbContext db, HttpContext ctx)
 {
     var korisnik = await db.WebKorisnici
         .Include(k => k.Licenca)
-        .FirstOrDefaultAsync(k => k.Email   == podaci.Email
+        .FirstOrDefaultAsync(k => k.Email   == email
                                 && k.Aktivan == 1);
 
     if (korisnik is null)
-        return Results.Json(new { poruka = "Pogrešan email ili lozinka." }, statusCode: 401);
+        return new LoginRezultatInterno(false, "Pogrešan email ili lozinka.", null, null, 0, 0);
 
     var hasher = new PasswordHasher<object>();
-    var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", podaci.Password);
+    var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", password);
     if (verResult == PasswordVerificationResult.Failed)
-        return Results.Json(new { poruka = "Pogrešan email ili lozinka." }, statusCode: 401);
+        return new LoginRezultatInterno(false, "Pogrešan email ili lozinka.", null, null, 0, 0);
 
     var licenca = korisnik.Licenca;
 
     if (licenca is null || licenca.WebAktivan != 1)
-        return Results.Json(new { poruka = "Nemate aktiviran web pristup." }, statusCode: 401);
+        return new LoginRezultatInterno(false, "Nemate aktiviran web pristup.", null, null, 0, 0);
 
     if (licenca.DatumLicence.HasValue &&
         licenca.DatumLicence.Value < DateOnly.FromDateTime(DateTime.Today))
-        return Results.Json(
-            new { poruka = $"Licenca je istekla {licenca.DatumLicence.Value:dd.MM.yyyy}. Kontaktirajte podršku." },
-            statusCode: 401);
+        return new LoginRezultatInterno(false, $"Licenca je istekla {licenca.DatumLicence.Value:dd.MM.yyyy}. Kontaktirajte podršku.", null, null, 0, 0);
 
     var opts = new CookieOptions
     {
@@ -167,13 +165,39 @@ app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, Ht
 
     ctx.Response.Cookies.Append("ap_transport", transportAktivan.ToString(), opts);
 
+    return new LoginRezultatInterno(true, null, licenca.ConnectionString ?? string.Empty, licenca.Naziv ?? string.Empty, korisnik.IdKorisnika, korisnik.Privilegija);
+}
+
+// API — Prijava (JSON/fetch) — zadržano za kompatibilnost
+app.MapPost("/api/auth/login", async (LoginPodaci podaci, MasterDbContext db, HttpContext ctx) =>
+{
+    var rez = await PrijaviKorisnikaAsync(podaci.Email, podaci.Password, db, ctx);
+
+    if (!rez.Success)
+        return Results.Json(new { poruka = rez.Poruka }, statusCode: 401);
+
     return Results.Ok(new
     {
-        connectionString = licenca.ConnectionString ?? string.Empty,
-        nazivFirme       = licenca.Naziv            ?? string.Empty,
-        idKorisnika      = korisnik.IdKorisnika,
-        privilegija      = korisnik.Privilegija
+        connectionString = rez.ConnectionString,
+        nazivFirme       = rez.NazivFirme,
+        idKorisnika      = rez.IdKorisnika,
+        privilegija      = rez.Privilegija
     });
+});
+
+// API — Prijava (klasičan <form method="post">, puna navigacija — radi pouzdano i na mobilnim browserima)
+app.MapPost("/api/auth/login-form", async (HttpContext ctx, MasterDbContext db) =>
+{
+    var form     = await ctx.Request.ReadFormAsync();
+    var email    = form["email"].ToString();
+    var password = form["password"].ToString();
+
+    var rez = await PrijaviKorisnikaAsync(email, password, db, ctx);
+
+    if (!rez.Success)
+        return Results.Redirect($"/login?greska={Uri.EscapeDataString(rez.Poruka ?? "Greška pri prijavljivanju.")}");
+
+    return Results.Redirect("/dashboard");
 });
 
 // ============================================================================
@@ -199,3 +223,5 @@ app.MapRazorComponents<App>()
 app.Run();
 
 record LoginPodaci(string Email, string Password);
+
+record LoginRezultatInterno(bool Success, string? Poruka, string? ConnectionString, string? NazivFirme, int IdKorisnika, int Privilegija);

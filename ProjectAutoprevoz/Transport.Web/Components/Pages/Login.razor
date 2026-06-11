@@ -2,8 +2,7 @@
 @layout LoginLayout
 @rendermode InteractiveServer
 
-@inject IJSRuntime JS
-@inject ITenantService TenantService
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Nav
 
 <PageTitle>Prijava — Autoprevoz</PageTitle>
@@ -25,101 +24,48 @@
             </CardHeaderContent>
         </MudCardHeader>
 
-        <MudCardContent>
-            @if (_greska is not null)
-            {
-                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
-                    @_greska
-                </MudAlert>
-            }
-
-            <MudTextField @bind-Value="_email"
-                          Label="Email adresa"
-                          Variant="Variant.Outlined"
-                          InputType="InputType.Email"
-                          ShrinkLabel="true"
-                          Class="mb-4"
-                          Disabled="_ucitava" />
-
-            <MudTextField @bind-Value="_lozinka"
-                          Label="Lozinka"
-                          Variant="Variant.Outlined"
-                          InputType="InputType.Password"
-                          ShrinkLabel="true"
-                          Class="mb-2"
-                          Disabled="_ucitava" />
-        </MudCardContent>
-
-        <MudCardActions Class="px-4 pb-4">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       Size="Size.Large"
-                       OnClick="Prijavi"
-                       Disabled="_ucitava">
-                @if (_ucitava)
+        <form method="post" action="/api/auth/login-form">
+            <MudCardContent>
+                @if (_greska is not null)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
+                        @_greska
+                    </MudAlert>
                 }
-                Prijavi se
-            </MudButton>
-        </MudCardActions>
+
+                <div class="mb-4">
+                    <label class="ap-select-label">Email adresa</label>
+                    <input type="email" name="email" class="ap-input" required autofocus />
+                </div>
+
+                <div class="mb-2">
+                    <label class="ap-select-label">Lozinka</label>
+                    <input type="password" name="password" class="ap-input" required />
+                </div>
+            </MudCardContent>
+
+            <MudCardActions Class="px-4 pb-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Size="Size.Large"
+                           ButtonType="ButtonType.Submit">
+                    Prijavi se
+                </MudButton>
+            </MudCardActions>
+        </form>
 
     </MudCard>
 </div>
 
 @code {
-    private string _email   = string.Empty;
-    private string _lozinka = string.Empty;
     private string? _greska;
-    private bool _ucitava;
 
-    private async Task Prijavi()
+    protected override void OnInitialized()
     {
-        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_lozinka))
-        {
-            _greska = "Unesite email adresu i lozinku.";
-            return;
-        }
-
-        _greska  = null;
-        _ucitava = true;
-
-        try
-        {
-            var rezultat = await JS.InvokeAsync<LoginRezultat>(
-                "autoprevoz.login", _email, _lozinka);
-
-            if (rezultat.Success)
-            {
-                TenantService.SetTenant(
-                    rezultat.ConnectionString ?? string.Empty,
-                    rezultat.NazivFirme       ?? string.Empty,
-                    rezultat.IdKorisnika,
-                    rezultat.Privilegija);
-
-                Nav.NavigateTo("/dashboard", forceLoad: true);
-            }
-            else
-            {
-                _greska = rezultat.Greska ?? "Greška pri prijavljivanju.";
-            }
-        }
-        catch
-        {
-            _greska = "Greška pri prijavljivanju. Pokušajte ponovo.";
-        }
-        finally
-        {
-            _ucitava = false;
-        }
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("greska", out var greska))
+            _greska = greska;
     }
-
-    private record LoginRezultat(
-        bool    Success,
-        string? ConnectionString,
-        string? NazivFirme,
-        int     IdKorisnika,
-        int     Privilegija,
-        string? Greska);
 }
