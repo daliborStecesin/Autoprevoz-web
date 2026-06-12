@@ -213,6 +213,18 @@
                 <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">
                     Ukupno zapisa: @_rezultati.Count
                 </MudText>
+
+                <div class="d-flex justify-end mt-1">
+                    <div style="background:#f0f4f8; border:1px solid #d0dae4; border-radius:4px; padding:4px 12px; font-size:0.82rem;">
+                        <span style="color:#555;">Ukupno:</span>
+                        <strong style="color:@(_sumaPeriodRSD >= 0 ? "#2e7d32" : "#c62828"); margin-left:6px;">@_sumaPeriodRSD.ToString("N2") RSD</strong>
+                        @if (_sumaPeriodEUR != 0)
+                        {
+                            <span style="color:#999; margin-left:10px;">|</span>
+                            <strong style="color:@(_sumaPeriodEUR >= 0 ? "#2e7d32" : "#c62828"); margin-left:10px;">@_sumaPeriodEUR.ToString("N2") EUR</strong>
+                        }
+                    </div>
+                </div>
             }
         }
         else

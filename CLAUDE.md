@@ -59,6 +59,26 @@ Sav UI tekst na srpskom.
 8. Audit: `uneo`/`datumUnosa` pri INSERT, `izmenio`/`datumIzmene` pri UPDATE — automatski
 9. Privilegije: proveriti idRole iz sesije (za sad svi Admin — vidi dole)
 
+## UI konvencije — OBAVEZNO
+
+### Padajući meniji i polja u formama
+- NIKAD ne koristi MudSelect — nepouzdan je u ovom projektu (ne radi pouzdano,
+  problem sa bindingom i poravnanjem).
+- UVEK koristi `<NativniSelect>` za padajuće menije
+  (`Transport.Web/Components/Shared/NativniSelect.razor`).
+- Za polja unosa (broj/tekst) koja DELE RED sa `<NativniSelect>`, koristi
+  `<NativniInput>` (isti folder), NE MudNumericField/MudTextField — Mud rezerviše
+  helper prostor ispod polja pa se ne poravnavaju vertikalno sa `<select>`.
+- Pravilo poravnanja: u istom redu sve kontrole moraju biti iz iste familije
+  (NativniSelect + NativniInput), nikad mešati Mud i native u istom redu.
+- Oba wrappera: outlined stil, visina 40px, floating label, #3D8EB9 fokus.
+- NativniInput podržava decimalni separator (zarez i tačka) — kultura-sigurno.
+
+### Autofill u formama sa kredencijalima
+- Polja za email/lozinku: `autocomplete="new-password"` (lozinka) / `"off"` (ostalo).
+- Pri otvaranju dijaloga resetuj model na prazno, instanciraj nov objekat —
+  ne reuse prethodne instance (sprečava autofill prethodnih kredencijala).
+
 ## SQL MIGRACIJE — OBAVEZNO
 Folder: `/sql/`
 - `01_CREATE_kasa_template.sql` — blanko baza za novog klijenta (109 tabela, verzija 200)

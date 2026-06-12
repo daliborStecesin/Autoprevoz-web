@@ -17,6 +17,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
     .wrap { padding: 24px 32px; }
+    .print-header { display: flex; align-items: flex-start; gap: 12px; }
+    .print-logo { width: 70px; height: 70px; object-fit: contain; flex-shrink: 0; }
+    .print-firma-podaci { flex-grow: 1; }
     .firm-header .naziv { font-size: 13pt; font-weight: bold; }
     .firm-header .adresa { font-size: 9pt; color: #333; }
     .two-col { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
@@ -43,14 +46,19 @@
     .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
     .no-print button:hover { background: #e0e0e0; }
     .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    /* @@page { margin: 0 } uklanja prostor u kome browser ispisuje URL/datum/broj strane */
+    @@page { margin: 0; }
+
     @@media print {
         .no-print { display: none !important; }
         body { font-size: 9pt; }
+        .wrap { padding: 14mm 16mm; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .footer-sums td:first-child { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         tr { page-break-inside: avoid; }
-        @@page { margin: 1.5cm; }
     }
 </style>
 
@@ -66,13 +74,19 @@ else
 {
     <div class="wrap">
         <div class="two-col">
-            <div class="left firm-header">
-                @if (_firma is not null)
+            <div class="left print-header">
+                @if (!string.IsNullOrEmpty(_logoBase64))
                 {
-                    <div class="naziv">@_firma.NazivFirme</div>
-                    <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
-                    <div class="adresa">PIB: @_firma.PIB</div>
+                    <img src="@_logoBase64" class="print-logo" alt="Logo" />
                 }
+                <div class="print-firma-podaci firm-header">
+                    @if (_firma is not null)
+                    {
+                        <div class="naziv">@_firma.NazivFirme</div>
+                        <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                        <div class="adresa">PIB: @_firma.PIB</div>
+                    }
+                </div>
             </div>
             <div class="right">
                 <div class="naslov">Vozač</div>
@@ -161,6 +175,7 @@ else
 
     private List<Plata> _plate = [];
     private PodaciFirme? _firma;
+    private string? _logoBase64;
     private string? _vozacIme;
     private string? _vozacTelefon;
     private decimal _ukupnoRSD;
@@ -180,6 +195,14 @@ else
         try
         {
             _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+            // Logo: učitaj samo ako je aktiviran u podešavanjima
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
 
             var odDate = DateTime.TryParse(Od, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
             var doDate = DateTime.TryParse(Do, out var d) ? d.AddDays(1) : DateTime.Today.AddDays(1);
