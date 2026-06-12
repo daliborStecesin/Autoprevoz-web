@@ -10,6 +10,14 @@
 
 <MudDialog Style="min-width:480px;">
     <DialogContent>
+        @* Decoy polja — apsorbuju browser autofill umesto stvarnih polja ispod *@
+        <input type="text" name="username" autocomplete="username"
+               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
+               tabindex="-1" aria-hidden="true" />
+        <input type="password" name="password" autocomplete="current-password"
+               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
+               tabindex="-1" aria-hidden="true" />
+
         <MudGrid Spacing="2" Class="mt-1">
 
             <MudItem xs="12">
@@ -17,7 +25,12 @@
                               Label="Ime *"
                               Variant="Variant.Outlined"
                               ShrinkLabel="true"
-                              Required="true" />
+                              Required="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other" />
             </MudItem>
 
             <MudItem xs="12">
@@ -26,7 +39,12 @@
                               Variant="Variant.Outlined"
                               ShrinkLabel="true"
                               InputType="InputType.Email"
-                              Required="true" />
+                              Required="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other" />
             </MudItem>
 
             <MudItem xs="12">
@@ -36,7 +54,12 @@
                               ShrinkLabel="true"
                               InputType="InputType.Password"
                               Required="true"
-                              HelperText="Minimum 6 karaktera" />
+                              HelperText="Minimum 6 karaktera"
+                              autocomplete="new-password"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other" />
             </MudItem>
 
             <MudItem xs="12">
@@ -45,7 +68,12 @@
                               Variant="Variant.Outlined"
                               ShrinkLabel="true"
                               InputType="InputType.Password"
-                              Required="true" />
+                              Required="true"
+                              autocomplete="new-password"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other" />
             </MudItem>
 
             <MudItem xs="12">
@@ -95,7 +123,11 @@
 
     protected override void OnInitialized()
     {
-        _ime = ImeZaposlenog;
+        _ime     = ImeZaposlenog;
+        _email   = string.Empty;
+        _lozinka = string.Empty;
+        _potvrda = string.Empty;
+        _greska  = null;
     }
 
     private async Task Registruj()

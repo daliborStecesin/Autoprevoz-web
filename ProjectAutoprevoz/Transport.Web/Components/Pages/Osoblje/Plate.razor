@@ -178,28 +178,23 @@
                     <TemplateColumn Title="Datum" SortBy="x => x.datum">
                         <CellTemplate>@context.Item.datum?.ToString("dd.MM.yyyy")</CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Tura/Opis" SortBy="x => x.tura">
+                    <TemplateColumn Title="Opis" SortBy="x => x.tura">
                         <CellTemplate>
                             <span style="max-width:260px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@context.Item.tura">
                                 @(context.Item.tura ?? "—")
                             </span>
                         </CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Vrednost ture" SortBy="x => x.vrednostTure" HeaderStyle="text-align:right;">
-                        <CellTemplate>
-                            <span style="display:block; text-align:right;">@context.Item.vrednostTure?.ToString("N2")</span>
-                        </CellTemplate>
+                    <TemplateColumn Title="Osnov" SortBy="x => x.tipIsplate">
+                        <CellTemplate>@(context.Item.tipIsplate ?? "—")</CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Za isplatu" SortBy="x => x.zaIsplatu" HeaderStyle="text-align:right;">
+                    <TemplateColumn Title="Vrednost" SortBy="x => x.iznosPlate" HeaderStyle="text-align:right;">
                         <CellTemplate>
-                            <span style="display:block; text-align:right; font-weight:600;">@context.Item.zaIsplatu?.ToString("N2")</span>
+                            <span style="display:block; text-align:right; font-weight:600;">@context.Item.iznosPlate?.ToString("N2")</span>
                         </CellTemplate>
                     </TemplateColumn>
                     <TemplateColumn Title="Valuta" SortBy="x => x.valuta" HeaderStyle="width:70px;">
                         <CellTemplate>@(context.Item.valuta ?? "RSD")</CellTemplate>
-                    </TemplateColumn>
-                    <TemplateColumn Title="Tip isplate" SortBy="x => x.tipIsplate">
-                        <CellTemplate>@(context.Item.tipIsplate ?? "—")</CellTemplate>
                     </TemplateColumn>
                 </Columns>
                 <PagerContent>
@@ -327,8 +322,8 @@
 
             _rezultati = await q.OrderByDescending(x => x.datum).ToListAsync();
 
-            _sumaPeriodRSD = _rezultati.Where(x => (x.valuta ?? "RSD") != "EUR").Sum(x => x.zaIsplatu ?? 0);
-            _sumaPeriodEUR = _rezultati.Where(x => x.valuta == "EUR").Sum(x => x.zaIsplatu ?? 0);
+            _sumaPeriodRSD = _rezultati.Where(x => (x.valuta ?? "RSD") == "RSD").Sum(x => x.iznosPlate ?? 0);
+            _sumaPeriodEUR = _rezultati.Where(x => x.valuta == "EUR").Sum(x => x.iznosPlate ?? 0);
 
             if (_filterVozac is not null)
             {

@@ -961,6 +961,12 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH('dbo.tbl_plate', 'iznosEUR') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_plate] ADD [iznosEUR] [decimal](18, 2) NULL;
+END
+GO
+
 IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [uneo] [varchar](100) NULL;
@@ -1405,8 +1411,8 @@ GO
 -- Oznacavanje verzije baze nakon uspesne migracije
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 201;
-    PRINT 'Verzija baze postavljena na 201 (Blazor migracija).';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 202;
+    PRINT 'Verzija baze postavljena na 202 (Blazor migracija).';
 END
 GO
 

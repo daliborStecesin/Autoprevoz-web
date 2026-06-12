@@ -10,6 +10,7 @@
 
 @inject ITenantService        TenantService
 @inject INbsKursService       NbsKurs
+@inject IKursService          KursService
 @inject TransportDbContext    Db
 @inject IDbContextFactory<TransportDbContext> DbFactory
 @inject IDialogService        Dialog
@@ -1892,7 +1893,7 @@ else if (_tura is not null)
                     vrednostEUR   = _tKurs > 0 ? Math.Round(vrednostDom / _tKurs, 2) : null,
                     idVozaca      = idVoz,
                     idVozila      = _tura.IdVozila,
-                    ideTroskovnik = 0,
+                    ideTroskovnik = 1,
                     jeGotovinski  = 1,
                     brisano       = 0
                 });
@@ -1912,7 +1913,7 @@ else if (_tura is not null)
                     kurs          = _tKurs > 0 ? _tKurs : null,
                     idVozaca      = idVoz,
                     idVozila      = _tura.IdVozila,
-                    ideTroskovnik = 0,
+                    ideTroskovnik = 1,
                     jeGotovinski  = 1,
                     brisano       = 0
                 });
@@ -2050,12 +2051,18 @@ else if (_tura is not null)
         existing.fixnoPlata   = pSt.TipIsplate == "FIXNO"    ? pSt.FixnoPlata : null;
         existing.dnevnica     = pSt.TipIsplate == "DNEVNICA" ? pSt.IznosPlate : null;
 
+        var datumNaloga = _tura.DatumDokumenta ?? DateTime.Today;
+        var kurs        = await KursService.GetKursAsync(datumNaloga);
+
         existing.iznosPlate  = pSt.IznosPlate;
         existing.avans       = pSt.Avans ?? 0;
         existing.vracenAvans = pSt.VracenAvans ?? 0;
         existing.zaIsplatu   = pSt.ZaIsplatu;
         existing.valuta      = pSt.Valuta;
-        existing.KursEur     = _tKurs;
+        existing.KursEur     = kurs;
+        existing.iznosEUR    = pSt.Valuta == "EUR"
+            ? pSt.IznosPlate
+            : (kurs > 0 ? Math.Round(pSt.IznosPlate / kurs, 2) : null);
 
         await db.SaveChangesAsync();
         Snackbar.Add("Plata upisana.", Severity.Success);

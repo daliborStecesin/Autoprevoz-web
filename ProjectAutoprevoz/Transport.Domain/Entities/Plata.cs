@@ -49,6 +49,8 @@ public class Plata
     [Column("kursEur")]
     public decimal? KursEur { get; set; }
 
+    public decimal? iznosEUR { get; set; }
+
     [MaxLength(10)]
     public string valuta { get; set; } = "RSD";
 

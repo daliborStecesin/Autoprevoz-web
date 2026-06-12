@@ -205,8 +205,8 @@ else
             }
 
             _plate = await q.OrderBy(x => x.datum).ToListAsync();
-            _ukupnoRSD = _plate.Where(x => (x.valuta ?? "RSD") != "EUR").Sum(x => x.zaIsplatu ?? 0);
-            _ukupnoEUR = _plate.Where(x => x.valuta == "EUR").Sum(x => x.zaIsplatu ?? 0);
+            _ukupnoRSD = _plate.Where(x => (x.valuta ?? "RSD") == "RSD").Sum(x => x.iznosPlate ?? 0);
+            _ukupnoEUR = _plate.Where(x => x.valuta == "EUR").Sum(x => x.iznosPlate ?? 0);
         }
         catch (Exception ex)
         {
@@ -242,12 +242,13 @@ else
 
     private static string FormatOsnovica(Plata p)
     {
+        var valuta = p.valuta ?? "RSD";
         return p.tipIsplate switch
         {
-            "PROCENAT" => p.vrednostTure.HasValue ? $"Osnovica {p.vrednostTure.Value:N2} RSD" : "Osnovica",
+            "PROCENAT" => p.vrednostTure.HasValue ? $"Osnovica {p.vrednostTure.Value:N2} {valuta}" : "Osnovica",
             "PO_KM" => p.km.HasValue ? $"Kilometara {p.km.Value:N0}" : "Kilometara",
-            "FIXNO" => p.fixnoPlata.HasValue ? $"Osnovica {p.fixnoPlata.Value:N2} RSD" : "Osnovica",
-            "DNEVNICA" => p.dnevnica.HasValue ? $"Osnovica {p.dnevnica.Value:N2} RSD" : "Osnovica",
+            "FIXNO" => p.fixnoPlata.HasValue ? $"Osnovica {p.fixnoPlata.Value:N2} {valuta}" : "Osnovica",
+            "DNEVNICA" => p.dnevnica.HasValue ? $"Osnovica {p.dnevnica.Value:N2} {valuta}" : "Osnovica",
             _ => string.IsNullOrWhiteSpace(p.tipIsplate) ? "—" : string.Empty
         };
     }

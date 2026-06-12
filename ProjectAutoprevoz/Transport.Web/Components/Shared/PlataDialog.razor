@@ -1,11 +1,13 @@
 @using Microsoft.Data.SqlClient
 @using Microsoft.EntityFrameworkCore
+@using Transport.Application.Interfaces
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
 @implements IDisposable
 @inject IConfiguration Configuration
 @inject ITenantService TenantService
+@inject IKursService KursService
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -114,7 +116,7 @@
                               Lines="3" />
             </MudItem>
 
-            <MudItem xs="12">
+            <MudItem xs="12" sm="8">
                 <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">
                     Tip isplate
                 </MudText>
@@ -126,6 +128,18 @@
                     <option value="PROCENAT">Procenat</option>
                     <option value="FIXNO">Fixna plata</option>
                     <option value="PO_KM">Po kilometru</option>
+                </select>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">
+                    Valuta
+                </MudText>
+                <select @bind="_model.valuta"
+                        style="width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,0.23); border-radius:4px;
+                               font-size:0.95rem; background:white; color:rgba(0,0,0,0.87); cursor:pointer; outline:none; height:38px;">
+                    <option value="RSD">RSD</option>
+                    <option value="EUR">EUR</option>
                 </select>
             </MudItem>
 
@@ -323,6 +337,7 @@
             _model.tipIsplate = "PROCENAT";
             _model.avans = 0;
             _model.vracenAvans = 0;
+            _model.valuta = "EUR";
             UpdateCalculation();
         }
     }
@@ -349,6 +364,7 @@
         _model.fixnoPlata = vozac.fixnoPlata ?? _model.fixnoPlata;
         _model.cenaPoKm = vozac.cenaPoKm ?? _model.cenaPoKm;
         _model.dnevnica = vozac.dnevnica ?? _model.dnevnica;
+        _model.valuta = _model.tipIsplate is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
         UpdateCalculation();
     }
 
@@ -382,6 +398,7 @@
             _model.fixnoPlata = vozac.fixnoPlata ?? _model.fixnoPlata;
             _model.cenaPoKm = vozac.cenaPoKm ?? _model.cenaPoKm;
             _model.dnevnica = vozac.dnevnica ?? _model.dnevnica;
+            _model.valuta = _model.tipIsplate is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
         }
         else
         {
@@ -401,6 +418,7 @@
     private Task OnTipIsplateChanged(ChangeEventArgs args)
     {
         _model.tipIsplate = args.Value?.ToString() ?? _model.tipIsplate;
+        _model.valuta = _model.tipIsplate is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
         UpdateCalculation();
         return Task.CompletedTask;
     }
@@ -446,9 +464,6 @@
                 _model.zaIsplatu = 0;
                 break;
         }
-
-        if (_model.iznosPlate < 0) _model.iznosPlate = 0;
-        if (_model.zaIsplatu < 0) _model.zaIsplatu = 0;
     }
 
     private Task OnDatumChanged(string value)
@@ -511,6 +526,12 @@
 
             UpdateCalculation();
 
+            var kurs = await KursService.GetKursAsync(_model.datum ?? DateTime.Today);
+            _model.KursEur = kurs;
+            _model.iznosEUR = _model.valuta == "EUR"
+                ? _model.iznosPlate
+                : (kurs > 0 ? Math.Round((_model.iznosPlate ?? 0) / kurs, 2) : null);
+
             if (PlataId == 0)
             {
                 _model.datumUnosa = DateTime.Now;
@@ -536,6 +557,9 @@
                 ent.vracenAvans = _model.vracenAvans;
                 ent.iznosPlate = _model.iznosPlate;
                 ent.zaIsplatu = _model.zaIsplatu;
+                ent.valuta = _model.valuta;
+                ent.KursEur = _model.KursEur;
+                ent.iznosEUR = _model.iznosEUR;
                 ent.Napomena = _model.Napomena;
                 ent.datum = _model.datum;
                 ent.tipIsplate = _model.tipIsplate;
