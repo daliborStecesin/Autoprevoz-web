@@ -133,18 +133,9 @@
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
             <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Small" Style="color:#777;" />
             <span style="font-size:0.75rem; color:#666;">Br. naloga:</span>
-            @if (_pod?.automatskiBrojevi == 0 && _nalog.IdNaloga == 0)
-            {
-                <input type="text" @bind="_brNalogaPreview"
-                       style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px;
-                              font-size:0.85rem; font-weight:600; color:#1565C0; width:150px;" />
-            }
-            else
-            {
-                <strong style="font-size:0.85rem; color:#1565C0; letter-spacing:.03em;">
-                    @(string.IsNullOrWhiteSpace(_brNalogaPreview) ? "..." : _brNalogaPreview)
-                </strong>
-            }
+            <input type="text" @bind="_brNalogaPreview"
+                   style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px;
+                          font-size:0.85rem; font-weight:600; color:#1565C0; width:150px;" />
         </div>
 
         @* ── Red 1: Datum dok / CMR / Ref.nalog / Status ── *@
@@ -426,7 +417,7 @@
                     <div>
                         <div style="@Lbl">Kurs EUR:</div>
                         <input type="number" step="0.0001"
-                               value="@_nalog.KursEUR?.ToString("N4", System.Globalization.CultureInfo.InvariantCulture)"
+                               value="@_nalog.KursEUR?.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)"
                                @onchange="e => _nalog.KursEUR = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.KursEUR"
                                style="@Inp" />
                     </div>
@@ -456,7 +447,7 @@
                     <div>
                         <div style="@Lbl">Količina:</div>
                         <input type="number" step="0.001"
-                               value="@_nalog.Kolicina?.ToString("N3", System.Globalization.CultureInfo.InvariantCulture)"
+                               value="@_nalog.Kolicina?.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)"
                                @onchange="e => _nalog.Kolicina = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.Kolicina"
                                style="@Inp" />
                     </div>
@@ -467,7 +458,7 @@
                     <div style="min-width:0; display:flex; flex-direction:column;">
                         <div style="@Lbl">Cena (@ValutaJM):</div>
                         <input type="number" step="0.01"
-                               value="@_nalog.CenaJM?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
+                               value="@_nalog.CenaJM?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
                                @onchange="e => _nalog.CenaJM = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.CenaJM"
                                style="@(Inp + "height:38px; font-size:1rem; font-weight:600; flex:1;")" />
                     </div>
@@ -490,7 +481,7 @@
                         <div style="min-width:0; overflow:hidden; display:flex; flex-direction:column;">
                             <div style="@Lbl">Plaćeno prevozniku (EUR):</div>
                             <input type="number" step="0.01"
-                                   value="@_nalog.PlacenTransport?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)"
+                                   value="@_nalog.PlacenTransport?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
                                    @onchange="e => _nalog.PlacenTransport = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var kd) ? kd : _nalog.PlacenTransport"
                                    style="@(Inp + "flex:1;")" />
                         </div>
@@ -759,13 +750,13 @@
         _nalog = existing;
         _brNalogaPreview = existing.BrNaloga ?? "";
 
-        if (!_nalog.CenaJM.HasValue && _nalog.CenaTransporta.HasValue)
-        {
-            _nalog.CenaJM = _nalog.CenaTransporta;
-        }
         if (!_nalog.Kolicina.HasValue || _nalog.Kolicina == 0m)
         {
             _nalog.Kolicina = 1m;
+        }
+        if ((!_nalog.CenaJM.HasValue || _nalog.CenaJM == 0m) && _nalog.CenaTransporta.HasValue)
+        {
+            _nalog.CenaJM = Math.Round(_nalog.CenaTransporta.Value / _nalog.Kolicina.Value, 2);
         }
 
         if (_nalog.IdUvoznika.HasValue)
@@ -868,6 +859,7 @@
                 db.KursEUR = _nalog.KursEUR; db.DatumKursa = _nalog.DatumKursa;
                 db.PlacenTransport = _nalog.PlacenTransport; db.TipRacuna = _nalog.TipRacuna;
                 db.SifraTransporta = _nalog.SifraTransporta; db.OpisSifre = _nalog.OpisSifre;
+                db.BrNaloga = _brNalogaPreview;
                 db.JM = _nalog.JM; db.CenaJM = _nalog.CenaJM; db.Kolicina = _nalog.Kolicina;
                 db.VrednostDomaca = _nalog.VrednostDomaca; db.PlacenTransportDin = _nalog.PlacenTransportDin;
                 db.ZaradaDin = _nalog.ZaradaDin; db.Fakturisanje = _nalog.Fakturisanje;
@@ -906,23 +898,11 @@
         var pod = _pod;
         bool agencijski = pod?.koristiOdvojeneBrojeve == 1 && tipNaloga == "AGENCIJSKI";
 
-        string brNaloga;
-        int sledeciBroj;
-
-        if (pod?.automatskiBrojevi == 0)
-        {
-            brNaloga    = _brNalogaPreview;
-            sledeciBroj = 0;
-        }
-        else
-        {
-            sledeciBroj = agencijski ? (pod?.Broj_Dok_4 ?? 1) : (pod?.Broj_Gotovinskog ?? 1);
-            var fmt = agencijski
-                ? (pod?.formatBrojaNalogaAgencijski ?? "broj-godina4")
-                : (pod?.formatBrojaNaloga           ?? "broj-godina4");
-            brNaloga = BrojDokumentaService.Formatiraj(
-                sledeciBroj, fmt, pod?.minCifaraBroja ?? 0, DateTime.Today);
-        }
+        // Broj naloga — auto-predlog iz brojača, ali korisnik ga može ručno izmeniti
+        string brNaloga    = _brNalogaPreview;
+        int    sledeciBroj = (pod?.automatskiBrojevi == 0)
+            ? 0
+            : (agencijski ? (pod?.Broj_Dok_4 ?? 1) : (pod?.Broj_Gotovinskog ?? 1));
 
         // Provera duplikata
         bool postoji = await Db.NaloziZaPrevoz

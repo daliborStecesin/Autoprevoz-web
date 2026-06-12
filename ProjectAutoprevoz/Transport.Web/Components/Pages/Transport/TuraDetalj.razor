@@ -67,7 +67,9 @@ else if (_tura is not null)
                 @* Header *@
                 <div class="d-flex justify-space-between align-center mb-3">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:700; color:#2D3E50;">PODACI TURE</MudText>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_tura.BrNaloga</MudText>
+                    <input type="text" @bind="_tura.BrNaloga"
+                           style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:2px 8px;
+                                  font-size:0.8rem; font-weight:600; color:#1565C0; width:130px; text-align:right;" />
                 </div>
 
                 @* ── Vrsta prevoza ── *@
@@ -92,6 +94,12 @@ else if (_tura is not null)
                 <MudTextField @bind-Value="_tura.Relacija"
                               Label="Relacija" Variant="Variant.Outlined" Margin="Margin.Dense"
                               Class="mb-2" />
+
+                <div class="mb-2">
+                    <DateInputNullable Label="Datum ture:"
+                                       Value="_tura.DatumDokumenta"
+                                       ValueChanged="@(d => _tura.DatumDokumenta = d)" />
+                </div>
 
                 <MudDivider Class="my-2" />
 
@@ -288,6 +296,11 @@ else if (_tura is not null)
 
                 @* ── Accordion paneli (ručni, bez MudExpansionPanels) ── *@
 
+                @* Datumi ture / Dnevnice / Kilometraža — samo za SOPSTVENE ture
+                   (agencijska tura je preprodaja transporta, nema sopstveni vozni park/dnevnice) *@
+                @if (!_jeAgencijski)
+                {
+
                 @* Panel: Datumi ture *@
                 <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:10px;">
                     <div @onclick="OnPanelDatumiToggle"
@@ -450,6 +463,8 @@ else if (_tura is not null)
                         </div>
                     }
                 </div>
+
+                }
 
                 @* Panel: Finansije *@
                 <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:6px;">
@@ -853,7 +868,10 @@ else if (_tura is not null)
                               Style="background:#f0f4f8; border-radius:6px; font-size:0.84rem; border:1px solid #d0dae4;">
                         <MudText Typo="Typo.caption" Style="font-weight:600; color:#2D3E50;" Class="mb-1">OBRAČUN (EUR)</MudText>
                         <div class="d-flex justify-space-between"><span style="color:#555;">Ukupno troškovi (EUR):</span> <strong>@_ukupnoTroskoviEUR.ToString("N2")</strong></div>
-                        <div class="d-flex justify-space-between"><span style="color:#555;">Plaćeno prevozniku (EUR):</span> <strong>@_placenoPrevozniku.ToString("N2")</strong></div>
+                        @if (_jeAgencijski)
+                        {
+                            <div class="d-flex justify-space-between"><span style="color:#555;">Plaćeno prevozniku (EUR):</span> <strong>@_placenoPrevozniku.ToString("N2")</strong></div>
+                        }
                         <div class="d-flex justify-space-between"><span style="color:#555;">Ukupni troškovi ture (EUR):</span> <strong style="color:#c62828;">@_ukupniTroskoviTureEUR.ToString("N2")</strong></div>
                         <div class="d-flex justify-space-between"><span style="color:#555;">Vrednost ture (nalozi, EUR):</span> <strong style="color:#1565C0;">@((_tura?.Cena ?? 0).ToString("N2"))</strong></div>
                         <MudDivider Class="my-1" />
@@ -867,8 +885,11 @@ else if (_tura is not null)
             </MudTabPanel>
 
             @* ══════════════════════════════════════════════════
-               TAB 3: PLATE VOZAČA
+               TAB 3: PLATE VOZAČA — samo za SOPSTVENE ture
+               (agencijska tura nema vozača na platnom spisku)
                ══════════════════════════════════════════════════ *@
+            @if (!_jeAgencijski)
+            {
             <MudTabPanel Text="Plate" Icon="@Icons.Material.Filled.People">
 
                 @{
@@ -1149,6 +1170,7 @@ else if (_tura is not null)
                 }
 
             </MudTabPanel>
+            }
 
         </MudTabs>
     } @* kraj else (Id > 0) *@
@@ -1461,12 +1483,9 @@ else if (_tura is not null)
             var pod    = await Db.Podesavanja.FirstOrDefaultAsync();
             bool agenc = _tura!.VrstaPrevoza == "AGENCIJSKI" && pod?.koristiOdvojeneBrojeve == 1;
             int  sl    = agenc ? (pod?.brTureAgencijski ?? 1) : (pod?.Broj_Kalkulacije ?? 1);
-            string fmt = agenc
-                ? (pod?.formatBrojaTureAgencijski ?? "broj-godina4")
-                : (pod?.formatBrojaTure           ?? "broj-godina4");
-            int min = pod?.minCifaraBroja ?? 0;
 
-            string brTure = BrojDokumentaService.Formatiraj(sl, fmt, min, DateTime.Today);
+            // Broj ture — auto-predlog, ali korisnik ga može ručno izmeniti
+            string brTure = _tura.BrNaloga ?? "";
 
             // Provera duplikata
             bool postoji = await Db.PutniNalozi.AnyAsync(t => t.BrNaloga == brTure && t.Brisano == 0);
@@ -1478,7 +1497,13 @@ else if (_tura is not null)
                     yesText: "OSVEŽI BROJ", noText: "IPAK SAČUVAJ", cancelText: "OTKAŽI");
                 if (izbor == null) return;
                 if (izbor == true)
+                {
+                    string fmt = agenc
+                        ? (pod?.formatBrojaTureAgencijski ?? "broj-godina4")
+                        : (pod?.formatBrojaTure           ?? "broj-godina4");
+                    int min = pod?.minCifaraBroja ?? 0;
                     brTure = BrojDokumentaService.Formatiraj(++sl, fmt, min, DateTime.Today);
+                }
             }
 
             using var tx = await Db.Database.BeginTransactionAsync();
@@ -1519,7 +1544,9 @@ else if (_tura is not null)
                 .FirstOrDefaultAsync(t => t.IdNaloga == Id);
             if (dbTura is null) return;
 
-            dbTura.VrstaPrevoza   = _tura!.VrstaPrevoza;
+            dbTura.BrNaloga       = _tura!.BrNaloga;
+            dbTura.DatumDokumenta = _tura.DatumDokumenta;
+            dbTura.VrstaPrevoza   = _tura.VrstaPrevoza;
             dbTura.TipPrevoza     = _tura.TipPrevoza;
             dbTura.Status         = _tura.Status;
             dbTura.Relacija       = _tura.Relacija;
@@ -1881,42 +1908,100 @@ else if (_tura is not null)
         {
             if (vrednostDom > 0)
             {
-                db.Troskovi.Add(new Trosak
+                var postojeciDom = await db.Troskovi.FirstOrDefaultAsync(t =>
+                    t.idNaloga == Id && t.idVozaca == idVoz &&
+                    t.vrstaTroska == "DNEVNICA DOM" && t.brisano == 0);
+
+                bool upisiDom = true;
+                if (postojeciDom is not null)
                 {
-                    idNaloga      = Id,
-                    datum         = DateTime.Today,
-                    vrstaTroska   = "DNEVNICA DOM",
-                    tip           = "ZEMLJA",
-                    opis          = $"Dnevnice ({imeVozaca})",
-                    vrednost      = vrednostDom,
-                    kurs          = _tKurs > 0 ? _tKurs : null,
-                    vrednostEUR   = _tKurs > 0 ? Math.Round(vrednostDom / _tKurs, 2) : null,
-                    idVozaca      = idVoz,
-                    idVozila      = _tura.IdVozila,
-                    ideTroskovnik = 1,
-                    jeGotovinski  = 1,
-                    brisano       = 0
-                });
+                    var izbor = await Dialog.ShowMessageBox(
+                        "Dnevnica već postoji",
+                        $"Već postoji dnevnica-trošak (DOMAĆA) za vozača {imeVozaca} na ovoj turi. Izmeniti postojeći?",
+                        yesText: "Izmeni", noText: "Preskoči");
+                    upisiDom = izbor == true;
+                }
+
+                if (postojeciDom is not null)
+                {
+                    if (upisiDom)
+                    {
+                        postojeciDom.datum       = DateTime.Today;
+                        postojeciDom.opis        = $"Dnevnice ({imeVozaca})";
+                        postojeciDom.vrednost    = vrednostDom;
+                        postojeciDom.kurs        = _tKurs > 0 ? _tKurs : null;
+                        postojeciDom.vrednostEUR = _tKurs > 0 ? Math.Round(vrednostDom / _tKurs, 2) : null;
+                        postojeciDom.idVozila    = _tura.IdVozila;
+                    }
+                }
+                else
+                {
+                    db.Troskovi.Add(new Trosak
+                    {
+                        idNaloga      = Id,
+                        datum         = DateTime.Today,
+                        vrstaTroska   = "DNEVNICA DOM",
+                        tip           = "ZEMLJA",
+                        opis          = $"Dnevnice ({imeVozaca})",
+                        vrednost      = vrednostDom,
+                        kurs          = _tKurs > 0 ? _tKurs : null,
+                        vrednostEUR   = _tKurs > 0 ? Math.Round(vrednostDom / _tKurs, 2) : null,
+                        idVozaca      = idVoz,
+                        idVozila      = _tura.IdVozila,
+                        ideTroskovnik = 1,
+                        jeGotovinski  = 1,
+                        brisano       = 0
+                    });
+                }
             }
 
             if (vrednostIno > 0)
             {
-                db.Troskovi.Add(new Trosak
+                var postojeciIno = await db.Troskovi.FirstOrDefaultAsync(t =>
+                    t.idNaloga == Id && t.idVozaca == idVoz &&
+                    t.vrstaTroska == "DNEVNICA INO" && t.brisano == 0);
+
+                bool upisiIno = true;
+                if (postojeciIno is not null)
                 {
-                    idNaloga      = Id,
-                    datum         = DateTime.Today,
-                    vrstaTroska   = "DNEVNICA INO",
-                    tip           = "INOSTRANSTVO",
-                    opis          = $"Dnevnice ({imeVozaca})",
-                    vrednost      = _tKurs > 0 ? Math.Round(vrednostIno * _tKurs, 2) : null,
-                    vrednostEUR   = vrednostIno,
-                    kurs          = _tKurs > 0 ? _tKurs : null,
-                    idVozaca      = idVoz,
-                    idVozila      = _tura.IdVozila,
-                    ideTroskovnik = 1,
-                    jeGotovinski  = 1,
-                    brisano       = 0
-                });
+                    var izbor = await Dialog.ShowMessageBox(
+                        "Dnevnica već postoji",
+                        $"Već postoji dnevnica-trošak (INO) za vozača {imeVozaca} na ovoj turi. Izmeniti postojeći?",
+                        yesText: "Izmeni", noText: "Preskoči");
+                    upisiIno = izbor == true;
+                }
+
+                if (postojeciIno is not null)
+                {
+                    if (upisiIno)
+                    {
+                        postojeciIno.datum       = DateTime.Today;
+                        postojeciIno.opis        = $"Dnevnice ({imeVozaca})";
+                        postojeciIno.vrednost    = _tKurs > 0 ? Math.Round(vrednostIno * _tKurs, 2) : null;
+                        postojeciIno.vrednostEUR = vrednostIno;
+                        postojeciIno.kurs        = _tKurs > 0 ? _tKurs : null;
+                        postojeciIno.idVozila    = _tura.IdVozila;
+                    }
+                }
+                else
+                {
+                    db.Troskovi.Add(new Trosak
+                    {
+                        idNaloga      = Id,
+                        datum         = DateTime.Today,
+                        vrstaTroska   = "DNEVNICA INO",
+                        tip           = "INOSTRANSTVO",
+                        opis          = $"Dnevnice ({imeVozaca})",
+                        vrednost      = _tKurs > 0 ? Math.Round(vrednostIno * _tKurs, 2) : null,
+                        vrednostEUR   = vrednostIno,
+                        kurs          = _tKurs > 0 ? _tKurs : null,
+                        idVozaca      = idVoz,
+                        idVozila      = _tura.IdVozila,
+                        ideTroskovnik = 1,
+                        jeGotovinski  = 1,
+                        brisano       = 0
+                    });
+                }
             }
 
             await db.SaveChangesAsync();
@@ -1932,7 +2017,11 @@ else if (_tura is not null)
     // ── Plata po vozaču (Plata sekcija) ──
 
     private PlataPanelState GetPlataPanel(int idx, Vozac vozac)
-        => _platePaneli.TryGetValue(idx, out var st) ? st : InicijalizujPlatuPanela(idx, vozac);
+    {
+        var st = _platePaneli.TryGetValue(idx, out var existing) ? existing : InicijalizujPlatuPanela(idx, vozac);
+        PrekalkulisiPlatu(st);
+        return st;
+    }
 
     private PlataPanelState InicijalizujPlatuPanela(int idx, Vozac vozac)
     {
