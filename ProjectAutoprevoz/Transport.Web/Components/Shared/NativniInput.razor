@@ -14,7 +14,8 @@
            value="@DisplayValue"
            placeholder="@Placeholder"
            disabled="@Disabled"
-           @onchange="OnChangeAsync" />
+           @onchange="OnChangeAsync"
+           @onkeyup="OnKeyUpAsync" />
 </div>
 
 @code {
@@ -27,6 +28,7 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
     [Parameter] public string InputMode { get; set; } = "decimal";
+    [Parameter] public EventCallback OnEnter { get; set; }
 
     private string? DisplayValue => Value switch
     {
@@ -39,6 +41,12 @@
     {
         var converted = Konvertuj(e.Value?.ToString());
         await ValueChanged.InvokeAsync(converted);
+    }
+
+    private async Task OnKeyUpAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await OnEnter.InvokeAsync();
     }
 
     private static TValue? Konvertuj(string? raw)

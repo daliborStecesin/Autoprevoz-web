@@ -2655,7 +2655,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((202)),
+	[verzijaBaze] [int] NULL DEFAULT ((203)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -3259,7 +3259,11 @@ CREATE TABLE [dbo].[tbl_racuni](
 	[kurs] [decimal](18, 4) NULL,
 	[datumKursa] [datetime] NULL,
 	[tipStampe] [varchar](15) NULL,
- CONSTRAINT [PK_tbl_racuni] PRIMARY KEY CLUSTERED 
+	[brisano] [int] NOT NULL DEFAULT ((0)),
+	[datumUnosa] [datetime] NULL,
+	[izmenio] [int] NULL,
+	[datumIzmene] [datetime] NULL,
+ CONSTRAINT [PK_tbl_racuni] PRIMARY KEY CLUSTERED
 (
 	[Broj] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]

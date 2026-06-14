@@ -62,7 +62,6 @@ builder.Services.AddDbContext<MasterDbContext>(options =>
 // APPLICATION SERVICES
 // ============================================================================
 builder.Services.AddScoped<IPartnerService, PartnerService>();
-builder.Services.AddScoped<IRacunService, RacunService>();
 builder.Services.AddScoped<ITransportService, TransportService>();
 builder.Services.AddScoped<IDnevnicaService, DnevnicaService>();
 builder.Services.AddScoped<IPdvService, PdvService>();

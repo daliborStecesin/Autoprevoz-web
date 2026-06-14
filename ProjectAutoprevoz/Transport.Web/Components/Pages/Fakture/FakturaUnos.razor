@@ -1,0 +1,34 @@
+@page "/fakture/unos"
+@rendermode InteractiveServer
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+
+<PageTitle>Račun — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" />
+    @(Id is null ? "Novi račun" : $"Račun #{Id}")
+</MudText>
+
+<MudPaper Elevation="1" Class="pa-4">
+    <MudAlert Severity="Severity.Info">
+        TODO unos
+    </MudAlert>
+
+    <MudButton Variant="Variant.Outlined" Class="mt-3"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/fakture"))">
+        Nazad na listu
+    </MudButton>
+</MudPaper>
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    public int? Id { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+}

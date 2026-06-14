@@ -1045,6 +1045,30 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH('dbo.tbl_racuni', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [brisano] [int] NOT NULL DEFAULT ((0));
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'datumUnosa') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [datumUnosa] [datetime] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'izmenio') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [izmenio] [int] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'datumIzmene') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [datumIzmene] [datetime] NULL;
+END
+GO
+
 IF COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_vozila] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
@@ -1411,8 +1435,8 @@ GO
 -- Oznacavanje verzije baze nakon uspesne migracije
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 202;
-    PRINT 'Verzija baze postavljena na 202 (Blazor migracija).';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 203;
+    PRINT 'Verzija baze postavljena na 203 (Blazor migracija).';
 END
 GO
 

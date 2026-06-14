@@ -54,7 +54,6 @@ public class TransportDbContext : DbContext
 
     // Fakturisanje
     public DbSet<Racun> Racuni { get; set; }
-    public DbSet<StavkaRacuna> StavkeRacuna { get; set; }
     public DbSet<GotovinskiRacun> GotovinskiRacuni { get; set; }
     public DbSet<StavkaGotovinskog> StavkeGotovinskog { get; set; }
     public DbSet<Otpremnica> Otpremnice { get; set; }
@@ -187,10 +186,19 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<KarticaPartnera>()
             .HasKey(k => k.Id);
 
+        // tbl_racuni ima trigger — EF Core mora koristiti standardni UPDATE bez OUTPUT klauzule
         modelBuilder.Entity<Racun>()
-            .HasMany(r => r.Stavke)
-            .WithOne(s => s.Racun)
-            .HasForeignKey(s => s.BrojRacuna)
+            .ToTable("tbl_racuni", t => t.UseSqlOutputClause(false));
+
+        modelBuilder.Entity<Racun>()
+            .HasQueryFilter(r => r.brisano == 0);
+
+        // Partner.Racuni navigacija — bez ovoga EF pravi shadow FK "PartnerBroj"
+        // koji ne postoji u tbl_racuni (prava kolona je Id_Partnera)
+        modelBuilder.Entity<Partner>()
+            .HasMany(p => p.Racuni)
+            .WithOne()
+            .HasForeignKey(r => r.IdPartnera)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<GotovinskiRacun>()
@@ -266,15 +274,6 @@ public class TransportDbContext : DbContext
         // ============================================================================
         // DECIMALNA PRECIZNOST
         // ============================================================================
-        var decimalProperties = new[]
-        {
-            typeof(Racun).GetProperty(nameof(Racun.BrutoIznos)),
-            typeof(Racun).GetProperty(nameof(Racun.PDV)),
-            typeof(Racun).GetProperty(nameof(Racun.Ukupno)),
-            typeof(Racun).GetProperty(nameof(Racun.Placeno)),
-            typeof(Racun).GetProperty(nameof(Racun.Kurs)),
-        };
-
         modelBuilder.Entity<Role>(e =>
         {
             e.ToTable("tbl_role");

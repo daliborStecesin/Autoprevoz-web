@@ -1,0 +1,273 @@
+@page "/fakture/statistika/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
+
+<PageTitle>@($"Statistika faktura {FormatDatum(Od)}-{FormatDatum(Do)}")</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; background: #fff; }
+    .wrap { padding: 14px 18px; }
+
+    .firm-header .naziv { font-size: 12pt; font-weight: bold; }
+    .firm-header .adresa { font-size: 8pt; color: #333; }
+
+    .naslov-doc { font-size: 12pt; font-weight: bold; text-align: center; margin: 10px 0 4px; border-bottom: 2px solid #333; padding-bottom: 6px; }
+    .period { font-size: 8.5pt; text-align: center; color: #333; margin-bottom: 10px; }
+    .period b { color: #c62828; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-top: 6px; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 3px 4px; border: 1px solid #aaa; white-space: nowrap; }
+    tbody td { padding: 2px 4px; border: 1px solid #ccc; vertical-align: top; white-space: nowrap; }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    .right-align { text-align: right; }
+
+    .footer-sums { margin-top: 14px; display: flex; justify-content: flex-end; }
+    .footer-sums table { width: auto; border: 1px solid #333; }
+    .footer-sums td { padding: 4px 12px; border: 1px solid #aaa; font-weight: bold; }
+    .footer-sums td:first-child { background: #e8e8e8; text-align: left; min-width: 180px; }
+    .footer-sums td:last-child  { text-align: right; min-width: 110px; }
+
+    .no-print { margin-top: 18px; text-align: center; padding-bottom: 16px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    .print-logo { width: 70px; height: 70px; object-fit: contain; flex-shrink: 0; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr { page-break-inside: avoid; }
+        @@page { size: A4 landscape; margin: 1cm; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else if (_greska is not null)
+{
+    <div class="loading" style="color:#c62828;"><b>Greška:</b><br />@_greska<br /><br /><button onclick="window.close()">Zatvori</button></div>
+}
+else
+{
+    <div class="wrap">
+        <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:4px;">
+            @if (!string.IsNullOrEmpty(_logoBase64))
+            {
+                <img src="@_logoBase64" class="print-logo" alt="Logo" />
+            }
+            @if (_firma is not null)
+            {
+                <div class="firm-header">
+                    <div class="naziv">@_firma.NazivFirme</div>
+                    <div class="adresa">@_firma.Adresa &nbsp; @_firma.PosBroj @_firma.Mesto</div>
+                    <div class="adresa">PIB: @_firma.PIB &nbsp; Matični br: @_firma.MaticniBroj</div>
+                </div>
+            }
+        </div>
+
+        <div class="naslov-doc">STATISTIKA FAKTURA</div>
+        <div class="period">
+            ZA PERIOD: <b>@FormatDatum(Od)</b> DO: <b>@FormatDatum(Do)</b>
+            &nbsp;&nbsp; Tip računa: <b>@(Tip ?? "SVI")</b>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>R.Br</th>
+                    <th>Broj računa</th>
+                    <th>Datum računa</th>
+                    <th>Datum valute</th>
+                    <th>Datum utovara</th>
+                    <th>Datum istovara</th>
+                    <th>Naziv</th>
+                    <th>PIB</th>
+                    <th>Adresa</th>
+                    <th>Mesto</th>
+                    <th class="right-align">Osnovica</th>
+                    <th class="right-align">PDV</th>
+                    <th class="right-align">Suma računa</th>
+                    <th class="right-align">Kurs</th>
+                    <th>Mon.</th>
+                    <th>Tip</th>
+                    <th>Nalog</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_rezultati.Count == 0)
+                {
+                    <tr><td colspan="17" style="text-align:center; padding:16px; color:#666;">Nema podataka.</td></tr>
+                }
+                else
+                {
+                    @for (int i = 0; i < _rezultati.Count; i++)
+                    {
+                        var r = _rezultati[i];
+                        <tr>
+                            <td>@(i + 1)</td>
+                            <td>@r.BrojRacuna</td>
+                            <td>@r.DatumRacuna?.ToString("dd.MM.yyyy")</td>
+                            <td>@r.DatumValute?.ToString("dd.MM.yyyy")</td>
+                            <td>@r.DatumPrometa?.ToString("dd.MM.yyyy")</td>
+                            <td>@r.DatumPrometaDo?.ToString("dd.MM.yyyy")</td>
+                            <td>@r.Naziv</td>
+                            <td>@r.PIB</td>
+                            <td>@r.Adresa</td>
+                            <td>@r.Mesto</td>
+                            <td class="right-align">@r.Osnovica?.ToString("N2")</td>
+                            <td class="right-align">@r.SumaPDV?.ToString("N2")</td>
+                            <td class="right-align">@r.SumaRacuna?.ToString("N2")</td>
+                            <td class="right-align">@r.Kurs?.ToString("N4")</td>
+                            <td>@(r.TipProdaje == "INOSTRANI" ? "EUR" : "RSD")</td>
+                            <td>@r.TipProdaje</td>
+                            <td>@r.FiskIsecak</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="footer-sums">
+            <table>
+                <tr>
+                    <td>DOMAĆI:</td>
+                    <td>@_domaci.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td>INOSTRANI (EUR):</td>
+                    <td>@_inostraniEur.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td>DOMAĆI SA PDV:</td>
+                    <td>@_domaciSaPdv.ToString("N2")</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="no-print">
+            <button onclick="window.print()">🖨 Štampaj</button>
+            <button onclick="window.close()">✕ Zatvori</button>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "od")]         public string? Od         { get; set; }
+    [SupplyParameterFromQuery(Name = "do")]         public string? Do         { get; set; }
+    [SupplyParameterFromQuery(Name = "tip")]        public string? Tip        { get; set; }
+    [SupplyParameterFromQuery(Name = "tipDatuma")]  public string? TipDatuma  { get; set; }
+    [SupplyParameterFromQuery(Name = "idVozila")]   public string? IdVozila   { get; set; }
+    [SupplyParameterFromQuery(Name = "idVozaca")]   public string? IdVozaca   { get; set; }
+    [SupplyParameterFromQuery(Name = "idPartnera")] public string? IdPartnera { get; set; }
+    [SupplyParameterFromQuery(Name = "orderBy")]    public string? OrderBy    { get; set; }
+
+    private List<Racun>  _rezultati = [];
+    private PodaciFirme? _firma;
+    private string?      _logoBase64;
+
+    private decimal _domaci;
+    private decimal _inostraniEur;
+    private decimal _domaciSaPdv;
+
+    private bool    _ucitava = true;
+    private string? _greska;
+
+    protected override void OnInitialized()
+    {
+        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            if (_firma?.logoData is { Length: > 0 } && pod?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
+
+            IQueryable<Racun> q = Db.Racuni.AsNoTracking();
+
+            if (DateTime.TryParse(Od, out var odDate))
+            {
+                q = TipDatuma == "DATUM PROMETA"
+                    ? q.Where(r => r.DatumPrometaDo >= odDate)
+                    : q.Where(r => r.DatumRacuna >= odDate);
+            }
+
+            if (DateTime.TryParse(Do, out var doDate))
+            {
+                q = TipDatuma == "DATUM PROMETA"
+                    ? q.Where(r => r.DatumPrometaDo <= doDate)
+                    : q.Where(r => r.DatumRacuna <= doDate);
+            }
+
+            q = (Tip ?? "SVI") switch
+            {
+                "DOMACI"    => q.Where(r => r.TipProdaje == "IZLAZ" || r.TipProdaje == "IZLAZ_BP"),
+                "INOSTRANI" => q.Where(r => r.TipProdaje == "INOSTRANI"),
+                _           => q.Where(r => r.TipProdaje == "IZLAZ" || r.TipProdaje == "IZLAZ_BP" || r.TipProdaje == "INOSTRANI"),
+            };
+
+            if (!string.IsNullOrEmpty(IdVozila))
+                q = q.Where(r => r.IdVozila == IdVozila);
+
+            if (!string.IsNullOrEmpty(IdVozaca))
+                q = q.Where(r => r.IdVozaca == IdVozaca);
+
+            if (!string.IsNullOrEmpty(IdPartnera) && int.TryParse(IdPartnera, out var idP))
+                q = q.Where(r => r.IdPartnera == idP);
+
+            q = (OrderBy ?? "DATUM RACUNA SILAZNO") switch
+            {
+                "DATUM RACUNA UZLAZNO" => q.OrderBy(r => r.DatumRacuna),
+                "BROJ RACUNA"          => q.OrderBy(r => r.BrojRacuna),
+                _                      => q.OrderByDescending(r => r.DatumRacuna),
+            };
+
+            _rezultati = await q.ToListAsync();
+
+            _domaci       = _rezultati.Where(r => r.TipProdaje == "IZLAZ" || r.TipProdaje == "IZLAZ_BP").Sum(r => r.Osnovica   ?? 0);
+            _inostraniEur = _rezultati.Where(r => r.TipProdaje == "INOSTRANI").Sum(r => r.SumaRacuna ?? 0);
+            _domaciSaPdv  = _rezultati.Where(r => r.TipProdaje == "IZLAZ" || r.TipProdaje == "IZLAZ_BP").Sum(r => r.SumaRacuna ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _greska = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+
+        if (_greska is null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+
+    private static string FormatDatum(string? d) =>
+        DateTime.TryParse(d, out var dt) ? dt.ToString("dd.MM.yyyy") : (d ?? "");
+}

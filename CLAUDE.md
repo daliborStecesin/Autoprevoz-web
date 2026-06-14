@@ -95,10 +95,11 @@ Folder: `/sql/`
   nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
   novi seed kao `IF NOT EXISTS → INSERT`
 
-`verzijaBaze` u `tbl_Podesavanja` = 202 (Blazor migracija).
+`verzijaBaze` u `tbl_Podesavanja` = 203 (Blazor migracija).
 Svaka buduća migracija inkrementira ovaj broj.
 - 201 = `tbl_plate` dodato `idTure` + `kursEur`
 - 202 = `tbl_plate` dodato `iznosEUR`
+- 203 = `tbl_racuni` dodato `brisano` + audit (`datumUnosa`/`izmenio`/`datumIzmene`) za modul Fakture
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
