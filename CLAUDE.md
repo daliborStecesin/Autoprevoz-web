@@ -35,6 +35,11 @@ Sav UI tekst na srpskom.
 
 ## Ključni servisi
 - `INbsKursService` — NBS SOAP, EUR srednji kurs, keširano 24h. **Singleton** (globalni kurs, ispravno).
+- `IKursService` — kurs EUR po DATUMU događaja. SRBIJA: NBS srednji kurs na dan
+  (preko `INbsKursService`) → fallback `tbl_Podesavanja.kurs` ako servis padne.
+  Strane firme (Vlasnik != SRBIJA): ručni kurs iz `tbl_Podesavanja` (EUR-zemlje=1).
+  4 decimale. Merodavan datum: tura/faktura=istovar, trošak=datum troška,
+  plata/dnevnica=datum putnog naloga.
 - `ITenantService` — multi-tenant, cookie auth, ime/id korisnika. **Scoped** (po circuit-u).
 - `TransportDbContext` — direktni DB pristup u Razor stranicama. **Scoped**.
 - `BrojDokumentaService` — formatiranje brojeva dokumenata (tokeni: broj, godina2, godina4, mesec, dan)
@@ -90,8 +95,10 @@ Folder: `/sql/`
   nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
   novi seed kao `IF NOT EXISTS → INSERT`
 
-`verzijaBaze` u `tbl_Podesavanja` = 200 (Blazor migracija).
+`verzijaBaze` u `tbl_Podesavanja` = 202 (Blazor migracija).
 Svaka buduća migracija inkrementira ovaj broj.
+- 201 = `tbl_plate` dodato `idTure` + `kursEur`
+- 202 = `tbl_plate` dodato `iznosEUR`
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
@@ -154,13 +161,39 @@ Razdvojiti jasno: izmene na MASTER bazi (`daksoft`) vs KLIJENTSKOJ bazi.
   cenaDnevnicaDom, cenaDnevnicaIno, dnevnicaDom, dnevnicaIno,
   VrednostDnevnicaDom (broj×cena RSD), VrednostDnevnicaIno (broj×cena EUR)
 - Panel "Dnevnice" — collapsible, ispod panela "Datumi ture", stanje pamti po korisniku
+- **Sidebar = izvor istine**: dnevnice se obračunavaju i EDITUJU direktno u sidebar
+  panelu (desktop model). Broj dnevnica i cena dnevnice su editabilni — default se
+  predlaže iz datuma/sati i OpcijaDecimal1/2, ali korisnik može ručno izmeniti
+  (npr. parcijalna dnevnica, dogovor sa vozačem). Šta je upisano u sidebaru ide dalje
+  u dugmiće (troškovi ture / dnevnice vozaču).
 
-## DNEVNICE → PLATE (planirano, sledeći korak)
-- Na unosu dnevnica dva dugmeta:
-  - "Dodaj u troškove ture" → ide kao gotovinski trošak (za podizanje keša iz banke)
-  - "Dodaj u dnevnice vozaču" → ide u sekciju PLATE
-- Logika: država priznaje samo dnevnice za izvlačenje keša iz banke, ali vozač se
-  stvarno plati kroz PLATE (npr. po km). Dve odvojene stvari.
+## DNEVNICE → PLATE (REALIZOVANO)
+- Sidebar dnevnica (na turi) — dva dugmeta:
+  - "Dodaj dnevnice vozaču" → INSERT/UPDATE u `tbl_dnevnice` (dnevnice vozača,
+    modul Osoblje/Dnevnice)
+  - "Dodaj u troškove ture" → INSERT/UPDATE u `tbl_troskovi`, `ideTroskovnik=1`
+    (gotovinski trošak za podizanje keša iz banke, ulazi u obračun zarade ture)
+- PLATE sekcija (na turi) — tab po vozaču (Vozač 1 / Vozač 2 ako postoji "Dodatni
+  vozač" panel), 4 metode obračuna:
+  - **procenat** = vrednost ture × %
+  - **po km** = (kmTren − kmPoc) × cena/km
+  - **dnevnica** — cena iz imenika zaposlenog (NE iz tbl_Podesavanja)
+  - **fiksno** — ručno uneti iznos
+  - Plata tab NE računa dnevnice — te se preuzimaju iz sidebar panela "Dnevnice".
+- `tbl_plate` — ledger u RSD/EUR: `iznosPlate` (native valuta) + `iznosEUR` +
+  `kursEur` (zamrznut na dan obračuna), `izvorObracuna` = TURA/RUCNO, `idTure`,
+  `valuta`. Negativni iznosi (avans/odbitak) dozvoljeni.
+- Guard plate: po (`idTure` + `idVozaca` + `tipIsplate`) → ponovni unos radi UPDATE,
+  ne pravi duplikat.
+- Guard dnevnice-trošak: po (`idTure` + `idVozaca` + tip DOM/INO) → po vozaču, isto
+  bez duplikata.
+- Dugme "Dodaj platu u troškove ture" → trošak tipa "PLATA" (za realno stanje
+  troškova ture, odvojeno od zarade).
+- Razlika u ceni dnevnice: SIDEBAR (na turi) koristi državnu cenu iz podešavanja
+  (OpcijaDecimal1/2); PLATA metod "dnevnica" koristi cenu iz imenika zaposlenog.
+- Logika: država priznaje samo dnevnice za izvlačenje keša iz banke (sidebar →
+  troškovi), ali vozač se stvarno plati kroz PLATE (procenat/km/dnevnica iz
+  imenika/fiksno) — dve odvojene, ali povezane stvari.
 
 ---
 
@@ -213,6 +246,12 @@ Named-značenje OpcijaInt/String/Decimal kolona:
   (parovi: idVozaca1/vozac1, idVozaca2/vozac2, idVozila/vozilo, idPrikolice/prikolica)
 - AGENCIJSKI: vozač/vozilo/prikolica slobodan tekst → FK=NULL, samo string (za štampu)
 - Prikaz/štampa uvek koristi STRING kolone (radi za oba, bez FK join-a)
+- **AGENCIJSKA tura — svedeni prikaz**: skriveni paneli Datumi/Dnevnice/Kilometraža/
+  Plate, ostaju samo Nalozi + Troškovi + Zarada (= nalog − troškovi, tj. razlika u
+  ceni — ne pun obračun u EUR kao kod sopstvene). Vozač 2 i Prikolica su skriveni
+  (agencijski koristi samo Vozač 1 / Vozilo, slobodan tekst).
+- **SOPSTVENA tura**: Vozač 2 + Prikolica su u collapsible panelu
+  "Dodatni vozač / prikolica" (default zatvoren, auto-otvori se ako su već popunjeni).
 
 ## ŠTAMPE
 - Nalog za transport (`nalog-transport`): 2 strane, logo+firma, nalogodavac+prevoznik
@@ -258,17 +297,20 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - [x] **Štampa troškovnika** (samo gotovinski, obračun isplate, dnevnice)
 - [x] **SQL migracije** (01_CREATE blanko baza + 02_MIGRACIJA za stare klijente, /sql/ folder)
 - [x] **Deploy na test server** (95.211.62.35, nginx + Kestrel na :5001, login/SignalR rade)
-- [ ] Dnevnice → Plate ← SLEDEĆE
+- [x] **Dnevnice → Plate** (KOMPLETNO — desktop model, plata sa ture, kurs servis)
+- [x] **IKursService** (NBS po datumu, fallback, strane firme)
+- [x] **Agencijska tura svedena** (skriveni paneli, samo Nalozi+Troškovi+Zarada)
+- [x] **Kilometraža/gorivo panel** (start/kraj/pređeno/utrošeno/potrošnja editabilno)
+- [x] **NativniSelect/NativniInput** (zamena za nepouzdani MudSelect)
 - [ ] Skenirani dokumenti (nalozi, vozači, vozila, firma)
 - [ ] Finansije
 - [ ] Fakturisanje
 - [ ] E-fakture
 
 ## TRENUTNI FOKUS
-Deploy na test server završen i proveren (desktop + mobilni, login + SignalR rade).
-Sledeće: DNEVNICE → PLATE — na unosu dnevnica dva dugmeta:
-"Dodaj u troškove ture" (gotovinski trošak) i "Dodaj u dnevnice vozaču" (sekcija PLATE).
-Detalji logike u sekciji "DNEVNICE → PLATE (planirano, sledeći korak)" gore.
+Plate / Dnevnice / Kurs — ZAVRŠENO i testirano kroz pun ciklus (desktop + test server).
+Sledeće: Gorivo + Servisi (lakši moduli), pa FAKTURISANJE blok (fakture + predračuni
+dom/ino, knjižna odobrenja/zaduženja, kartice partnera, uplate/isplate).
 
 ## NAPOMENA — nginx na test serveru (95.211.62.35)
 Login ide preko `/api/auth/login-form` (form POST, ne fetch — radi pouzdano i na mobilnom).

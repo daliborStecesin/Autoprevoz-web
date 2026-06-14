@@ -47,23 +47,23 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 ---
 
 ## 🎯 TRENUTNO RADIMO / SLEDEĆE
-1. Dnevnice → Plate (insert iz naloga, 2 dugmeta: troškovi ture / dnevnice vozaču) ← SLEDEĆE
-2. Skenirani dokumenti
-3. **DEPLOY NA TEST SERVER** (nekoliko naprednih klijenata testira naloge)
+1. **Gorivo** (`/gorivo`) — evidencija točenja, potrošnja po vozilu/turi
+2. **Servisi / Održavanje** (`/servisi`) — evidencija servisa, podsetnici
+3. **Fakturisanje blok** — fakture + predračuni (dom/ino), knjižna odobrenja i
+   zaduženja, kartice partnera, uplate/isplate
 
 ---
 
 ## 📋 PREOSTALO — TRANSPORT (dovršiti)
-- [ ] Dnevnice → Plate
-      - Na unosu dnevnica dva dugmeta:
-        "Dodaj u troškove ture" (gotovinski trošak, za keš iz banke)
-        "Dodaj u dnevnice vozaču" (sekcija PLATE)
-      - Logika: država priznaje samo dnevnice za izvlačenje keša, ali vozač
-        se stvarno plati kroz PLATE (npr. po km)
-- [ ] Cena × Količina na nalozima (vrednost = cena × količina)
+- [x] Dnevnice → Plate (desktop model, sidebar + PLATE tab, kurs servis)
+- [x] Cena × Količina na nalozima (vrednost = cena × količina)
 - [ ] Statistika tura (po dispečeru — IdKorisnika, po vozaču, vozilu)
 - [ ] Statistika naloga
 - [ ] CMR dokumenti
+
+## 📋 LAKI MODULI (sledeće)
+- [ ] Gorivo (`/gorivo`) — evidencija točenja goriva, potrošnja po vozilu/turi
+- [ ] Servisi / Održavanje (`/servisi`) — evidencija servisa, podsetnici po vozilu
 
 ## 📋 SKENIRANI DOKUMENTI (zaseban segment)
 - [ ] Upload fajlova (PDF, JPG)
@@ -74,20 +74,18 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 - [ ] Zaseban modul vezan za firmu (ne samo po dokumentu)
 
 ## 📋 FINANSIJE
-- [ ] Kartice partnera
-- [ ] Unos finansija
-- [ ] Dužnici
-- [ ] Moja dugovanja
-- [ ] Uplate
-- [ ] Štampa kartica
+- [ ] Kartice partnera/kupaca + štampa
+- [ ] Uplate/isplate u valuti (RSD/EUR)
+- [ ] Dužnici/dugovanja
 
 ## 📋 FAKTURISANJE
 - [ ] Novi račun
 - [ ] Arhiva računa
-- [ ] Gotovinski računi
-- [ ] Predračuni / Ponude
+- [ ] Predračuni — domaći + ino
+- [ ] Knjižna odobrenja i zaduženja
 - [ ] Otpremnice
 - [ ] Veza nalog → faktura (status FAKTURISAN automatski)
+- [ ] Kurs na fakturama/predračunima = kurs na dan istovara (IKursService)
 
 ## 📋 PODEŠAVANJA SISTEMA (dovršiti)
 - [ ] Korisnici i privilegije (fine dozvole po modulima — vidi dole)
@@ -204,6 +202,6 @@ Sistem modula:
 ---
 
 ## ⚠️ NAPOMENA O PRIORITETIMA
-Faze 8/9/10 su STRATEŠKE. Trenutni fokus: dovršiti transport (dnevnice→plate,
-skenirani dokumenti), pa DEPLOY na test server za prve klijente. Tehnička pravila,
-arhitektura i mapiranja → vidi CLAUDE.md.
+Faze 8/9/10 su STRATEŠKE. Plate/Dnevnice/Kurs i deploy na test server su završeni.
+Trenutni fokus: Gorivo + Servisi (laki moduli), pa Fakturisanje blok. Tehnička
+pravila, arhitektura i mapiranja → vidi CLAUDE.md.
