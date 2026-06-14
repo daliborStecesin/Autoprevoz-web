@@ -271,10 +271,6 @@
 
         var isplacenoDefault = await DefaultValues.GetDefault("plate", "filterIsplaceno", uid);
         if (isplacenoDefault is not null) _filterIsplaceno = isplacenoDefault;
-
-        var idVDefault = await DefaultValues.GetDefault("plate", "idVozaca", uid);
-        if (idVDefault is not null && int.TryParse(idVDefault, out var idV))
-            _filterVozac = _sviVozaci.FirstOrDefault(v => v.Broj == idV);
     }
 
     private void AzurirajVozacePredloge()
@@ -300,7 +296,6 @@
         _filterVozac = v;
         _vozacPretraga = string.Empty;
         _vozaciPredlozi.Clear();
-        _ = DefaultValues.SaveDefault("plate", "idVozaca", v.Broj.ToString(), TenantService.GetIdKorisnika());
     }
 
     private async Task Izlistaj()

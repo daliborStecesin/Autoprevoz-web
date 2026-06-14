@@ -335,10 +335,6 @@
 
         var tipDefault = await DefaultValues.GetDefault("dnevnice", "tipDnevnice", uid);
         if (tipDefault is not null) _filterTip = tipDefault;
-
-        var idVDefault = await DefaultValues.GetDefault("dnevnice", "idVozaca", uid);
-        if (idVDefault is not null && int.TryParse(idVDefault, out var idV))
-            _filterVozac = _sviVozaci.FirstOrDefault(v => v.Broj == idV);
     }
 
     private void OnTipChanged(ChangeEventArgs e)
@@ -371,7 +367,6 @@
         _filterVozac    = v;
         _vozacPretraga  = string.Empty;
         _vozaciPredlozi = [];
-        _ = DefaultValues.SaveDefault("dnevnice", "idVozaca", v.Broj.ToString(), TenantService.GetIdKorisnika());
         StateHasChanged();
     }
 

@@ -12,6 +12,27 @@ window.autoprevoz = {
         try { document.getElementById(id)?.showPicker(); } catch (_) { }
     },
 
+    // Postavlja sticky sidebar tačno na visinu viewporta (top + max-height
+    // se računaju dinamički, pa se "Sačuvaj" dugme na dnu uvek vidi).
+    fitSidebar: function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const apply = () => {
+            const top = Math.max(0, Math.round(el.getBoundingClientRect().top));
+            el.style.position  = 'sticky';
+            el.style.top       = top + 'px';
+            el.style.maxHeight = 'calc(100vh - ' + (top + 16) + 'px)';
+        };
+
+        apply();
+
+        if (!el.dataset.fitSidebarBound) {
+            el.dataset.fitSidebarBound = '1';
+            window.addEventListener('resize', apply);
+        }
+    },
+
     login: async function (email, password) {
         try {
             const response = await fetch('/api/auth/login', {

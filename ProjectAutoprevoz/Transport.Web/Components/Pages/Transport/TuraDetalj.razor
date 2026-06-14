@@ -57,8 +57,8 @@ else if (_tura is not null)
        LEVI PANEL — FORMA ZA UREĐIVANJE TURE
        ══════════════════════════════════════════════════════════════════ *@
     <MudItem xs="12" md="4">
-        <MudPaper Elevation="2" Class="pa-0"
-                  Style="position:sticky; top:64px; max-height:calc(100vh - 80px);
+        <MudPaper id="tura-sidebar" Elevation="2" Class="pa-0"
+                  Style="position:sticky; top:0; max-height:100vh;
                          display:flex; flex-direction:column; overflow:hidden;">
 
             @* ── Scrollable sadržaj ── *@
@@ -72,24 +72,29 @@ else if (_tura is not null)
                                   font-size:0.8rem; font-weight:600; color:#1565C0; width:130px; text-align:right;" />
                 </div>
 
-                @* ── Vrsta prevoza ── *@
-                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta prevoza:</MudText>
-                <select value="@_tura.VrstaPrevoza"
-                        @onchange="OnVrstaChanged"
-                        style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
-                               border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:8px;">
-                    <option value="SOPSTVENI">SOPSTVENI</option>
-                    <option value="AGENCIJSKI">AGENCIJSKI</option>
-                </select>
-
-                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Status:</MudText>
-                <select @bind="_tura.Status"
-                        style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
-                               border-radius:4px; font-size:0.85rem; background:white; height:33px; margin-bottom:10px;">
-                    <option value="U TOKU">U TOKU</option>
-                    <option value="ZAVRSEN">ZAVRŠEN</option>
-                    <option value="OTKAZAN">OTKAZAN</option>
-                </select>
+                @* ── Vrsta prevoza + Status (jedan red) ── *@
+                <div class="d-flex" style="gap:8px; margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta prevoza:</MudText>
+                        <select value="@_tura.VrstaPrevoza"
+                                @onchange="OnVrstaChanged"
+                                style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
+                                       border-radius:4px; font-size:0.85rem; background:white; height:33px;">
+                            <option value="SOPSTVENI">SOPSTVENI</option>
+                            <option value="AGENCIJSKI">AGENCIJSKI</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Status:</MudText>
+                        <select @bind="_tura.Status"
+                                style="width:100%; padding:5px 8px; border:1px solid rgba(0,0,0,0.23);
+                                       border-radius:4px; font-size:0.85rem; background:white; height:33px;">
+                            <option value="U TOKU">U TOKU</option>
+                            <option value="ZAVRSEN">ZAVRŠEN</option>
+                            <option value="OTKAZAN">OTKAZAN</option>
+                        </select>
+                    </div>
+                </div>
 
                 <MudTextField @bind-Value="_tura.Relacija"
                               Label="Relacija" Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -98,7 +103,7 @@ else if (_tura is not null)
                 <div class="mb-2">
                     <DateInputNullable Label="Datum ture:"
                                        Value="_tura.DatumDokumenta"
-                                       ValueChanged="@(d => _tura.DatumDokumenta = d)" />
+                                       ValueChanged="OnDatumTurePromenjen" />
                 </div>
 
                 <MudDivider Class="my-2" />
@@ -146,51 +151,6 @@ else if (_tura is not null)
                             <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV1.Ime @_selV1.Prezime</span>
                             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                                            OnClick="@(() => { _selV1 = null; _tura.IdVozaca1 = null; _tura.Vozac1 = null; _v1Pretraga = ""; })" />
-                        </MudPaper>
-                    }
-                </div>
-                }
-
-                @* Vozač 2 *@
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač 2:</MudText>
-                @if (_jeAgencijski)
-                {
-                    <MudTextField @bind-Value="_tura.Vozac2"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Ime i prezime vozača..." Class="mb-2" />
-                }
-                else
-                {
-                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                    @if (_selV2 is null)
-                    {
-                        <MudTextField Value="_v2Pretraga"
-                                      ValueChanged="@((string v) => { _v2Pretraga = v; AzurirajVozace(v, ref _v2Predlozi); })"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Placeholder="Pretraži vozača..." Immediate="true" T="string" />
-                        @if (_v2Predlozi.Count > 0)
-                        {
-                            <div style="position:absolute; z-index:9999; left:0; right:0;
-                                        background:white; border:1px solid #ccc; border-radius:4px;
-                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                                @foreach (var v in _v2Predlozi)
-                                {
-                                    var vozac = v;
-                                    <div @onclick="() => IzaberiV2(vozac)"
-                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                        @vozac.Ime @vozac.Prezime
-                                    </div>
-                                }
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <MudPaper Elevation="0"
-                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV2.Ime @_selV2.Prezime</span>
-                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                           OnClick="@(() => { _selV2 = null; _tura.IdVozaca2 = null; _tura.Vozac2 = null; _v2Pretraga = ""; })" />
                         </MudPaper>
                     }
                 </div>
@@ -245,61 +205,107 @@ else if (_tura is not null)
                 </div>
                 }
 
-                @* Prikolica *@
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Prikolica:</MudText>
-                @if (_jeAgencijski)
-                {
-                    <MudTextField @bind-Value="_tura.Prikolica"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Placeholder="Reg. oznaka prikolice..." Class="mb-2" />
-                }
-                else
-                {
-                <div style="position:relative; margin-bottom:8px; margin-top:2px;">
-                    @if (_selPrikolica is null)
-                    {
-                        <MudTextField Value="_prikolicaPretraga"
-                                      ValueChanged="@((string v) => { _prikolicaPretraga = v; AzurirajPrikolice(v); })"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Placeholder="Reg. oznaka prikolice..." Immediate="true" T="string" />
-                        @if (_prikolicaPredlozi.Count > 0)
-                        {
-                            <div style="position:absolute; z-index:9999; left:0; right:0;
-                                        background:white; border:1px solid #ccc; border-radius:4px;
-                                        box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
-                                @foreach (var vz in _prikolicaPredlozi)
-                                {
-                                    var prikolica = vz;
-                                    <div @onclick="() => IzaberiPrikolicu(prikolica)"
-                                         style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
-                                        <strong>@prikolica.registarskaOznaka</strong>
-                                        <span style="color:#666; margin-left:6px;">@prikolica.marka @prikolica.oznaka</span>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <MudPaper Elevation="0"
-                                  Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selPrikolica.registarskaOznaka</span>
-                                <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selPrikolica.marka @_selPrikolica.oznaka</span>
-                            </div>
-                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                           OnClick="@(() => { _selPrikolica = null; _tura.IdPrikolice = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
-                        </MudPaper>
-                    }
-                </div>
-                }
-
                 @* ── Accordion paneli (ručni, bez MudExpansionPanels) ── *@
 
-                @* Datumi ture / Dnevnice / Kilometraža — samo za SOPSTVENE ture
+                @* Datumi ture / Dnevnice / Kilometraža / Dodatni vozač — samo za SOPSTVENE ture
                    (agencijska tura je preprodaja transporta, nema sopstveni vozni park/dnevnice) *@
                 @if (!_jeAgencijski)
                 {
+
+                @* Panel: Dodatni vozač / prikolica *@
+                <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:10px;">
+                    <div @onclick="OnPanelDodatniToggle"
+                         style="display:flex; align-items:center; justify-content:space-between;
+                                padding:8px 12px; cursor:pointer; user-select:none;
+                                background:#fafafa; border-radius:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                            <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" />
+                            Dodatni vozač / prikolica
+                        </div>
+                        <MudIcon Icon="@(_panelDodatni ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="Size.Small" Style="color:#888;" />
+                    </div>
+                    @if (_panelDodatni)
+                    {
+                        <div style="padding:8px 12px 10px;">
+                            @* Vozač 2 *@
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Vozač 2:</MudText>
+                            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                                @if (_selV2 is null)
+                                {
+                                    <MudTextField Value="_v2Pretraga"
+                                                  ValueChanged="@((string v) => { _v2Pretraga = v; AzurirajVozace(v, ref _v2Predlozi); })"
+                                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                  Placeholder="Pretraži vozača..." Immediate="true" T="string" />
+                                    @if (_v2Predlozi.Count > 0)
+                                    {
+                                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                            @foreach (var v in _v2Predlozi)
+                                            {
+                                                var vozac = v;
+                                                <div @onclick="() => IzaberiV2(vozac)"
+                                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                                    @vozac.Ime @vozac.Prezime
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <MudPaper Elevation="0"
+                                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selV2.Ime @_selV2.Prezime</span>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                       OnClick="@(() => { _selV2 = null; _tura.IdVozaca2 = null; _tura.Vozac2 = null; _v2Pretraga = ""; })" />
+                                    </MudPaper>
+                                }
+                            </div>
+
+                            @* Prikolica *@
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Prikolica:</MudText>
+                            <div style="position:relative; margin-bottom:8px; margin-top:2px;">
+                                @if (_selPrikolica is null)
+                                {
+                                    <MudTextField Value="_prikolicaPretraga"
+                                                  ValueChanged="@((string v) => { _prikolicaPretraga = v; AzurirajPrikolice(v); })"
+                                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                  Placeholder="Reg. oznaka prikolice..." Immediate="true" T="string" />
+                                    @if (_prikolicaPredlozi.Count > 0)
+                                    {
+                                        <div style="position:absolute; z-index:9999; left:0; right:0;
+                                                    background:white; border:1px solid #ccc; border-radius:4px;
+                                                    box-shadow:0 4px 12px rgba(0,0,0,0.15); max-height:150px; overflow-y:auto;">
+                                            @foreach (var vz in _prikolicaPredlozi)
+                                            {
+                                                var prikolica = vz;
+                                                <div @onclick="() => IzaberiPrikolicu(prikolica)"
+                                                     style="padding:5px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.82rem;">
+                                                    <strong>@prikolica.registarskaOznaka</strong>
+                                                    <span style="color:#666; margin-left:6px;">@prikolica.marka @prikolica.oznaka</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <MudPaper Elevation="0"
+                                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <span style="font-weight:600; color:#1565C0; font-size:0.82rem;">@_selPrikolica.registarskaOznaka</span>
+                                            <span style="color:#666; font-size:0.78rem; margin-left:4px;">@_selPrikolica.marka @_selPrikolica.oznaka</span>
+                                        </div>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                       OnClick="@(() => { _selPrikolica = null; _tura.IdPrikolice = null; _tura.Prikolica = null; _prikolicaPretraga = ""; })" />
+                                    </MudPaper>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
 
                 @* Panel: Datumi ture *@
                 <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:10px;">
@@ -368,10 +374,10 @@ else if (_tura is not null)
                                         <span style="color:#555; font-size:0.82rem;">Br. sati:</span>
                                         <strong style="font-size:0.82rem;">@((_tura.SatiDom ?? 0).ToString("N1"))</strong>
                                     </div>
-                                    <div class="d-flex justify-space-between mt-1">
-                                        <span style="color:#555; font-size:0.82rem;">Br. dnevnica:</span>
-                                        <strong style="font-size:0.82rem;">@((_tura.DnevnicaDom ?? 0).ToString("N2"))</strong>
-                                    </div>
+                                    <MudNumericField T="decimal?" Value="_tura.DnevnicaDom"
+                                                     Label="Br. dnevnica" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true" Class="mt-2"
+                                                     ValueChanged="@((decimal? v) => { _tura.DnevnicaDom = v; _dnevnicaDomAutoSet = false; IzracunajDnevniceTure(); })" />
                                     <div class="d-flex justify-space-between mt-1">
                                         <span style="color:#555; font-size:0.82rem;">Vrednost:</span>
                                         <strong style="font-size:0.85rem; color:#1565C0;">@((_tura.VrednostDnevnicaDom ?? 0).ToString("N2")) RSD</strong>
@@ -387,10 +393,10 @@ else if (_tura is not null)
                                         <span style="color:#555; font-size:0.82rem;">Br. sati:</span>
                                         <strong style="font-size:0.82rem;">@((_tura.SatiIno ?? 0).ToString("N1"))</strong>
                                     </div>
-                                    <div class="d-flex justify-space-between mt-1">
-                                        <span style="color:#555; font-size:0.82rem;">Br. dnevnica:</span>
-                                        <strong style="font-size:0.82rem;">@((_tura.DnevnicaIno ?? 0).ToString("N2"))</strong>
-                                    </div>
+                                    <MudNumericField T="decimal?" Value="_tura.DnevnicaIno"
+                                                     Label="Br. dnevnica" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Format="N2" HideSpinButtons="true" Class="mt-2"
+                                                     ValueChanged="@((decimal? v) => { _tura.DnevnicaIno = v; _dnevnicaInoAutoSet = false; IzracunajDnevniceTure(); })" />
                                     <div class="d-flex justify-space-between mt-1">
                                         <span style="color:#555; font-size:0.82rem;">Vrednost:</span>
                                         <strong style="font-size:0.85rem; color:#c62828;">@((_tura.VrednostDnevnicaIno ?? 0).ToString("N2")) EUR</strong>
@@ -419,47 +425,44 @@ else if (_tura is not null)
                         <div style="padding:8px 12px 10px;">
                             <MudGrid Spacing="1" Class="mt-1">
                                 <MudItem xs="6">
-                                    <MudNumericField T="decimal?" Value="_tura.KmPocetna"
-                                                     Label="KM start" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                     HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? v) => { _tura.KmPocetna = v; IzracunajPredjeno(); })" />
+                                    <div class="d-flex flex-column gap-1">
+                                        <MudNumericField T="decimal?" Value="_tura.KmPocetna"
+                                                         Label="KM start" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.KmPocetna = v; IzracunajPredjeno(); })" />
+                                        <MudNumericField T="decimal?" Value="_tura.KmTrenutna"
+                                                         Label="KM kraj" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.KmTrenutna = v; IzracunajPredjeno(); })" />
+                                        <MudNumericField T="decimal?" Value="_tura.Predjeno"
+                                                         Label="Pređeno KM" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.Predjeno = v; IzracunajPotrosnju(); })" />
+                                    </div>
                                 </MudItem>
                                 <MudItem xs="6">
-                                    <MudNumericField T="decimal?" Value="_tura.KmTrenutna"
-                                                     Label="KM kraj" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                     HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? v) => { _tura.KmTrenutna = v; IzracunajPredjeno(); })" />
+                                    <div class="d-flex flex-column gap-1">
+                                        <MudNumericField T="decimal?" Value="_tura.GorivoStart"
+                                                         Label="Gorivo start (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.GorivoStart = v; IzracunajGorivo(); })" />
+                                        <MudNumericField T="decimal?" Value="_tura.GorivoEnd"
+                                                         Label="Gorivo kraj (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.GorivoEnd = v; IzracunajGorivo(); })" />
+                                        <MudNumericField T="decimal?" Value="_tura.GorivoUtroseno"
+                                                         Label="Utrošeno (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                         HideSpinButtons="true"
+                                                         ValueChanged="@((decimal? v) => { _tura.GorivoUtroseno = v; IzracunajPotrosnju(); })" />
+                                    </div>
                                 </MudItem>
                                 <MudItem xs="6">
-                                    <MudNumericField T="decimal?" Value="_tura.GorivoStart"
-                                                     Label="Gorivo start (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                    <MudNumericField T="decimal?" Value="_tura.Potrosnja"
+                                                     Label="Potrošnja (L/100km)" Variant="Variant.Outlined" Margin="Margin.Dense"
                                                      HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? v) => { _tura.GorivoStart = v; IzracunajGorivo(); })" />
-                                </MudItem>
-                                <MudItem xs="6">
-                                    <MudNumericField T="decimal?" Value="_tura.GorivoEnd"
-                                                     Label="Gorivo kraj (L)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                     HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? v) => { _tura.GorivoEnd = v; IzracunajGorivo(); })" />
+                                                     ValueChanged="@((decimal? v) => _tura.Potrosnja = v)" />
                                 </MudItem>
                             </MudGrid>
-                            @if (_tura.Predjeno.HasValue || _tura.GorivoUtroseno.HasValue)
-                            {
-                                <div class="d-flex gap-3 mt-1">
-                                    @if (_tura.Predjeno.HasValue)
-                                    {
-                                        <MudText Typo="Typo.caption">
-                                            Pređeno: <strong>@_tura.Predjeno.Value.ToString("N0") km</strong>
-                                        </MudText>
-                                    }
-                                    @if (_tura.GorivoUtroseno.HasValue)
-                                    {
-                                        <MudText Typo="Typo.caption">
-                                            Utrošeno: <strong>@_tura.GorivoUtroseno.Value.ToString("N1") L</strong>
-                                        </MudText>
-                                    }
-                                </div>
-                            }
                         </div>
                     }
                 </div>
@@ -707,7 +710,7 @@ else if (_tura is not null)
                             <div class="d-flex gap-3">
                                 <div style="flex: 0 0 170px;">
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Datum:</MudText>
-                                    <DateInput @bind-Value="_tDatumStr" />
+                                    <DateInput @bind-Value="_tDatumStr" AfterChange="OnTDatumPromenjen" />
                                 </div>
                                 <div style="flex: 1 1 auto;">
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1">Vrsta troška:</MudText>
@@ -965,11 +968,11 @@ else if (_tura is not null)
                                 </MudPaper>
                             }
 
-                            @* ── Dnevnice (sekundarno) ── *@
+                            @* ── Dnevnice (iz sidebar panela "Dnevnice" — izvor istine za turu) ── *@
                             <MudDivider Class="my-2" />
                             <MudText Typo="Typo.caption" Class="mud-text-secondary mb-1 d-block">
                                 <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Class="mr-1" />
-                                Dnevnice
+                                Dnevnice (obračun sa ture — panel "Dnevnice")
                             </MudText>
 
                             @if (dnevniceVozaca.Count > 0)
@@ -1005,28 +1008,20 @@ else if (_tura is not null)
                                 </MudSimpleTable>
                             }
 
-                            <MudGrid Spacing="2">
-                                <MudItem xs="12" sm="6">
-                                    <MudNumericField T="decimal?" Value="@GetCenaDnevniceDom(i)"
-                                                     Label="Cena dnevnice DOM (RSD)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                     Format="N2" HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? val) => SetCenaDnevniceDom(i, val))" />
-                                    <div class="d-flex justify-space-between mt-1" style="font-size:0.75rem; color:#888;">
-                                        <span>Br. dnevnica (iz datuma): <strong>@((_tura.DnevnicaDom ?? 0).ToString("N1"))</strong></span>
-                                        <strong style="color:#1565C0;">@(VrednostDnevnicaDomZaVozaca(i).ToString("N2")) RSD</strong>
-                                    </div>
-                                </MudItem>
-                                <MudItem xs="12" sm="6">
-                                    <MudNumericField T="decimal?" Value="@GetCenaDnevniceIno(i)"
-                                                     Label="Cena dnevnice INO (EUR)" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                     Format="N2" HideSpinButtons="true"
-                                                     ValueChanged="@((decimal? val) => SetCenaDnevniceIno(i, val))" />
-                                    <div class="d-flex justify-space-between mt-1" style="font-size:0.75rem; color:#888;">
-                                        <span>Br. dnevnica (iz datuma): <strong>@((_tura.DnevnicaIno ?? 0).ToString("N1"))</strong></span>
-                                        <strong style="color:#c62828;">@(VrednostDnevnicaInoZaVozaca(i).ToString("N2")) EUR</strong>
-                                    </div>
-                                </MudItem>
-                            </MudGrid>
+                            <MudPaper Elevation="0" Class="pa-2 mb-2"
+                                      Style="background:#f7f9fb; border-radius:4px; font-size:0.82rem; border:1px solid #e0e6ec;">
+                                <div class="d-flex justify-space-between">
+                                    <span style="color:#555;">U zemlji: @((_tura.DnevnicaDom ?? 0).ToString("N2")) × @((_tura.CenaDnevnicaDom ?? 0).ToString("N2")) RSD</span>
+                                    <strong style="color:#1565C0;">@((_tura.VrednostDnevnicaDom ?? 0).ToString("N2")) RSD</strong>
+                                </div>
+                                <div class="d-flex justify-space-between mt-1">
+                                    <span style="color:#555;">U inostranstvu: @((_tura.DnevnicaIno ?? 0).ToString("N2")) × @((_tura.CenaDnevnicaIno ?? 0).ToString("N2")) EUR</span>
+                                    <strong style="color:#c62828;">@((_tura.VrednostDnevnicaIno ?? 0).ToString("N2")) EUR</strong>
+                                </div>
+                            </MudPaper>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2 d-block">
+                                Broj i cena dnevnica se uređuju u sidebar panelu "Dnevnice".
+                            </MudText>
                             <div class="d-flex gap-2 mt-2">
                                 <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
                                            StartIcon="@Icons.Material.Filled.PersonAddAlt"
@@ -1052,7 +1047,6 @@ else if (_tura is not null)
                                                    ValueChanged="@(val => OnTipIsplateChanged(i, val ?? pSt.TipIsplate))">
                                         <option value="PROCENAT">Procenat od ture</option>
                                         <option value="PO_KM">Po kilometru</option>
-                                        <option value="DNEVNICA">Dnevnice</option>
                                         <option value="FIXNO">Fiksna plata</option>
                                     </NativniSelect>
                                 </MudItem>
@@ -1085,19 +1079,6 @@ else if (_tura is not null)
                                             <option value="RSD">RSD</option>
                                             <option value="EUR">EUR</option>
                                         </NativniSelect>
-                                    </MudItem>
-                                }
-                                else if (pSt.TipIsplate == "DNEVNICA")
-                                {
-                                    <MudItem xs="6" sm="3">
-                                        <NativniInput TValue="decimal?" Value="@pSt.CenaDnevnica" Label="Cena dnevnice (EUR)"
-                                                       Format="N2"
-                                                       ValueChanged="@((decimal? val) => { pSt.CenaDnevnica = val; PrekalkulisiPlatu(pSt); })" />
-                                    </MudItem>
-                                    <MudItem xs="6" sm="3">
-                                        <NativniInput TValue="decimal?" Value="@pSt.BrojDnevnica" Label="Broj dnevnica"
-                                                       Format="N2"
-                                                       ValueChanged="@((decimal? val) => { pSt.BrojDnevnica = val; PrekalkulisiPlatu(pSt); })" />
                                     </MudItem>
                                 }
                                 else if (pSt.TipIsplate == "FIXNO")
@@ -1157,11 +1138,16 @@ else if (_tura is not null)
                                 </div>
                             </MudPaper>
 
-                            <div class="mt-2">
+                            <div class="d-flex gap-2 mt-2">
                                 <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
                                            StartIcon="@Icons.Material.Filled.Save"
                                            OnClick="@(async () => await UpisiPlatu(v, idVStr, i))">
-                                    Upiši platu
+                                    Upiši platu vozaču
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
+                                           StartIcon="@Icons.Material.Filled.ReceiptLong"
+                                           OnClick="@(async () => await DodajPlatuUTroskove(v, idVStr, i))">
+                                    Dodaj platu u troškove ture
                                 </MudButton>
                             </div>
 
@@ -1241,12 +1227,6 @@ else if (_tura is not null)
     private decimal _cenaDomaca = 3380m;
     private decimal _cenaIno    = 90m;
 
-    // Dnevnice po vozaču (Plata/Dnevnice sekcija) — cena dnevnice editabilna po panelu
-    private decimal? _cenaDnevniceDomV1;
-    private decimal? _cenaDnevniceInoV1;
-    private decimal? _cenaDnevniceDomV2;
-    private decimal? _cenaDnevniceInoV2;
-
     // Plata po vozaču (Plata sekcija) — stanje obračuna po panelu (1=vozač1, 2=vozač2)
     private class PlataPanelState
     {
@@ -1255,8 +1235,6 @@ else if (_tura is not null)
         public decimal? Km;
         public decimal? CenaPoKm;
         public decimal? FixnoPlata;
-        public decimal? BrojDnevnica;
-        public decimal? CenaDnevnica;
         public decimal? Avans = 0;
         public decimal? VracenAvans = 0;
         public string Valuta = "EUR";
@@ -1268,12 +1246,18 @@ else if (_tura is not null)
     private readonly Dictionary<int, PlataPanelState> _platePaneli = [];
 
     private Podesavanja? _pod;
+    private PodaciFirme? _firma;
 
     // Accordion stanje panela
     private bool _panelDatumi    = false;
     private bool _panelDnevnice  = false;
     private bool _panelKm        = false;
     private bool _panelFinansije = false;
+    private bool _panelDodatni   = false;
+
+    // Broj dnevnica na turi (sidebar "Dnevnice") — auto iz datuma/sati, ali korisnik može ručno override
+    private bool _dnevnicaDomAutoSet = true;
+    private bool _dnevnicaInoAutoSet = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1291,9 +1275,7 @@ else if (_tura is not null)
         _cenaDomaca = await PovuciScalar("SELECT TOP 1 OpcijaDecimal1 FROM tbl_Podesavanja", 3380m);
         _cenaIno    = await PovuciScalar("SELECT TOP 1 OpcijaDecimal2 FROM tbl_Podesavanja", 90m);
         _pod        = await Db.Podesavanja.FirstOrDefaultAsync();
-
-        _cenaDnevniceDomV1 = _cenaDomaca; _cenaDnevniceInoV1 = _cenaIno;
-        _cenaDnevniceDomV2 = _cenaDomaca; _cenaDnevniceInoV2 = _cenaIno;
+        _firma      = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
 
         // Učitaj stanje accordion panela po korisniku
         var uid = TenantService.GetIdKorisnika();
@@ -1316,6 +1298,15 @@ else if (_tura is not null)
         await UcitajTuru();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_tura is not null)
+        {
+            try { await JS.InvokeVoidAsync("autoprevoz.fitSidebar", "tura-sidebar"); }
+            catch { }
+        }
+    }
+
     private Task SacuvajPanelState(string kljuc, bool val)
         => DefaultValues.SaveDefault("tura", kljuc, val.ToString(), TenantService.GetIdKorisnika());
 
@@ -1323,6 +1314,7 @@ else if (_tura is not null)
     private async Task OnPanelDnevniceToggle()  { _panelDnevnice  = !_panelDnevnice;  await SacuvajPanelState("panel_dnevnice",  _panelDnevnice); }
     private async Task OnPanelKmToggle()        { _panelKm        = !_panelKm;        await SacuvajPanelState("panel_km",        _panelKm); }
     private async Task OnPanelFinansijeToggle() { _panelFinansije = !_panelFinansije; await SacuvajPanelState("panel_finansije",  _panelFinansije); }
+    private void        OnPanelDodatniToggle()  { _panelDodatni   = !_panelDodatni; }
 
     private async Task InicijalizujNovuTuru()
     {
@@ -1410,6 +1402,10 @@ else if (_tura is not null)
                 _selPrikolica = _sviVozila.FirstOrDefault(v => v.VoziloId == _tura.IdPrikolice);
             else if (_tura.VrstaPrevoza == "SOPSTVENI" && !string.IsNullOrWhiteSpace(_tura.Prikolica))
                 _selPrikolica = _sviVozila.FirstOrDefault(v => v.registarskaOznaka == _tura.Prikolica);
+
+            // Otvori panel "Dodatni vozač / prikolica" automatski ako tura već ima popunjeno
+            if (_tura.IdVozaca2.HasValue || !string.IsNullOrWhiteSpace(_tura.Prikolica))
+                _panelDodatni = true;
 
             if (_tura.KursEUR.HasValue && _tura.KursEUR > 0)
                 _tKurs = _tura.KursEUR.Value;
@@ -1568,6 +1564,7 @@ else if (_tura is not null)
             dbTura.GorivoStart    = _tura.GorivoStart;
             dbTura.GorivoEnd      = _tura.GorivoEnd;
             dbTura.GorivoUtroseno = _tura.GorivoUtroseno;
+            dbTura.Potrosnja      = _tura.Potrosnja;
             dbTura.KursEUR        = _tura.KursEUR;
             dbTura.AkontacijaDom  = _tura.AkontacijaDom;
             dbTura.AkontacijaIno  = _tura.AkontacijaIno;
@@ -1782,24 +1779,7 @@ else if (_tura is not null)
         _tura.VrednostTroskovaIno = aktivni.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
     }
 
-    // ── Dnevnice po vozaču (Plata/Dnevnice sekcija) ──
-
-    private decimal? GetCenaDnevniceDom(int idx) => idx == 1 ? _cenaDnevniceDomV1 : _cenaDnevniceDomV2;
-    private decimal? GetCenaDnevniceIno(int idx) => idx == 1 ? _cenaDnevniceInoV1 : _cenaDnevniceInoV2;
-
-    private void SetCenaDnevniceDom(int idx, decimal? v)
-    {
-        if (idx == 1) _cenaDnevniceDomV1 = v; else _cenaDnevniceDomV2 = v;
-    }
-    private void SetCenaDnevniceIno(int idx, decimal? v)
-    {
-        if (idx == 1) _cenaDnevniceInoV1 = v; else _cenaDnevniceInoV2 = v;
-    }
-
-    private decimal VrednostDnevnicaDomZaVozaca(int idx)
-        => (_tura?.DnevnicaDom ?? 0) * (GetCenaDnevniceDom(idx) ?? 0);
-    private decimal VrednostDnevnicaInoZaVozaca(int idx)
-        => (_tura?.DnevnicaIno ?? 0) * (GetCenaDnevniceIno(idx) ?? 0);
+    // ── Dnevnice na turi (Plata/Dnevnice sekcija) — izvor istine je sidebar panel "Dnevnice" ──
 
     private async Task DodajDnevniceVozacu(Vozac vozac, string? idVStr, int idx)
     {
@@ -1807,11 +1787,11 @@ else if (_tura is not null)
         SinkronizujDatumeKaTuri();
 
         var brojDom      = _tura.DnevnicaDom ?? 0;
-        var cenaDom      = GetCenaDnevniceDom(idx) ?? 0;
+        var cenaDom      = _tura.CenaDnevnicaDom ?? 0;
         var vrednostDom  = brojDom * cenaDom;
 
         var brojIno      = _tura.DnevnicaIno ?? 0;
-        var cenaIno      = GetCenaDnevniceIno(idx) ?? 0;
+        var cenaIno      = _tura.CenaDnevnicaIno ?? 0;
         var vrednostIno  = brojIno * cenaIno;
 
         if (vrednostDom <= 0 && vrednostIno <= 0)
@@ -1888,11 +1868,11 @@ else if (_tura is not null)
         if (_tura is null) return;
 
         var brojDom     = _tura.DnevnicaDom ?? 0;
-        var cenaDom     = GetCenaDnevniceDom(idx) ?? 0;
+        var cenaDom     = _tura.CenaDnevnicaDom ?? 0;
         var vrednostDom = brojDom * cenaDom;       // RSD
 
         var brojIno     = _tura.DnevnicaIno ?? 0;
-        var cenaIno     = GetCenaDnevniceIno(idx) ?? 0;
+        var cenaIno     = _tura.CenaDnevnicaIno ?? 0;
         var vrednostIno = brojIno * cenaIno;       // EUR
 
         if (vrednostDom <= 0 && vrednostIno <= 0)
@@ -2019,29 +1999,29 @@ else if (_tura is not null)
     private PlataPanelState GetPlataPanel(int idx, Vozac vozac)
     {
         var st = _platePaneli.TryGetValue(idx, out var existing) ? existing : InicijalizujPlatuPanela(idx, vozac);
+
         PrekalkulisiPlatu(st);
         return st;
     }
 
     private PlataPanelState InicijalizujPlatuPanela(int idx, Vozac vozac)
     {
-        var brojDnevnica = (_tura?.DnevnicaDom ?? 0) + (_tura?.DnevnicaIno ?? 0);
+        var tipIsplate = !string.IsNullOrWhiteSpace(vozac.tipIsplate) ? vozac.tipIsplate! : "PROCENAT";
+        if (tipIsplate == "DNEVNICA") tipIsplate = "PROCENAT";
 
         var st = new PlataPanelState
         {
-            TipIsplate   = !string.IsNullOrWhiteSpace(vozac.tipIsplate) ? vozac.tipIsplate! : "PROCENAT",
+            TipIsplate   = tipIsplate,
             Procenat     = vozac.procenatZaPlatu,
             Km           = _tura?.Predjeno,
             CenaPoKm     = vozac.cenaPoKm,
             FixnoPlata   = vozac.fixnoPlata,
-            BrojDnevnica = brojDnevnica,
-            CenaDnevnica = vozac.dnevnica ?? GetCenaDnevniceIno(idx) ?? _cenaIno,
             Avans        = 0,
             VracenAvans  = 0,
             Opis         = OpisPlate()
         };
 
-        st.Valuta = st.TipIsplate is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
+        st.Valuta = st.TipIsplate == "PROCENAT" ? "EUR" : "RSD";
         PrekalkulisiPlatu(st);
 
         _platePaneli[idx] = st;
@@ -2060,7 +2040,6 @@ else if (_tura is not null)
     {
         "PROCENAT" => "procenat",
         "PO_KM"    => "po km",
-        "DNEVNICA" => "dnevnice",
         "FIXNO"    => "fiksno",
         _          => tip
     };
@@ -2069,7 +2048,7 @@ else if (_tura is not null)
     {
         if (!_platePaneli.TryGetValue(idx, out var st)) return;
         st.TipIsplate = noviTip;
-        st.Valuta = noviTip is "PROCENAT" or "DNEVNICA" ? "EUR" : "RSD";
+        st.Valuta = noviTip == "PROCENAT" ? "EUR" : "RSD";
         PrekalkulisiPlatu(st);
     }
 
@@ -2080,12 +2059,11 @@ else if (_tura is not null)
         {
             "PROCENAT" => Math.Round(vrednostTure * (st.Procenat ?? 0) / 100m, 2),
             "PO_KM"    => Math.Round((st.Km ?? 0) * (st.CenaPoKm ?? 0), 2),
-            "DNEVNICA" => Math.Round((st.BrojDnevnica ?? 0) * (st.CenaDnevnica ?? 0), 2),
             "FIXNO"    => st.FixnoPlata ?? 0,
             _          => 0m
         };
 
-        if (st.TipIsplate is "PROCENAT" or "DNEVNICA") st.Valuta = "EUR";
+        if (st.TipIsplate == "PROCENAT") st.Valuta = "EUR";
 
         st.ZaIsplatu = st.IznosPlate - (st.Avans ?? 0) + (st.VracenAvans ?? 0);
     }
@@ -2138,7 +2116,6 @@ else if (_tura is not null)
         existing.km           = pSt.TipIsplate == "PO_KM"    ? pSt.Km         : null;
         existing.cenaPoKm     = pSt.TipIsplate == "PO_KM"    ? pSt.CenaPoKm   : null;
         existing.fixnoPlata   = pSt.TipIsplate == "FIXNO"    ? pSt.FixnoPlata : null;
-        existing.dnevnica     = pSt.TipIsplate == "DNEVNICA" ? pSt.IznosPlate : null;
 
         var datumNaloga = _tura.DatumDokumenta ?? DateTime.Today;
         var kurs        = await KursService.GetKursAsync(datumNaloga);
@@ -2155,6 +2132,81 @@ else if (_tura is not null)
 
         await db.SaveChangesAsync();
         Snackbar.Add("Plata upisana.", Severity.Success);
+        StateHasChanged();
+    }
+
+    // Upisuje trenutnu platu vozača (procenat/km/fiksno) kao trošak ture (vrsta "PLATA").
+    // NAPOMENA: ako se dnevnice ovog vozača takođe vode kao trošak (DNEVNICA DOM/INO),
+    // vodi računa da se isplata ne duplira — kontrola je na korisniku.
+    private async Task DodajPlatuUTroskove(Vozac vozac, string? idVStr, int idx)
+    {
+        if (_tura is null) return;
+        if (!_platePaneli.TryGetValue(idx, out var pSt)) return;
+
+        if (pSt.IznosPlate <= 0)
+        {
+            Snackbar.Add("Iznos plate mora biti veći od nule.", Severity.Warning);
+            return;
+        }
+
+        var imeVozaca = $"{vozac.Ime} {vozac.Prezime}";
+        var idVoz     = idx == 1 ? _tura.IdVozaca1 : _tura.IdVozaca2;
+        var jeEUR     = pSt.Valuta == "EUR";
+
+        decimal? vrednostRSD = jeEUR
+            ? (_tKurs > 0 ? Math.Round(pSt.IznosPlate * _tKurs, 2) : null)
+            : pSt.IznosPlate;
+        decimal? vrednostEUR = jeEUR
+            ? pSt.IznosPlate
+            : (_tKurs > 0 ? Math.Round(pSt.IznosPlate / _tKurs, 2) : null);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var postojeci = await db.Troskovi.FirstOrDefaultAsync(t =>
+            t.idNaloga == Id && t.idVozaca == idVoz &&
+            t.vrstaTroska == "PLATA" && t.brisano == 0);
+
+        if (postojeci is not null)
+        {
+            var izmeni = await Dialog.ShowMessageBox(
+                "Plata u troškovima već postoji",
+                $"Već postoji trošak PLATA za vozača {imeVozaca} na ovoj turi. Izmeniti postojeći?",
+                yesText: "Da, izmeni", cancelText: "Ne");
+            if (izmeni != true) return;
+
+            postojeci.datum       = DateTime.Today;
+            postojeci.opis        = $"Plata ({imeVozaca}, {NazivMetodaIsplate(pSt.TipIsplate)})";
+            postojeci.tip         = jeEUR ? "INOSTRANSTVO" : "ZEMLJA";
+            postojeci.vrednost    = vrednostRSD;
+            postojeci.vrednostEUR = vrednostEUR;
+            postojeci.kurs        = _tKurs > 0 ? _tKurs : null;
+            postojeci.idVozila    = _tura.IdVozila;
+        }
+        else
+        {
+            db.Troskovi.Add(new Trosak
+            {
+                idNaloga      = Id,
+                datum         = DateTime.Today,
+                vrstaTroska   = "PLATA",
+                tip           = jeEUR ? "INOSTRANSTVO" : "ZEMLJA",
+                opis          = $"Plata ({imeVozaca}, {NazivMetodaIsplate(pSt.TipIsplate)})",
+                vrednost      = vrednostRSD,
+                vrednostEUR   = vrednostEUR,
+                kurs          = _tKurs > 0 ? _tKurs : null,
+                idVozaca      = idVoz,
+                idVozila      = _tura.IdVozila,
+                ideTroskovnik = 1,
+                jeGotovinski  = 1,
+                brisano       = 0
+            });
+        }
+
+        await db.SaveChangesAsync();
+        await UcitajTroskove();
+        RecalcTuraTotals();
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Plata dodata u troškove ture.", Severity.Success);
         StateHasChanged();
     }
 
@@ -2272,13 +2324,15 @@ else if (_tura is not null)
 
         var trajanjeDom = (izlazak.Value - polazak.Value) + (dolazak.Value - ulazak.Value);
         var minDom = (int)Math.Floor(trajanjeDom.TotalMinutes);
-        _tura.SatiDom     = minDom / 60m;
-        _tura.DnevnicaDom = IzracunajDnevnicePoMinutima(minDom);
+        _tura.SatiDom = minDom / 60m;
+        if (_dnevnicaDomAutoSet)
+            _tura.DnevnicaDom = IzracunajDnevnicePoMinutima(minDom);
 
         var trajanjeIno = ulazak.Value - izlazak.Value;
         var minIno = (int)Math.Floor(trajanjeIno.TotalMinutes);
-        _tura.SatiIno     = minIno / 60m;
-        _tura.DnevnicaIno = IzracunajDnevnicePoMinutima(minIno);
+        _tura.SatiIno = minIno / 60m;
+        if (_dnevnicaInoAutoSet)
+            _tura.DnevnicaIno = IzracunajDnevnicePoMinutima(minIno);
 
         _tura.SatiNaPutuDom = _tura.SatiDom;
         _tura.SatiNaPutuIno = _tura.SatiIno;
@@ -2307,17 +2361,56 @@ else if (_tura is not null)
     private void IzracunajPredjeno()
     {
         if (_tura is null) return;
-        _tura.Predjeno = (_tura.KmTrenutna.HasValue && _tura.KmPocetna.HasValue)
-            ? _tura.KmTrenutna.Value - _tura.KmPocetna.Value
-            : null;
+        if (_tura.KmTrenutna.HasValue && _tura.KmPocetna.HasValue)
+            _tura.Predjeno = _tura.KmTrenutna.Value - _tura.KmPocetna.Value;
+        IzracunajPotrosnju();
     }
 
     private void IzracunajGorivo()
     {
         if (_tura is null) return;
-        _tura.GorivoUtroseno = (_tura.GorivoEnd.HasValue && _tura.GorivoStart.HasValue)
-            ? _tura.GorivoEnd.Value - _tura.GorivoStart.Value
+        if (_tura.GorivoStart.HasValue && _tura.GorivoEnd.HasValue)
+            _tura.GorivoUtroseno = _tura.GorivoStart.Value - _tura.GorivoEnd.Value;
+        IzracunajPotrosnju();
+    }
+
+    private void IzracunajPotrosnju()
+    {
+        if (_tura is null) return;
+        _tura.Potrosnja = (_tura.Predjeno.HasValue && _tura.Predjeno.Value != 0 && _tura.GorivoUtroseno.HasValue)
+            ? Math.Round(_tura.GorivoUtroseno.Value / _tura.Predjeno.Value * 100, 2)
             : null;
+    }
+
+    private async Task OnDatumTurePromenjen(DateTime? d)
+    {
+        if (_tura is null) return;
+        _tura.DatumDokumenta = d;
+        if (d.HasValue)
+            _tura.KursEUR = await GetKursZaDatumAsync(d.Value);
+    }
+
+    private async Task OnTDatumPromenjen()
+    {
+        _tKurs = await GetKursZaDatumAsync(_tDatum, _tura?.KursEUR);
+        OnKursPromenjen(_tKurs);
+    }
+
+    // Kurs za dati datum: SRBIJA → NBS (fallback na default/ručni kurs), inostranstvo → uvek ručni kurs iz podešavanja
+    private async Task<decimal> GetKursZaDatumAsync(DateTime datum, decimal? fallback = null)
+    {
+        if (_firma?.Vlasnik == "SRBIJA")
+        {
+            try
+            {
+                var kurs = await NbsKurs.GetKursAsync(datum);
+                if (kurs > 0) return kurs;
+            }
+            catch { }
+            return fallback ?? _pod?.kursEur ?? 1m;
+        }
+
+        return _pod?.kursEur ?? 1m;
     }
 
     private string NalogRowStyle(NalogPrevoz item, int _)

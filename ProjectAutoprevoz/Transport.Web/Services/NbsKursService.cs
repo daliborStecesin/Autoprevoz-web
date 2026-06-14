@@ -32,13 +32,25 @@ public class NbsKursService : INbsKursService
         _cache       = cache;
     }
 
-    /// <summary>EUR srednji kurs za datum (keširan 24h).</summary>
+    /// <summary>EUR srednji kurs za datum, na 4 decimale (keširan 24h).</summary>
     public async Task<decimal> GetKursAsync(DateTime datum)
     {
         var kljuc = $"kurs_{EUR_CODE}_{datum:yyyyMMdd}";
         if (_cache.TryGetValue(kljuc, out decimal cached)) return cached;
 
-        var kurs = await PozoviservisAsync(EUR_CODE, datum, AKTIVA, SREDNJI);
+        // Kursna lista (GetExchangeRateByDate) vraća srednji kurs na 4 decimale;
+        // GetExchangeRateByRateType vraća zaokruženo na 2 decimale, koristi se samo kao fallback.
+        decimal kurs = 0;
+        try
+        {
+            var lista = await UcitajListuAsync(datum);
+            kurs = lista.FirstOrDefault(v => v.Oznaka == "EUR")?.SrednjiKurs ?? 0;
+        }
+        catch { }
+
+        if (kurs <= 0)
+            kurs = await PozoviservisAsync(EUR_CODE, datum, AKTIVA, SREDNJI);
+
         if (kurs > 0)
             _cache.Set(kljuc, kurs, TimeSpan.FromHours(24));
         return kurs;

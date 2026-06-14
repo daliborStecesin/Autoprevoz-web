@@ -181,17 +181,13 @@ else
         </div>
     </div>
 
-    @* ── Obračun isplate (gotovinski troškovi + dnevnice) ── *@
+    @* ── Obračun isplate (samo iz liste troškova ture, gotovinski) ── *@
     @{
-        var kurs           = (_tura.KursEUR ?? 0) > 0 ? (_tura.KursEUR ?? 1) : 1;
-        var gotInoEUR      = _troskovi.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
-        var gotDomRSD      = _troskovi.Where(t => t.tip == "ZEMLJA").Sum(t => t.vrednost ?? 0);
-        var dnevniceDomRSD = _tura.VrednostDnevnicaDom ?? 0;
-        var dnevniceInoEUR = _tura.VrednostDnevnicaIno ?? 0;
-        var zaIsplatuEUR   = gotInoEUR + dnevniceInoEUR;
-        var zaIsplatuRSD   = gotDomRSD + dnevniceDomRSD;
-        var euroURSD       = zaIsplatuEUR * kurs;
-        var ukupnoRSD      = zaIsplatuRSD + euroURSD;
+        var kurs         = (_tura.KursEUR ?? 0) > 0 ? (_tura.KursEUR ?? 1) : 1;
+        var zaIsplatuEUR = _troskovi.Where(t => t.tip == "INOSTRANSTVO").Sum(t => t.vrednostEUR ?? 0);
+        var zaIsplatuRSD = _troskovi.Where(t => t.tip == "ZEMLJA").Sum(t => t.vrednost ?? 0);
+        var euroURSD     = zaIsplatuEUR * kurs;
+        var ukupnoRSD    = zaIsplatuRSD + euroURSD;
     }
     <div class="obracun-box">
         <div style="font-weight:bold; font-size:10pt; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;">OBRAČUN ISPLATE</div>
