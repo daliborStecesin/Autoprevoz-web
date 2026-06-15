@@ -1,0 +1,410 @@
+@page "/fakture/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject TransportDbContext Db
+@inject NavigationManager  Nav
+@inject IJSRuntime         JS
+
+<PageTitle>@(_racun is not null ? $"Racun {_racun.BrojRacuna}" : "Račun")</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 20px 32px; }
+
+    /* ── Zaglavlje ── */
+    .print-header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 14px; }
+    .print-logo { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+    .firm-block { font-size: 9pt; line-height: 1.6; flex-grow: 1; }
+    .firm-block .naziv { font-size: 12pt; font-weight: bold; }
+
+    .blok { border: 1px solid #333; padding: 8px 12px; font-size: 9pt; line-height: 1.6; min-width: 220px; }
+    .blok .naslov { font-size: 8pt; color: #555; text-transform: uppercase;
+                    font-weight: bold; margin-bottom: 4px; letter-spacing: 0.5px; }
+
+    /* ── Identifikacija ── */
+    .identifikacija { display: flex; justify-content: space-between; align-items: flex-start; margin: 14px 0; gap: 16px; }
+    .identifikacija .levo .red { font-size: 9.5pt; margin-bottom: 3px; }
+    .identifikacija .levo .lbl { color: #555; min-width: 180px; display: inline-block; }
+    .identifikacija .desno { text-align: right; flex-shrink: 0; }
+    .identifikacija .desno .naslov-racuna { font-size: 14pt; font-weight: bold;
+                    border-top: 2px solid #000; border-bottom: 2px solid #000;
+                    padding: 6px 10px; letter-spacing: 0.5px; }
+    .identifikacija .desno .naslov-racuna strong { color: #1a237e; }
+
+    /* ── Tabela stavki ── */
+    table.stavke { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 10px; }
+    table.stavke th, table.stavke td { border: 1px solid #999; padding: 4px 6px; }
+    table.stavke th { background: #2D3E50; color: #fff; font-weight: bold; text-align: center; }
+    table.stavke td.num { text-align: right; white-space: nowrap; padding-right: 10px; }
+    table.stavke td.opis { text-align: left; }
+
+    /* ── Rekapitulacija ── */
+    .rekap-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 16px; }
+    .napomena-pdv { font-size: 8.5pt; max-width: 60%; }
+    .rekap-blokovi { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .rekap-blok { border: 1px solid #333; padding: 8px 12px; min-width: 240px; font-size: 9.5pt; }
+    .rekap-blok .red { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .rekap-blok .ukupno { border-top: 1px solid #333; margin-top: 4px; padding-top: 4px;
+                           font-weight: bold; font-size: 11pt; color: #1a237e; }
+
+    /* ── Dodatni podaci / žiro račun / komentar ── */
+    .info-blok { font-size: 9pt; margin: 8px 0; }
+    .info-blok .red { margin-bottom: 3px; }
+    .info-blok .lbl { color: #555; }
+
+    .komentar { font-size: 9pt; margin: 10px 0; white-space: pre-wrap; }
+
+    .stalna-napomena { font-size: 8pt; color: #444; margin-top: 14px;
+                        border-top: 1px dashed #999; padding-top: 6px; line-height: 1.5; }
+
+    /* ── Podnožje ── */
+    .podnozje { display: flex; justify-content: space-between; margin-top: 50px; font-size: 9.5pt; }
+    .podnozje .potpis { text-align: center; min-width: 200px; }
+    .podnozje .linija { border-top: 1px solid #000; margin-top: 40px; padding-top: 4px; }
+
+    .no-print { margin-top: 20px; text-align: center; padding-bottom: 16px; }
+    .no-print button { padding: 6px 18px; font-size: 10pt; cursor: pointer; border: 1px solid #999;
+                        border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@page { margin: 0; }
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 9pt; }
+        .wrap { padding: 12mm 14mm; }
+        .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje...</div>
+}
+else if (_racun is null)
+{
+    <div class="loading" style="color:#c62828;">Račun nije pronađen.<br /><br /><button onclick="window.history.back()">Nazad</button></div>
+}
+else
+{
+<div class="wrap">
+
+    @* Zaglavlje: logo + firma levo, izdavalac uokvireno desno *@
+    <div class="print-header">
+
+        @if (!string.IsNullOrEmpty(_logoBase64))
+        {
+            <img src="@_logoBase64" class="print-logo" alt="Logo" />
+        }
+
+        <div class="firm-block">
+            @if (_firma is not null)
+            {
+                <div class="naziv">@_firma.NazivFirme</div>
+                <div>@_firma.Adresa, @_firma.PosBroj @_firma.Mesto</div>
+                <div>PIB: @_firma.PIB &nbsp;&nbsp; Matični broj: @_firma.MaticniBroj</div>
+                @if (!string.IsNullOrWhiteSpace(_firma.Telefon))
+                { <div>Tel: @_firma.Telefon</div> }
+                @if (!string.IsNullOrWhiteSpace(_firma.mobilni))
+                { <div>Mob: @_firma.mobilni</div> }
+            }
+        </div>
+
+        <div class="blok">
+            <div class="naslov">@(_eng ? "Bill To" : "Primalac")</div>
+            <div><strong>@_racun.Naziv</strong></div>
+            <div>@_racun.Adresa, @_racun.PosBroj @_racun.Mesto</div>
+            <div>PIB: @_racun.PIB</div>
+        </div>
+
+    </div>
+
+    @* Identifikacija *@
+    <div class="identifikacija">
+        <div class="levo">
+            <div class="red"><span class="lbl">@(_eng ? "Date of invoice:" : "Datum izdavanja računa:")</span> <strong>@FormatDate(_racun.DatumRacuna)</strong></div>
+            <div class="red"><span class="lbl">@(_eng ? "Place of invoice:" : "Mesto izdavanja:")</span> <strong>@MestoIzdavanjaPrikaz</strong></div>
+            <div class="red"><span class="lbl">@(_eng ? "Loading date:" : "Datum utovara:")</span> <strong>@FormatDate(_racun.DatumPrometa)</strong></div>
+            <div class="red"><span class="lbl">@(_eng ? "Date of supply:" : "Datum prometa usluge:")</span> <strong>@FormatDate(_racun.DatumPrometaDo)</strong></div>
+        </div>
+        <div class="desno">
+            <div class="naslov-racuna">@(_eng ? "Invoice no" : "RAČUN broj"): <strong>@_racun.BrojRacuna</strong></div>
+        </div>
+    </div>
+
+    @* Tabela stavki *@
+    <table class="stavke">
+        <colgroup>
+            <col style="width:4%;" />
+            <col />
+            <col style="width:6%;" />
+            <col style="width:7%;" />
+            <col style="width:11%;" />
+            @if (_imaRabat)
+            {
+                <col style="width:6%;" />
+                <col style="width:11%;" />
+            }
+            <col style="width:11%;" />
+            <col style="width:5%;" />
+        </colgroup>
+        <thead>
+            @if (_eng)
+            {
+                <tr>
+                    <th>Id.</th>
+                    <th>Product / Service</th>
+                    <th>UoM</th>
+                    <th>QTY</th>
+                    <th>Unit Price</th>
+                    @if (_imaRabat)
+                    {
+                        <th>Disc%</th>
+                        <th>Net Price</th>
+                    }
+                    <th>Base</th>
+                    <th>VAT%</th>
+                </tr>
+            }
+            else
+            {
+                <tr>
+                    <th>R.Br</th>
+                    <th>Vrsta usluge</th>
+                    <th>JM</th>
+                    <th>Kol.</th>
+                    <th>Cena</th>
+                    @if (_imaRabat)
+                    {
+                        <th>Rbt%</th>
+                        <th>Cena sa Rbt</th>
+                    }
+                    <th>Osnovica</th>
+                    <th>PDV %</th>
+                </tr>
+            }
+        </thead>
+        <tbody>
+            @{ int redniBroj = 0; }
+            @foreach (var s in _stavke)
+            {
+                redniBroj++;
+                <tr>
+                    <td class="num">@redniBroj</td>
+                    <td class="opis">@s.Artikal</td>
+                    <td>@s.JM</td>
+                    <td class="num">@((s.Kolicina ?? 0).ToString("N2"))</td>
+                    <td class="num">@((s.CenaPoJMBP ?? 0).ToString("N2"))</td>
+                    @if (_imaRabat)
+                    {
+                        <td class="num">@((s.Rabat ?? 0).ToString("N2"))</td>
+                        <td class="num">@((s.CenaPoJMBPminusRab ?? 0).ToString("N2"))</td>
+                    }
+                    <td class="num">@((s.Osnovica ?? 0).ToString("N2"))</td>
+                    <td class="num">@((s.StopaPDV ?? 0).ToString("N0"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @* Napomena PDV + rekapitulacija *@
+    <div class="rekap-row">
+        <div class="napomena-pdv">
+            @if (!string.IsNullOrWhiteSpace(_racun.Komentar2))
+            {
+                <div>@(_eng ? "Tax exemption note:" : "Napomena o poreskom oslobođenju:") @_racun.Komentar2</div>
+            }
+            @if (_racun.DatumValute.HasValue)
+            {
+                <div style="margin-top:6px;">@(_eng ? "Payment date:" : "Valuta plaćanja:") @FormatDate(_racun.DatumValute)</div>
+            }
+        </div>
+
+        <div class="rekap-blokovi">
+            @if (_eng)
+            {
+                <div class="rekap-blok">
+                    <div class="red"><span>TOTAL (EUR):</span><strong>@((_racun.Osnovica ?? 0).ToString("N2"))</strong></div>
+                    <div class="red"><span>TAX (EUR):</span><strong>@((_racun.SumaPDV ?? 0).ToString("N2"))</strong></div>
+                    <div class="red ukupno"><span>FOR PAYMENT (EUR):</span><span>@((_racun.SumaRacuna ?? 0).ToString("N2"))</span></div>
+                </div>
+
+                <div class="rekap-blok">
+                    <div class="red"><span>EUR rate:</span><strong>@((_racun.Kurs ?? 0).ToString("N4"))</strong></div>
+                    <div class="red"><span>Value RSD:</span><strong>@(((_racun.SumaRacuna ?? 0) * (_racun.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
+                </div>
+            }
+            else
+            {
+                <div class="rekap-blok">
+                    <div class="red"><span>Osnovica:</span><strong>@((_racun.Osnovica ?? 0).ToString("N2")) @Valuta</strong></div>
+                    <div class="red"><span>Iznos PDV:</span><strong>@((_racun.SumaPDV ?? 0).ToString("N2")) @Valuta</strong></div>
+                    <div class="red ukupno"><span>UKUPNO:</span><span>@((_racun.SumaRacuna ?? 0).ToString("N2")) @Valuta</span></div>
+                </div>
+
+                @if (JeEur)
+                {
+                    <div class="rekap-blok">
+                        <div class="red"><span>Kurs EUR:</span><strong>@((_racun.Kurs ?? 0).ToString("N4"))</strong></div>
+                        <div class="red"><span>Vrednost RSD:</span><strong>@(((_racun.SumaRacuna ?? 0) * (_racun.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    @* Dodatni podaci *@
+    <div class="info-blok">
+        @if (!string.IsNullOrWhiteSpace(_racun.Otpremnica))
+        { <div class="red"><span class="lbl">CMR:</span> @_racun.Otpremnica</div> }
+        @if (!string.IsNullOrWhiteSpace(_racun.FiskIsecak))
+        { <div class="red"><span class="lbl">@(_eng ? "Order number:" : "Nalog za utovar:")</span> @_racun.FiskIsecak</div> }
+        @if (!string.IsNullOrWhiteSpace(_racun.Vozilo) || !string.IsNullOrWhiteSpace(_racun.RegOznaka))
+        { <div class="red"><span class="lbl">@(_eng ? "Truck registration no:" : "Transport dobara izvršen vozilom:")</span> @(_racun.Vozilo ?? _racun.RegOznaka)</div> }
+    </div>
+
+    @* Žiro / devizni / bank account *@
+    <div class="info-blok">
+        @if (!JeEur)
+        {
+            @if (_banka is not null)
+            {
+                <div class="red"><span class="lbl">Račun:</span> @_banka.banka — @_banka.racun</div>
+            }
+        }
+        else
+        {
+            <div class="red" style="font-weight:bold;">@(_eng ? "Bank account:" : "Devizni račun:")</div>
+            @if (_banka is not null)
+            {
+                <div class="red"><span class="lbl">@(_eng ? "Bank:" : "Banka:")</span> @_banka.banka</div>
+                <div class="red"><span class="lbl">IBAN:</span> @_banka.IBAN</div>
+                <div class="red"><span class="lbl">SWIFT CODE:</span> @_banka.SWIFT</div>
+            }
+            @if (_eng && !string.IsNullOrWhiteSpace(_podesavanja?.opcijaText2))
+            {
+                <div class="red" style="margin-top:6px; white-space:pre-wrap;">@_podesavanja.opcijaText2</div>
+            }
+        }
+    </div>
+
+    @* Komentar *@
+    @if (!string.IsNullOrWhiteSpace(_racun.Komentar1))
+    {
+        <div class="komentar">@_racun.Komentar1</div>
+    }
+
+    @* Stalna napomena *@
+    @{ var stalnaNapomena = _eng ? _podesavanja?.opcijaText1 : _firma?.NapomenaTrajne1; }
+    @if (!string.IsNullOrWhiteSpace(stalnaNapomena))
+    {
+        <div class="stalna-napomena">
+            @foreach (var red in stalnaNapomena.Replace("\r\n", "\n").Split('\n'))
+            {
+                @if (!string.IsNullOrWhiteSpace(red))
+                {
+                    <div>@red</div>
+                }
+            }
+        </div>
+    }
+
+    @* Podnožje *@
+    <div class="podnozje">
+        <div>@(_eng ? "Invoice issued by:" : "Račun izdao:") ____________________</div>
+        <div class="potpis">
+            <div>M.P.</div>
+            <div class="linija">@(_eng ? "Signature" : "Potpis")</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Štampaj</button>
+    <button onclick="window.close()">✕ Zatvori</button>
+</div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    public int? Id { get; set; }
+
+    private Racun?       _racun;
+    private List<Stavka> _stavke = [];
+    private Banka?       _banka;
+    private PodaciFirme? _firma;
+    private Podesavanja? _podesavanja;
+    private bool         _ucitava = true;
+    private string?      _logoBase64;
+
+    // Engleska varijanta (tipStampe='INOSTRANI') je uvek EUR faktura
+    private bool   _eng   => _racun?.TipStampe == "INOSTRANI";
+    private bool   JeEur  => _eng || _racun?.TipProdaje == "INOSTRANI";
+    private string Valuta => JeEur ? "EUR" : "RSD";
+
+    // Kolone Rbt% / Cena sa Rbt prikazuju se samo ako bar jedna stavka ima rabat
+    private bool _imaRabat => _stavke.Any(s => (s.Rabat ?? 0) > 0);
+
+    // Mesto izdavanja: iz podešavanja, fallback na mesto firme izdavaoca
+    private string MestoIzdavanjaPrikaz =>
+        !string.IsNullOrWhiteSpace(_podesavanja?.MestoIzdavanja)
+            ? _podesavanja!.MestoIzdavanja!
+            : (_firma?.Mesto ?? "—");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        try
+        {
+            if (Id is int broj)
+            {
+                _racun = await Db.Racuni.IgnoreQueryFilters()
+                                  .AsNoTracking()
+                                  .FirstOrDefaultAsync(r => r.Broj == broj);
+
+                if (_racun is not null)
+                {
+                    _stavke = await Db.ArtikliRacuna.AsNoTracking()
+                                      .Where(s => s.Id_Racuna == broj.ToString() && s.brisano == 0)
+                                      .OrderBy(s => s.Broj)
+                                      .ToListAsync();
+
+                    if (_racun.IdBanke is int idBanke)
+                    {
+                        _banka = await Db.Banke.AsNoTracking()
+                                          .FirstOrDefaultAsync(b => b.idBanke == idBanke);
+                    }
+                }
+            }
+
+            _firma = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+            _podesavanja = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+
+            if (_firma?.logoData is { Length: > 0 } && _podesavanja?.stampaLogoAktivan == 1)
+            {
+                var mime = _firma.logoMimeType ?? "image/png";
+                _logoBase64 = $"data:{mime};base64,{Convert.ToBase64String(_firma.logoData)}";
+            }
+        }
+        catch { }
+        finally { _ucitava = false; StateHasChanged(); }
+
+        if (_racun is not null)
+        {
+            await Task.Delay(400);
+            await JS.InvokeVoidAsync("window.print");
+        }
+    }
+
+    private static string FormatDate(DateTime? d) => d?.ToString("dd.MM.yyyy") ?? "—";
+}

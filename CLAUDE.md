@@ -95,11 +95,20 @@ Folder: `/sql/`
   nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
   novi seed kao `IF NOT EXISTS → INSERT`
 
-`verzijaBaze` u `tbl_Podesavanja` = 203 (Blazor migracija).
+`verzijaBaze` u `tbl_Podesavanja` = 207 (Blazor migracija).
 Svaka buduća migracija inkrementira ovaj broj.
 - 201 = `tbl_plate` dodato `idTure` + `kursEur`
 - 202 = `tbl_plate` dodato `iznosEUR`
 - 203 = `tbl_racuni` dodato `brisano` + audit (`datumUnosa`/`izmenio`/`datumIzmene`) za modul Fakture
+- 204 = `tbl_artikli_racuna` dodato `brisano` (stavke računa — Korak 2 unosa faktura)
+- 205 = `tbl_racuni` dodato `idBanke`, `tbl_banka` dodato `defaultRacun`,
+  normalizacija `TipRacuna` na `tbl_banka` (DOMAĆI → DOMACI, bez Ć)
+- 206 = `tbl_Kartica` dodato `brisano` + `Datum_Prometa` + audit
+  (`uneo`/`datumUnosa`/`izmenio`/`datumIzmene`)
+- 207 = Triggeri `insertKarticeRacun`/`UpdateKarticeRacun`/`deleteKarticeRacun` na
+  `tbl_racuni` UKLONJENI — `KarticaService` (Transport.Application) sada upisuje/
+  ažurira/briše `tbl_Kartica` iz aplikacije, u istoj transakciji kao račun
+  (vidi `/fakture/unos`)
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.

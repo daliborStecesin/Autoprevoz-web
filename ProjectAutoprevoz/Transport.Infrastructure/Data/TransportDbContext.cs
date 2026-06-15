@@ -42,6 +42,11 @@ public class TransportDbContext : DbContext
                     plata.Izmenio     = userId;
                     plata.DatumIzmene = now;
                 }
+
+                if (entry.Entity is KarticaPartnera kartica && entry.State == EntityState.Added)
+                {
+                    kartica.uneo = userId;
+                }
             }
         }
         return await base.SaveChangesAsync(ct);
@@ -54,6 +59,7 @@ public class TransportDbContext : DbContext
 
     // Fakturisanje
     public DbSet<Racun> Racuni { get; set; }
+    public DbSet<Stavka> ArtikliRacuna { get; set; }
     public DbSet<GotovinskiRacun> GotovinskiRacuni { get; set; }
     public DbSet<StavkaGotovinskog> StavkeGotovinskog { get; set; }
     public DbSet<Otpremnica> Otpremnice { get; set; }
@@ -77,9 +83,6 @@ public class TransportDbContext : DbContext
     public DbSet<VozacRacun> VozacRacuni { get; set; }
     public DbSet<Dnevnica> Dnevnice { get; set; }
     public DbSet<Plata> Plate { get; set; }
-
-    // Magacin
-    public DbSet<Artikal> Artikli { get; set; }
 
     // PDV i ePorezi
     public DbSet<VatDeductionRecord> VatDeductionRecords { get; set; }
@@ -186,12 +189,19 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<KarticaPartnera>()
             .HasKey(k => k.Id);
 
+        modelBuilder.Entity<KarticaPartnera>()
+            .HasQueryFilter(k => k.brisano == 0);
+
         // tbl_racuni ima trigger — EF Core mora koristiti standardni UPDATE bez OUTPUT klauzule
         modelBuilder.Entity<Racun>()
             .ToTable("tbl_racuni", t => t.UseSqlOutputClause(false));
 
         modelBuilder.Entity<Racun>()
             .HasQueryFilter(r => r.brisano == 0);
+
+        // Stavke racuna (tbl_artikli_racuna) — bez audita, soft delete preko brisano
+        modelBuilder.Entity<Stavka>()
+            .HasQueryFilter(s => s.brisano == 0);
 
         // Partner.Racuni navigacija — bez ovoga EF pravi shadow FK "PartnerBroj"
         // koji ne postoji u tbl_racuni (prava kolona je Id_Partnera)

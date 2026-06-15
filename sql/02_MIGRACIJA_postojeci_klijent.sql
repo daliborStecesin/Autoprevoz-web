@@ -787,6 +787,12 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH('dbo.tbl_banka', 'defaultRacun') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_banka] ADD [defaultRacun] [int] NOT NULL DEFAULT ((0));
+END
+GO
+
 IF COL_LENGTH('dbo.tbl_dnevnice', 'akontacija') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [akontacija] [decimal](18, 2) NULL DEFAULT ((0));
@@ -1067,6 +1073,70 @@ IF COL_LENGTH('dbo.tbl_racuni', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [datumIzmene] [datetime] NULL;
 END
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'idBanke') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [idBanke] [int] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_artikli_racuna', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_artikli_racuna] ADD [brisano] [int] NOT NULL DEFAULT ((0));
+END
+GO
+
+-- tbl_Kartica: soft delete + Datum_Prometa + audit
+IF COL_LENGTH('dbo.tbl_Kartica', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [brisano] [int] NOT NULL DEFAULT ((0));
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_Kartica', 'Datum_Prometa') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [Datum_Prometa] [date] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_Kartica', 'uneo') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [uneo] [int] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_Kartica', 'datumUnosa') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [datumUnosa] [datetime] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_Kartica', 'izmenio') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [izmenio] [int] NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.tbl_Kartica', 'datumIzmene') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [datumIzmene] [datetime] NULL;
+END
+GO
+
+-- Triggeri na tbl_racuni koji su upisivali tbl_Kartica su UKLONJENI —
+-- KarticaService (Transport.Application) sada upisuje/azurira/brise
+-- karticu iz aplikacije, u istoj transakciji kao racun.
+IF OBJECT_ID('dbo.insertKarticeRacun', 'TR') IS NOT NULL
+    DROP TRIGGER [dbo].[insertKarticeRacun];
+GO
+
+IF OBJECT_ID('dbo.UpdateKarticeRacun', 'TR') IS NOT NULL
+    DROP TRIGGER [dbo].[UpdateKarticeRacun];
+GO
+
+IF OBJECT_ID('dbo.deleteKarticeRacun', 'TR') IS NOT NULL
+    DROP TRIGGER [dbo].[deleteKarticeRacun];
 GO
 
 IF COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NULL
@@ -1432,11 +1502,18 @@ BEGIN
 END
 GO
 
+-- Normalizacija TipRacuna na tbl_banka (DOMAĆI -> DOMACI, bez Ć)
+IF COL_LENGTH('dbo.tbl_banka', 'TipRacuna') IS NOT NULL
+BEGIN
+    UPDATE [dbo].[tbl_banka] SET [TipRacuna] = 'DOMACI' WHERE [TipRacuna] = N'DOMAĆI';
+END
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 203;
-    PRINT 'Verzija baze postavljena na 203 (Blazor migracija).';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 207;
+    PRINT 'Verzija baze postavljena na 207 (Blazor migracija).';
 END
 GO
 

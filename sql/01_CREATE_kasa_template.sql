@@ -559,7 +559,8 @@ CREATE TABLE [dbo].[tbl_artikli_racuna](
 	[vozilo] [varchar](50) NULL,
 	[datumIstovara] [datetime] NULL,
 	[datumUtovara] [datetime] NULL,
- CONSTRAINT [PK_tbl_artikli_racuna] PRIMARY KEY CLUSTERED 
+	[brisano] [int] NOT NULL DEFAULT 0,
+ CONSTRAINT [PK_tbl_artikli_racuna] PRIMARY KEY CLUSTERED
 (
 	[Broj] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -716,7 +717,8 @@ CREATE TABLE [dbo].[tbl_banka](
 	[IBAN] [varchar](50) NULL,
 	[TipRacuna] [varchar](20) NOT NULL DEFAULT ('DOMACI'),
 	[aktivan] [int] NOT NULL DEFAULT ((1)),
- CONSTRAINT [PK_tbl_banka] PRIMARY KEY CLUSTERED 
+	[defaultRacun] [int] NOT NULL DEFAULT ((0)),
+ CONSTRAINT [PK_tbl_banka] PRIMARY KEY CLUSTERED
 (
 	[idBanke] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -1865,7 +1867,13 @@ CREATE TABLE [dbo].[tbl_Kartica](
 	[Id_uplate] [varchar](15) NULL,
 	[izvod] [varchar](15) NULL,
 	[opis] [varchar](500) NULL,
- CONSTRAINT [PK_tbl_Kartica] PRIMARY KEY CLUSTERED 
+	[brisano] [int] NOT NULL DEFAULT ((0)),
+	[Datum_Prometa] [date] NULL,
+	[uneo] [int] NULL,
+	[datumUnosa] [datetime] NULL,
+	[izmenio] [int] NULL,
+	[datumIzmene] [datetime] NULL,
+ CONSTRAINT [PK_tbl_Kartica] PRIMARY KEY CLUSTERED
 (
 	[Id_Kartice] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -2655,7 +2663,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((203)),
+	[verzijaBaze] [int] NULL DEFAULT ((207)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -3246,6 +3254,7 @@ CREATE TABLE [dbo].[tbl_racuni](
 	[regOznaka] [varchar](50) NULL,
 	[idVozila] [varchar](5) NULL,
 	[idVozaca] [varchar](5) NULL,
+	[idBanke] [int] NULL,
 	[Datum_Prometa] [date] NULL,
 	[Datum_PrometaDo] [date] NULL,
 	[komentar3] [varchar](max) NULL,
@@ -4888,186 +4897,6 @@ SET tbl_lager.Kolicina = tbl_lager.Kolicina -((SELECT SUM(Kolicina) FROM inserte
 WHERE (tbl_lager.barcode IN (select Barcode from inserted))
 
 END
-
-
-
-
-
-
-
-GO
-/****** Object:  Trigger [dbo].[deleteKarticeRacun]    Script Date: 8.6.2026. 22:52:59 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-
-
-
-
-
-CREATE TRIGGER [dbo].[deleteKarticeRacun]
-ON  [dbo].[tbl_racuni]
-AFTER delete
-AS
-BEGIN
-
-declare @idRacuna int;
-
-
-select  @idRacuna = i.Broj FROM deleted i;
- DELETE FROM tbl_Kartica WHERE tbl_Kartica.Id_Racuna = @idRacuna
-END
-
-
-
-
-
-
-
-
-GO
-/****** Object:  Trigger [dbo].[insertKarticeRacun]    Script Date: 8.6.2026. 22:52:59 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-
-
-
-
-
-CREATE TRIGGER [dbo].[insertKarticeRacun]
-ON  [dbo].[tbl_racuni]
-AFTER insert
-AS
-BEGIN
-
-declare @idRacuna int;
-
-
-select  @idRacuna = i.Broj FROM inserted i;
-INSERT INTO [dbo].[tbl_Kartica]
-           ([Id_Racuna]          
-           ,[Dug]
-           ,[Uplata]
-      
-          ,[selektor]
-           ,[Izmiren]
-           
-           ,[Duguje]
-           ,[Potrazuje]
-           ,[Saldo]
-           )
-     VALUES
-           (@idRacuna
-          
-           
-           ,0
-           ,0
-          
-          ,'Kupac'
-           ,'NE'
-          
-           ,0
-           ,0
-           ,0
-           )
-
-
-
-
-END
-
-
-
-
-
-
-
-
-GO
-/****** Object:  Trigger [dbo].[UpdateKarticeRacun]    Script Date: 8.6.2026. 22:52:59 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-
-
-
-
-
-
-
-
-CREATE TRIGGER [dbo].[UpdateKarticeRacun]
-ON  [dbo].[tbl_racuni]
-AFTER UPDATE
-AS
-BEGIN
-/*ovde deklarisem promenjive koje mi trebaju*/
-declare @idRacuna int;
-declare @idPartnera int;
-declare @BrRacuna varchar(15);
-declare @Naziv varchar(200);
-declare @Pib varchar(50);
-declare @tipKaertice varchar(15);
-declare @tipZaKarticu varchar(15);
-declare @datunRacuna date;
-declare @datumValute date;
-declare @Suma decimal(18,2);
-
-/*ovde dodelim vrednosti promenjivima koje mi trebaju*/
-select  @idRacuna = i.Broj FROM inserted i;
-select  @idPartnera = i.Id_Partnera FROM inserted i;
-select  @BrRacuna = i.Broj_Racuna FROM inserted i;
-select  @Naziv = i.Naziv FROM inserted i;
-select  @Pib = i.PIB FROM inserted i;
-select  @tipKaertice = i.Tip_Prodaje FROM inserted i;
-select  @datunRacuna = i.Datum_Racuna FROM inserted i;
-select  @datumValute = i.Datum_valute FROM inserted i;
-select  @Suma = i.Suma_Racuna FROM inserted i;
-if (@tipKaertice='INOSTRANI') 
-BEGIN
-SELECT @tipZaKarticu='INOSTRANI';
-END
-ELSE
-BEGIN 
-SELECT @tipZaKarticu='IZLAZ';
-END
-
- /*ovde Updatujem tbkKartice promenjive koje mi trebaju*/
- UPDATE [dbo].[tbl_Kartica]
-   SET 
-      [Id_Partnera] = @idPartnera
-      ,[Broj_Racuna] = @BrRacuna
-      ,[Naziv_Partnera] = @Naziv
-      ,[PIB_Partnera] = @Pib
-      ,[Datum_Racuna] = @datunRacuna
-      ,[Datum_Valute] = @datumValute
-      ,[Dug] = @Suma
-      ,[Uplata] = 0
-      
-      ,[Status] = @tipZaKarticu
-      
-      ,[Objekat] = 's'
-      ,[Duguje] = @Suma
-      ,[Potrazuje] = 0
-      ,[Saldo] = @Suma
-WHERE [tbl_Kartica].Id_Racuna =@idRacuna
- 
-
-END
-
-
-
-
 
 
 

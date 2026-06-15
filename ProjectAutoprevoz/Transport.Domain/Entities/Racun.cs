@@ -112,6 +112,9 @@ public class Racun : IAuditable
     [MaxLength(5)]
     public string? IdVozaca { get; set; }
 
+    [Column("idBanke")]
+    public int? IdBanke { get; set; }
+
     [Column("Datum_Prometa")]
     public DateTime? DatumPrometa { get; set; }
 

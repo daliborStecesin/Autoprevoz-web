@@ -35,7 +35,6 @@ public class Partner
     [NotMapped] public DateTime? DatumIzmene { get; set; }
 
     // Navigacione kolekcije
-    public virtual ICollection<KarticaPartnera> Kartice          { get; set; } = [];
     public virtual ICollection<Racun>           Racuni           { get; set; } = [];
     public virtual ICollection<GotovinskiRacun> GotovinskiRacuni { get; set; } = [];
     public virtual ICollection<PartnerRacun>    ZiroRacuni       { get; set; } = [];

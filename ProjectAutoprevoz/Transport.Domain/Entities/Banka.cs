@@ -15,4 +15,5 @@ public class Banka
     [MaxLength(50)]  public string? IBAN      { get; set; }
     [MaxLength(20)]  public string? TipRacuna { get; set; }
                      public int?    aktivan   { get; set; }
+                     public int     defaultRacun { get; set; } = 0;
 }

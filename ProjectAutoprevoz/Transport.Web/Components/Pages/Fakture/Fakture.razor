@@ -4,6 +4,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
+@using Transport.Application.Interfaces
 
 @inject ITenantService         TenantService
 @inject IDefaultValuesService  DefaultValues
@@ -11,6 +12,7 @@
 @inject TransportDbContext     Db
 @inject IDialogService          Dialog
 @inject ISnackbar               Snackbar
+@inject IKarticaService         KarticaServis
 
 <PageTitle>Računi — Autoprevoz</PageTitle>
 
@@ -143,42 +145,32 @@
                              ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
                              : string.Empty)">
                 <Columns>
-                    <PropertyColumn Property="x => x.BrojRacuna" Title="Br. računa" />
-                    <TemplateColumn Title="Datum" SortBy="x => x.DatumRacuna">
+                    <PropertyColumn Property="x => x.BrojRacuna" Title="Br. računa" HeaderStyle="width:9%;" />
+                    <TemplateColumn Title="Datum" SortBy="x => x.DatumRacuna" HeaderStyle="width:9%;">
                         <CellTemplate>@context.Item.DatumRacuna?.ToString("dd.MM.yyyy")</CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Datum prometa" SortBy="x => x.DatumPrometaDo">
+                    <TemplateColumn Title="Datum prometa" SortBy="x => x.DatumPrometaDo" HeaderStyle="width:10%;">
                         <CellTemplate>@context.Item.DatumPrometaDo?.ToString("dd.MM.yyyy")</CellTemplate>
                     </TemplateColumn>
-                    <PropertyColumn Property="x => x.Naziv" Title="Naziv" />
-                    <PropertyColumn Property="x => x.TipProdaje" Title="Tip" />
-                    <TemplateColumn Title="Osnovica" SortBy="x => x.Osnovica">
+                    <PropertyColumn Property="x => x.Naziv" Title="Naziv" HeaderStyle="width:35%;" />
+                    <TemplateColumn Title="Osnovica" SortBy="x => x.Osnovica" HeaderStyle="width:12%; text-align:right;">
                         <CellTemplate>
-                            <span style="text-align:right; display:block;">
+                            <span style="text-align:right; display:block; white-space:nowrap; padding-right:8px;">
                                 @context.Item.Osnovica?.ToString("N2")
                             </span>
                         </CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="PDV" SortBy="x => x.SumaPDV">
+                    <TemplateColumn Title="PDV" SortBy="x => x.SumaPDV" HeaderStyle="width:11%; text-align:right;">
                         <CellTemplate>
-                            <span style="text-align:right; display:block;">
+                            <span style="text-align:right; display:block; white-space:nowrap; padding-right:8px;">
                                 @context.Item.SumaPDV?.ToString("N2")
                             </span>
                         </CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Ukupno" SortBy="x => x.SumaRacuna">
+                    <TemplateColumn Title="Ukupno" SortBy="x => x.SumaRacuna" HeaderStyle="width:14%; text-align:right;">
                         <CellTemplate>
-                            <span style="text-align:right; display:block; font-weight:600;">
+                            <span style="text-align:right; display:block; white-space:nowrap; padding-right:8px; font-weight:600;">
                                 @context.Item.SumaRacuna?.ToString("N2")
-                            </span>
-                        </CellTemplate>
-                    </TemplateColumn>
-                    <PropertyColumn Property="x => x.FiskIsecak" Title="Nalog" />
-                    <TemplateColumn Title="Interna napomena" SortBy="x => x.Komentar3">
-                        <CellTemplate>
-                            <span style="max-width:200px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
-                                  title="@context.Item.Komentar3">
-                                @context.Item.Komentar3
                             </span>
                         </CellTemplate>
                     </TemplateColumn>
@@ -226,7 +218,7 @@
     private string _tipRacuna = "SVI";
     private string _tipDatuma = "IZDAVANJA";
 
-    private string _od = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string _od = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd");
     private string _do = DateTime.Today.ToString("yyyy-MM-dd");
 
     private List<Racun> _rezultati = [];
@@ -246,19 +238,41 @@
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
 
-        var uid = TenantService.GetIdKorisnika();
+        // Lista faktura UVEK kreće od čistih podrazumevanih filtera (ne učitava
+        // zapamćene DefaultValues) — zapamćeni filter (npr. INOSTRANI) je
+        // zbunjivao korisnike kad bi nova faktura "nestala" sa liste.
+        await UcitajPoslednje20();
+    }
 
-        var tipRacunaDefault = await DefaultValues.GetDefault("fakture", "tipRacuna", uid);
-        if (tipRacunaDefault is not null) _tipRacuna = tipRacunaDefault;
+    // Početni prikaz: poslednjih 20 faktura (bez čekanja na Izlistaj)
+    private async Task UcitajPoslednje20()
+    {
+        _ucitava = true; StateHasChanged();
 
-        var tipDatumaDefault = await DefaultValues.GetDefault("fakture", "tipDatuma", uid);
-        if (tipDatumaDefault is not null) _tipDatuma = tipDatumaDefault;
+        try
+        {
+            _rezultati = await Db.Racuni.AsNoTracking()
+                .OrderByDescending(r => r.DatumRacuna)
+                .ThenByDescending(r => r.Broj)
+                .Take(20)
+                .ToListAsync();
 
-        var odDefault = await DefaultValues.GetDefault("fakture", "od", uid);
-        if (odDefault is not null) _od = odDefault;
+            _ukupnoOsnovica   = _rezultati.Sum(r => r.Osnovica   ?? 0);
+            _ukupnoPDV        = _rezultati.Sum(r => r.SumaPDV    ?? 0);
+            _ukupnoSumaRacuna = _rezultati.Sum(r => r.SumaRacuna ?? 0);
 
-        var doDefault = await DefaultValues.GetDefault("fakture", "do", uid);
-        if (doDefault is not null) _do = doDefault;
+            _pretrazivano = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
     }
 
     private async Task OnTipRacunaChanged(string? value)
@@ -348,7 +362,7 @@
 
         try
         {
-            _rezultati = await q.OrderByDescending(r => r.DatumRacuna).ToListAsync();
+            _rezultati = await q.OrderByDescending(r => r.DatumRacuna).ThenByDescending(r => r.Broj).ToListAsync();
 
             _ukupnoOsnovica   = _rezultati.Sum(r => r.Osnovica   ?? 0);
             _ukupnoPDV        = _rezultati.Sum(r => r.SumaPDV    ?? 0);
@@ -402,6 +416,13 @@
         var entitet = await Db.Racuni.FindAsync(_selektovani.Broj);
         if (entitet is not null)
         {
+            var greska = await KarticaServis.ObrisiIzRacuna(entitet.Broj);
+            if (greska is not null)
+            {
+                Snackbar.Add(greska, Severity.Warning);
+                return;
+            }
+
             entitet.brisano = 1;
             await Db.SaveChangesAsync();
             _selektovani = null;

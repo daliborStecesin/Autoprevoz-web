@@ -41,7 +41,7 @@
             <MudItem xs="12" sm="6">
                 <MudText Typo="Typo.subtitle2" Class="mb-1 mud-text-secondary">Tip računa</MudText>
                 <MudRadioGroup T="string" @bind-Value="_tipRacuna">
-                    <MudRadio T="string" Value="@("DOMAĆI")"     Color="Color.Primary">Domaći</MudRadio>
+                    <MudRadio T="string" Value="@("DOMACI")"     Color="Color.Primary">Domaći</MudRadio>
                     <MudRadio T="string" Value="@("INOSTRANI")"  Color="Color.Primary">Inostrani</MudRadio>
                 </MudRadioGroup>
             </MudItem>
@@ -83,7 +83,7 @@
     private string  _racun    = string.Empty;
     private string? _swift;
     private string? _iban;
-    private string  _tipRacuna = "DOMAĆI";
+    private string  _tipRacuna = "DOMACI";
 
     protected override async Task OnInitializedAsync()
     {
@@ -97,7 +97,7 @@
                 _racun     = _entitet.racun     ?? string.Empty;
                 _swift     = _entitet.SWIFT;
                 _iban      = _entitet.IBAN;
-                _tipRacuna = _entitet.TipRacuna ?? "DOMAĆI";
+                _tipRacuna = _entitet.TipRacuna ?? "DOMACI";
             }
         }
     }

@@ -59,6 +59,12 @@
             return broj is null ? default : (TValue)(object)broj.Value;
         }
 
+        if (ciljniTip == typeof(int))
+        {
+            var broj = ParsirajDecimal(raw);
+            return broj is null ? default : (TValue)(object)(int)broj.Value;
+        }
+
         if (ciljniTip == typeof(string))
             return (TValue?)(object?)raw;
 

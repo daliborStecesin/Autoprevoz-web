@@ -1,0 +1,456 @@
+@page "/finansije/uplate"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject NavigationManager  Nav
+@inject TransportDbContext Db
+@inject ISnackbar          Snackbar
+
+<PageTitle>Unos uplate/isplate — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.Payment" Class="mr-2" />
+    Unos uplate/isplate
+</MudText>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Forma ─────────────────────────── *@
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3">
+
+            @* Partner — autocomplete *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Partner:</MudText>
+            <div style="position:relative; margin-bottom:8px; margin-top:4px;"
+                 @onfocusin="OnPartnerFocusin"
+                 @onfocusout="OnPartnerFocusout">
+                <MudTextField Value="_partnerPretraga"
+                              ValueChanged="@((string v) => { _partnerPretraga = v; AzurirajPartnerPredloge(); })"
+                              Variant="Variant.Outlined"
+                              Placeholder="Pretraži partnera..."
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Business"
+                              Immediate="true"
+                              Margin="Margin.Dense"
+                              T="string" />
+                @if (_partnerOpen && _partneriPredlozi.Count > 0)
+                {
+                    <div style="position:absolute; z-index:9999; left:0; right:0;
+                                background:white; border:1px solid #ccc; border-radius:4px;
+                                box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                max-height:220px; overflow-y:auto;">
+                        @foreach (var p in _partneriPredlozi)
+                        {
+                            var pp = p;
+                            <div @onclick="@(() => IzaberiPartnera(pp))"
+                                 style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                @pp.Naziv <span style="color:#999;">— @pp.PIB</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (_partner is not null)
+            {
+                <MudPaper Elevation="0"
+                          Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 10px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="color:#666; font-size:0.78rem;">Izabrani partner</div>
+                        <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_partner.Naziv</span>
+                        <span style="color:#999; margin-left:6px; font-size:0.8rem;">PIB: @_partner.PIB</span>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   OnClick="@(() => IzaberiPartnera(null))" />
+                </MudPaper>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_idRacuna))
+            {
+                <MudPaper Elevation="0"
+                          Style="border:1px solid #3D8EB9; background:#E3F2FD; border-radius:4px; padding:8px 10px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="color:#666; font-size:0.78rem;">Vezano za račun</div>
+                        <span style="font-weight:600; color:#2D3E50; font-size:0.9rem;">@(_brojRacunaPrikaz ?? _idRacuna)</span>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   Title="Otkači vezu sa računom (slobodan unos)"
+                                   OnClick="OtkaciRacun" />
+                </MudPaper>
+            }
+
+            <MudGrid Spacing="2">
+                <MudItem xs="6">
+                    <NativniSelect Label="Smer" Value="@_smer" ValueChanged="@OnSmerChanged">
+                        <option value="IZLAZ">IZLAZ</option>
+                        <option value="ULAZ">ULAZ</option>
+                    </NativniSelect>
+                </MudItem>
+                <MudItem xs="6">
+                    <NativniSelect Label="Tip unosa" Value="@_tipUnosa"
+                                   ValueChanged="@((string v) => { _tipUnosa = v; })">
+                        @if (_smer == "IZLAZ")
+                        {
+                            <option value="UPLATA_RSD">UPLATA (RSD)</option>
+                            <option value="UPLATA_EUR">UPLATA EUR</option>
+                            <option value="KNJIZNO_ODOBRENJE">KNJIŽNO ODOBRENJE</option>
+                            <option value="KNJIZNO_ZADUZENJE">KNJIŽNO ZADUŽENJE</option>
+                        }
+                        else
+                        {
+                            <option value="ISPLATA_RSD">ISPLATA (RSD)</option>
+                            <option value="ISPLATA_EUR">ISPLATA EUR</option>
+                            <option value="KNJIZNO_ODOBRENJE">KNJIŽNO ODOBRENJE</option>
+                            <option value="KNJIZNO_ZADUZENJE">KNJIŽNO ZADUŽENJE</option>
+                        }
+                    </NativniSelect>
+                </MudItem>
+
+                <MudItem xs="6">
+                    <DateInput Label="Datum" @bind-Value="_datum" />
+                </MudItem>
+                <MudItem xs="6">
+                    <DateInput Label="Valuta" @bind-Value="_valuta" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <NativniInput TValue="string" Label="Izvod" @bind-Value="_izvod" />
+                </MudItem>
+                <MudItem xs="6">
+                    <NativniInput TValue="decimal" Label="Iznos" @bind-Value="_iznos" Format="0.00" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_komentar" Label="Komentar" Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" Lines="2" />
+                </MudItem>
+            </MudGrid>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="Sacuvaj" Disabled="_cuva" Class="mt-3">
+                @if (_cuva)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Sačuvaj
+            </MudButton>
+
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Trenutni saldo partnera ──────── *@
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                Saldo partnera
+            </MudText>
+
+            @if (_partner is null)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Izaberite partnera da biste videli trenutni saldo i poslednje stavke.
+                </MudAlert>
+            }
+            else
+            {
+                <MudGrid Spacing="2" Class="mb-3">
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO RSD</MudText>
+                        <MudText Typo="Typo.h6">@_saldoRsd.ToString("N2")</MudText>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO EUR</MudText>
+                        <MudText Typo="Typo.h6">@_saldoEur.ToString("N2")</MudText>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Poslednje stavke</MudText>
+                <MudDataGrid T="KarticaPartnera" Items="_poslednjeStavke" Dense="true" Hover="true" Striped="true">
+                    <Columns>
+                        <TemplateColumn Title="Datum">
+                            <CellTemplate>@context.Item.DatumRacuna?.ToString("dd.MM.yyyy")</CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.Status" Title="Status" />
+                        <TemplateColumn Title="Duguje" HeaderStyle="text-align:right;">
+                            <CellTemplate><span style="display:block; text-align:right;">@context.Item.Duguje?.ToString("N2")</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Potražuje" HeaderStyle="text-align:right;">
+                            <CellTemplate><span style="display:block; text-align:right;">@context.Item.Potrazuje?.ToString("N2")</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Saldo" HeaderStyle="text-align:right;">
+                            <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo?.ToString("N2")</span></CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.opis" Title="Komentar" />
+                    </Columns>
+                    <PagerContent>
+                        <MudDataGridPager T="KarticaPartnera" />
+                    </PagerContent>
+                </MudDataGrid>
+            }
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@code {
+    // ── Query string (predpopuna iz Kartice partnera) ────────
+    [SupplyParameterFromQuery(Name = "idRacuna")]   public string?  QIdRacuna   { get; set; }
+    [SupplyParameterFromQuery(Name = "idPartnera")] public int?     QIdPartnera { get; set; }
+    [SupplyParameterFromQuery(Name = "brojRacuna")] public string?  QBrojRacuna { get; set; }
+    [SupplyParameterFromQuery(Name = "smer")]       public string?  QSmer       { get; set; }
+    [SupplyParameterFromQuery(Name = "tip")]        public string?  QTip        { get; set; }
+    [SupplyParameterFromQuery(Name = "iznos")]      public decimal? QIznos      { get; set; }
+
+    private static readonly string[] _racunStatusi = ["IZLAZ", "INOSTRANI", "ULAZ", "INO_ULAZ"];
+
+    // Vezani račun (predpopuna iz Kartice partnera) — Id_Racuna = racun.Broj.ToString()
+    private string? _idRacuna;
+    private string? _brojRacunaPrikaz;
+
+    // ── Partner autocomplete ────────────────────────────────
+    private List<Partner> _sviPartneri    = [];
+    private Partner?      _partner;
+    private string        _partnerPretraga = "";
+    private List<Partner> _partneriPredlozi = [];
+    private bool          _partnerOpen;
+
+    // ── Forma ────────────────────────────────────────────────
+    private string  _smer     = "IZLAZ";
+    private string  _tipUnosa = "UPLATA_RSD";
+    private string  _datum    = DateTime.Today.ToString("yyyy-MM-dd");
+    private string  _valuta   = DateTime.Today.ToString("yyyy-MM-dd");
+    private string? _izvod;
+    private decimal _iznos;
+    private string? _komentar;
+
+    private bool _cuva;
+
+    // ── Saldo prikaz ─────────────────────────────────────────
+    private decimal _saldoRsd;
+    private decimal _saldoEur;
+    private List<KarticaPartnera> _poslednjeStavke = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviPartneri = await Db.Partneri.AsNoTracking().OrderBy(p => p.Naziv).ToListAsync();
+
+        if (!string.IsNullOrWhiteSpace(QSmer))
+            _smer = QSmer;
+
+        if (!string.IsNullOrWhiteSpace(QTip))
+            _tipUnosa = QTip;
+
+        if (QIznos is not null)
+            _iznos = QIznos.Value;
+
+        if (!string.IsNullOrWhiteSpace(QIdRacuna))
+        {
+            _idRacuna = QIdRacuna;
+            _brojRacunaPrikaz = QBrojRacuna;
+        }
+
+        if (QIdPartnera is not null)
+        {
+            var partner = _sviPartneri.FirstOrDefault(p => p.Broj == QIdPartnera.Value);
+            if (partner is not null)
+                await IzaberiPartnera(partner);
+        }
+    }
+
+    private void OtkaciRacun()
+    {
+        _idRacuna = null;
+        _brojRacunaPrikaz = null;
+    }
+
+    private void OnSmerChanged(string v)
+    {
+        _smer = v;
+        _tipUnosa = _smer == "IZLAZ" ? "UPLATA_RSD" : "ISPLATA_RSD";
+    }
+
+    private void AzurirajPartnerPredloge()
+    {
+        _partneriPredlozi = string.IsNullOrWhiteSpace(_partnerPretraga)
+            ? []
+            : [.. _sviPartneri.Where(p => (p.Naziv ?? "").Contains(_partnerPretraga, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    private void OnPartnerFocusin()
+    {
+        _partnerOpen = true;
+        AzurirajPartnerPredloge();
+    }
+
+    private async Task OnPartnerFocusout()
+    {
+        await Task.Delay(150);
+        _partnerOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task IzaberiPartnera(Partner? p)
+    {
+        _partner = p;
+        _partnerPretraga = "";
+        _partneriPredlozi = [];
+        _partnerOpen = false;
+
+        if (p is not null)
+            await OsveziSaldo();
+        else
+        {
+            _saldoRsd = 0;
+            _saldoEur = 0;
+            _poslednjeStavke = [];
+        }
+    }
+
+    // Ključ grupisanja: PIB_Partnera ako postoji, inače fallback na Id_Partnera
+    // (usklađeno sa Kartice.razor — redovi bez PIB-a se grupišu po Id_Partnera).
+    private static string GrupniKljuc(KarticaPartnera k) =>
+        !string.IsNullOrWhiteSpace(k.PibPartnera) ? k.PibPartnera! : $"ID:{k.IdPartnera}";
+
+    private string TrenutniKljuc() =>
+        !string.IsNullOrWhiteSpace(_partner?.PIB) ? _partner!.PIB! : $"ID:{_partner!.Broj}";
+
+    private async Task OsveziSaldo()
+    {
+        if (_partner is null) return;
+
+        var kljuc = TrenutniKljuc();
+
+        var sve = await Db.Kartice.AsNoTracking()
+            .Where(k => k.PibPartnera == _partner.PIB || k.IdPartnera == _partner.Broj.ToString())
+            .ToListAsync();
+
+        var redovi = sve.Where(k => GrupniKljuc(k) == kljuc).ToList();
+
+        _saldoRsd = redovi.Where(k => !(k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
+        _saldoEur = redovi.Where(k => (k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
+
+        _poslednjeStavke = redovi
+            .OrderByDescending(k => k.DatumRacuna)
+            .ThenByDescending(k => k.Id)
+            .Take(10)
+            .ToList();
+    }
+
+    private async Task Sacuvaj()
+    {
+        if (_partner is null)
+        {
+            Snackbar.Add("Izaberite partnera.", Severity.Warning);
+            return;
+        }
+
+        if (_iznos <= 0)
+        {
+            Snackbar.Add("Iznos mora biti veći od nule.", Severity.Warning);
+            return;
+        }
+
+        string status, selektor;
+        decimal duguje, potrazuje, saldo;
+
+        switch (_tipUnosa)
+        {
+            case "UPLATA_RSD":
+                status = "UPLATA"; selektor = "Kupac";
+                duguje = 0; potrazuje = _iznos; saldo = -_iznos;
+                break;
+            case "UPLATA_EUR":
+                status = "INO_UPLATA"; selektor = "Kupac";
+                duguje = 0; potrazuje = _iznos; saldo = -_iznos;
+                break;
+            case "ISPLATA_RSD":
+                status = "ISPLATA"; selektor = "Dobavljac";
+                duguje = _iznos; potrazuje = 0; saldo = _iznos;
+                break;
+            case "ISPLATA_EUR":
+                status = "INO_ISPLATA"; selektor = "Dobavljac";
+                duguje = _iznos; potrazuje = 0; saldo = _iznos;
+                break;
+            default:
+                Snackbar.Add("Knjižna odobrenja/zaduženja dolaze u sledećem koraku.", Severity.Info);
+                return;
+        }
+
+        _cuva = true; StateHasChanged();
+        try
+        {
+            var datum  = DateTime.TryParse(_datum, out var d)  ? d  : DateTime.Today;
+            var valuta = DateTime.TryParse(_valuta, out var v) ? v  : DateTime.Today;
+
+            Db.Kartice.Add(new KarticaPartnera
+            {
+                IdRacuna      = _idRacuna,
+                IdPartnera    = _partner.Broj.ToString(),
+                NazivPartnera = _partner.Naziv,
+                PibPartnera   = _partner.PIB,
+                DatumRacuna   = datum,
+                DatumValute   = valuta,
+                Dug           = 0,
+                Uplata        = _iznos,
+                Status        = status,
+                selektor      = selektor,
+                Duguje        = duguje,
+                Potrazuje     = potrazuje,
+                Saldo         = saldo,
+                izvod         = _izvod,
+                opis          = _komentar,
+                Izmiren       = "NE",
+                brisano       = 0
+            });
+
+            // Vezana uplata/isplata za konkretan račun -> ažuriraj Uplata/Izmiren
+            // na redu računa (Preostalo je computed = Dug - Uplata).
+            if (!string.IsNullOrWhiteSpace(_idRacuna))
+            {
+                var racunRed = await Db.Kartice
+                    .FirstOrDefaultAsync(k => k.IdRacuna == _idRacuna && _racunStatusi.Contains(k.Status));
+
+                if (racunRed is not null)
+                {
+                    racunRed.Uplata = (racunRed.Uplata ?? 0) + _iznos;
+                    var preostalo = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
+                    racunRed.Izmiren = preostalo <= 0 ? "DA" : "NE";
+                }
+                else
+                {
+                    Snackbar.Add("Napomena: povezani račun nije pronađen za ažuriranje stanja.", Severity.Warning);
+                }
+            }
+
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Stavka sačuvana.", Severity.Success);
+
+            _iznos    = 0;
+            _izvod    = null;
+            _komentar = null;
+            OtkaciRacun();
+
+            await OsveziSaldo();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _cuva = false;
+            StateHasChanged();
+        }
+    }
+}

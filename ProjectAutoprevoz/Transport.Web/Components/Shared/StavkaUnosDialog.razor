@@ -1,0 +1,224 @@
+@using Transport.Domain.Entities
+
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd" Class="mr-2" />
+            @(Postojeca is null ? "Unos stavke" : "Izmena stavke")
+        </MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @* TODO: vezati Iz Šifarnika na tbl_lager kad se uradi Lager modul *@
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">Iz šifarnika:</MudText>
+        <div class="mb-2" style="margin-top:4px;">
+            <MudTextField Value="@((string?)null)"
+                          Variant="Variant.Outlined"
+                          Placeholder="Lager — uskoro"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Inventory2"
+                          Margin="Margin.Dense"
+                          Disabled="true"
+                          T="string" />
+        </div>
+
+        <div class="mb-2">
+            <MudTextField @bind-Value="_opis" Label="Opis" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+        </div>
+
+        <MudGrid Spacing="2" Class="mb-1">
+            <MudItem xs="4"><NativniInput TValue="string" Label="JM" @bind-Value="_jm" /></MudItem>
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="Količina" Value="@_kolicina" Format="0.##"
+                              ValueChanged="@((decimal v) => { _kolicina = v; Izracunaj(); })" />
+            </MudItem>
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="Rabat %" Value="@_rabat" Format="0.00"
+                              ValueChanged="@((decimal v) => { _rabat = v; Izracunaj(); })" />
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Spacing="2" Class="mb-1">
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="Cena EUR" Value="@_cenaEur" Format="0.0000"
+                              ValueChanged="@((decimal v) => OnCenaEurChanged(v))" />
+            </MudItem>
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="Cena" Value="@_cena" Format="0.00"
+                              ValueChanged="@((decimal v) => OnCenaChanged(v))" />
+            </MudItem>
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="Kurs EUR" Value="@KursEur" Format="0.0000" Disabled="true" />
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="4">
+                <NativniInput TValue="decimal" Label="PDV %" Value="@_stopaPdv" Format="0.##"
+                              ValueChanged="@((decimal v) => { _stopaPdv = v; Izracunaj(); })" />
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Elevation="0" Class="pa-2 mb-2" Style="background:#F5F7FA; border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+                <span>Osnovica:</span><strong>@_osnovica.ToString("N2")</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+                <span>PDV:</span><strong>@_pdvIznos.ToString("N2")</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.95rem; border-top:1px solid #ddd; margin-top:4px; padding-top:4px;">
+                <span>Ukupno (@(TipRacuna == "INOSTRANI" ? "EUR" : "RSD")):</span>
+                <strong style="color:#1565C0;">@_ukupno.ToString("N2")</strong>
+            </div>
+        </MudPaper>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                   OnClick="Sacuvaj">
+            @(Postojeca is null ? "Upiši" : "Ažuriraj")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => MudDialog.Cancel())">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Stavka? Postojeca { get; set; }
+    [Parameter] public decimal KursEur { get; set; }
+    [Parameter] public string TipRacuna { get; set; } = "IZLAZ";
+    [Parameter] public decimal PdvStopa { get; set; }
+    [Parameter] public string? Vozilo { get; set; }
+    [Parameter] public int? IdVozila { get; set; }
+    [Parameter] public string DatumUtovara { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+    [Parameter] public string DatumIstovara { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private string  _opis    = "";
+    private string  _jm      = "kom";
+    private string  _barcode = "";
+    private string? _idLager;
+
+    private decimal _cenaEur;
+    private decimal _cena;
+    private decimal _kolicina = 1;
+    private decimal _rabat;
+    private decimal _stopaPdv;
+
+    private decimal _osnovica;
+    private decimal _pdvIznos;
+    private decimal _ukupno;
+
+    protected override void OnInitialized()
+    {
+        if (Postojeca is not null)
+        {
+            var s = Postojeca;
+
+            _opis    = s.Artikal ?? "";
+            _jm      = s.JM ?? "kom";
+            _barcode = s.Barcode ?? "";
+            _idLager = s.IdLager;
+
+            _kolicina = s.Kolicina ?? 1;
+            _rabat    = s.Rabat ?? 0;
+            _stopaPdv = s.StopaPDV ?? 0;
+
+            var cenaPoJm = s.CenaPoJMSP ?? 0;
+            if (s.Bon == "EUR")
+            {
+                _cenaEur = cenaPoJm;
+                _cena    = KursEur > 0 ? Math.Round(cenaPoJm * KursEur, 2) : 0;
+            }
+            else
+            {
+                _cena    = cenaPoJm;
+                _cenaEur = KursEur > 0 ? Math.Round(cenaPoJm / KursEur, 4) : 0;
+            }
+        }
+        else
+        {
+            _stopaPdv = PdvStopa;
+        }
+
+        Izracunaj();
+    }
+
+    // ── Konverzija cena (Cena EUR ↔ Cena preko Kursa) ────────────────────
+    private void OnCenaEurChanged(decimal v)
+    {
+        _cenaEur = v;
+        _cena    = KursEur > 0 ? Math.Round(v * KursEur, 2) : 0;
+        Izracunaj();
+    }
+
+    private void OnCenaChanged(decimal v)
+    {
+        _cena    = v;
+        _cenaEur = KursEur > 0 ? Math.Round(v / KursEur, 4) : 0;
+        Izracunaj();
+    }
+
+    // ── Obračun reda (Rabat je procenat) ─────────────────────────────────
+    private void Izracunaj()
+    {
+        var cenaZaObracun = TipRacuna == "INOSTRANI" ? _cenaEur : _cena;
+        var osnovicaPreRabata = cenaZaObracun * _kolicina;
+
+        _osnovica = Math.Round(osnovicaPreRabata * (1 - _rabat / 100m), 2);
+        _pdvIznos = Math.Round(_osnovica * (_stopaPdv / 100m), 2);
+        _ukupno   = _osnovica + _pdvIznos;
+    }
+
+    private void Sacuvaj()
+    {
+        if (string.IsNullOrWhiteSpace(_opis))
+        {
+            Snackbar.Add("Unesite opis stavke.", Severity.Warning);
+            return;
+        }
+
+        var jeInostrani = TipRacuna == "INOSTRANI";
+        var cenaPoJm    = jeInostrani ? _cenaEur : _cena;
+
+        var stavka = new Stavka
+        {
+            Broj    = Postojeca?.Broj ?? 0,
+            IdLager = _idLager,
+            Barcode = _barcode,
+            Artikal = _opis,
+            JM      = _jm,
+            Kolicina = _kolicina,
+
+            CenaPoJMBP = cenaPoJm,
+            CenaPoJMSP = cenaPoJm,
+            Rabat      = _rabat,
+
+            CenaPoJMBPminusRab = _kolicina != 0 ? Math.Round(_osnovica / _kolicina, 3) : cenaPoJm,
+            VrednostMinusRab   = _osnovica,
+
+            StopaPDV = _stopaPdv,
+            Osnovica = _osnovica,
+            PDV      = _pdvIznos,
+            Ukupno   = _ukupno,
+            Suma     = _ukupno,
+
+            Bon = jeInostrani ? "EUR" : "RSD",
+
+            vozilo   = Vozilo,
+            idVozila = IdVozila,
+
+            datumUtovara  = DateTime.TryParse(DatumUtovara, out var du)  ? du : null,
+            datumIstovara = DateTime.TryParse(DatumIstovara, out var di) ? di : null,
+
+            brisano = Postojeca?.brisano ?? 0,
+        };
+
+        MudDialog.Close(DialogResult.Ok(stavka));
+    }
+}
