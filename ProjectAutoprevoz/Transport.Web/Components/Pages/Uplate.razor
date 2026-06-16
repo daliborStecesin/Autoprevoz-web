@@ -1,4 +1,4 @@
-@page "/finansije/uplate"
+@page "/finansije/unos"
 @rendermode InteractiveServer
 
 @using Microsoft.EntityFrameworkCore
@@ -9,6 +9,7 @@
 @inject NavigationManager  Nav
 @inject TransportDbContext Db
 @inject ISnackbar          Snackbar
+@inject IDialogService     Dialog
 
 <PageTitle>Unos uplate/isplate — Autoprevoz</PageTitle>
 
@@ -94,7 +95,7 @@
                 </MudItem>
                 <MudItem xs="6">
                     <NativniSelect Label="Tip unosa" Value="@_tipUnosa"
-                                   ValueChanged="@((string v) => { _tipUnosa = v; })">
+                                   ValueChanged="@((string v) => { _tipUnosa = v; AzurirajPrikazValute(); })">
                         @if (_smer == "IZLAZ")
                         {
                             <option value="UPLATA_RSD">UPLATA (RSD)</option>
@@ -124,6 +125,10 @@
                 </MudItem>
                 <MudItem xs="6">
                     <NativniInput TValue="decimal" Label="Iznos" @bind-Value="_iznos" Format="0.00" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <NativniInput TValue="string" Label="Poziv na broj / Broj uplate" @bind-Value="_pozivNaBroj" />
                 </MudItem>
 
                 <MudItem xs="12">
@@ -161,17 +166,13 @@
             else
             {
                 <MudGrid Spacing="2" Class="mb-3">
-                    <MudItem xs="6">
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO RSD</MudText>
-                        <MudText Typo="Typo.h6">@_saldoRsd.ToString("N2")</MudText>
-                    </MudItem>
-                    <MudItem xs="6">
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO EUR</MudText>
-                        <MudText Typo="Typo.h6">@_saldoEur.ToString("N2")</MudText>
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO @(JeEur ? "EUR" : "RSD")</MudText>
+                        <MudText Typo="Typo.h6">@((JeEur ? _saldoEur : _saldoRsd).ToString("N2"))</MudText>
                     </MudItem>
                 </MudGrid>
 
-                <MudText Typo="Typo.subtitle2" Class="mb-1">Poslednje stavke</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Poslednje stavke (@(JeEur ? "EUR" : "RSD"))</MudText>
                 <MudDataGrid T="KarticaPartnera" Items="_poslednjeStavke" Dense="true" Hover="true" Striped="true">
                     <Columns>
                         <TemplateColumn Title="Datum">
@@ -228,14 +229,29 @@
     private string  _valuta   = DateTime.Today.ToString("yyyy-MM-dd");
     private string? _izvod;
     private decimal _iznos;
+    private string? _pozivNaBroj;
     private string? _komentar;
 
     private bool _cuva;
+    private bool _componentRendered;
+    private bool _pendingProvera;
 
     // ── Saldo prikaz ─────────────────────────────────────────
     private decimal _saldoRsd;
     private decimal _saldoEur;
+    private List<KarticaPartnera> _sviRedoviPartnera = [];
     private List<KarticaPartnera> _poslednjeStavke = [];
+
+    private bool JeEur => _tipUnosa.Contains("EUR");
+
+    private string StatusZaTipUnosa => _tipUnosa switch
+    {
+        "UPLATA_RSD"  => "UPLATA",
+        "UPLATA_EUR"  => "INO_UPLATA",
+        "ISPLATA_RSD" => "ISPLATA",
+        "ISPLATA_EUR" => "INO_ISPLATA",
+        _             => ""
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,6 +272,7 @@
         {
             _idRacuna = QIdRacuna;
             _brojRacunaPrikaz = QBrojRacuna;
+            _pozivNaBroj = QBrojRacuna;
         }
 
         if (QIdPartnera is not null)
@@ -263,6 +280,17 @@
             var partner = _sviPartneri.FirstOrDefault(p => p.Broj == QIdPartnera.Value);
             if (partner is not null)
                 await IzaberiPartnera(partner);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _componentRendered = true;
+        if (_pendingProvera)
+        {
+            _pendingProvera = false;
+            await ProveriNeraspoređene();
         }
     }
 
@@ -276,6 +304,7 @@
     {
         _smer = v;
         _tipUnosa = _smer == "IZLAZ" ? "UPLATA_RSD" : "ISPLATA_RSD";
+        AzurirajPrikazValute();
     }
 
     private void AzurirajPartnerPredloge()
@@ -306,11 +335,22 @@
         _partnerOpen = false;
 
         if (p is not null)
+        {
             await OsveziSaldo();
+
+            if (!string.IsNullOrWhiteSpace(_idRacuna))
+            {
+                if (_componentRendered)
+                    await ProveriNeraspoređene();
+                else
+                    _pendingProvera = true;
+            }
+        }
         else
         {
             _saldoRsd = 0;
             _saldoEur = 0;
+            _sviRedoviPartnera = [];
             _poslednjeStavke = [];
         }
     }
@@ -333,12 +373,20 @@
             .Where(k => k.PibPartnera == _partner.PIB || k.IdPartnera == _partner.Broj.ToString())
             .ToListAsync();
 
-        var redovi = sve.Where(k => GrupniKljuc(k) == kljuc).ToList();
+        _sviRedoviPartnera = sve.Where(k => GrupniKljuc(k) == kljuc).ToList();
 
-        _saldoRsd = redovi.Where(k => !(k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
-        _saldoEur = redovi.Where(k => (k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
+        _saldoRsd = _sviRedoviPartnera.Where(k => !(k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
+        _saldoEur = _sviRedoviPartnera.Where(k => (k.Status ?? "").StartsWith("INO")).Sum(k => k.Saldo ?? 0);
 
-        _poslednjeStavke = redovi
+        AzurirajPrikazValute();
+    }
+
+    private void AzurirajPrikazValute()
+    {
+        var jeEur = JeEur;
+
+        _poslednjeStavke = _sviRedoviPartnera
+            .Where(k => (k.Status ?? "").StartsWith("INO") == jeEur)
             .OrderByDescending(k => k.DatumRacuna)
             .ThenByDescending(k => k.Id)
             .Take(10)
@@ -391,53 +439,134 @@
             var datum  = DateTime.TryParse(_datum, out var d)  ? d  : DateTime.Today;
             var valuta = DateTime.TryParse(_valuta, out var v) ? v  : DateTime.Today;
 
-            Db.Kartice.Add(new KarticaPartnera
-            {
-                IdRacuna      = _idRacuna,
-                IdPartnera    = _partner.Broj.ToString(),
-                NazivPartnera = _partner.Naziv,
-                PibPartnera   = _partner.PIB,
-                DatumRacuna   = datum,
-                DatumValute   = valuta,
-                Dug           = 0,
-                Uplata        = _iznos,
-                Status        = status,
-                selektor      = selektor,
-                Duguje        = duguje,
-                Potrazuje     = potrazuje,
-                Saldo         = saldo,
-                izvod         = _izvod,
-                opis          = _komentar,
-                Izmiren       = "NE",
-                brisano       = 0
-            });
-
-            // Vezana uplata/isplata za konkretan račun -> ažuriraj Uplata/Izmiren
-            // na redu računa (Preostalo je computed = Dug - Uplata).
+            // Fetchuj red računa unapred — potreban i za U>P proveru i za vezivanje.
+            KarticaPartnera? racunRed = null;
             if (!string.IsNullOrWhiteSpace(_idRacuna))
             {
-                var racunRed = await Db.Kartice
+                racunRed = await Db.Kartice
                     .FirstOrDefaultAsync(k => k.IdRacuna == _idRacuna && _racunStatusi.Contains(k.Status));
+            }
+
+            var preostalo = racunRed is not null
+                ? (racunRed.Dug ?? 0) - (racunRed.Uplata ?? 0)
+                : 0m;
+
+            if (racunRed is not null && _iznos > preostalo && preostalo > 0)
+            {
+                // ── U > P: podela na vezanu + neraspoređenu uplatu ──
+                var ostatak = _iznos - preostalo;
+
+                var potvrda = await Dialog.ShowMessageBox(
+                    "Uplata veća od duga",
+                    $"Uplata ({_iznos:N2}) je veća od duga na računu ({preostalo:N2}). " +
+                    $"Biće vezano {preostalo:N2}, a ostatak {ostatak:N2} evidentiran kao NERASPOREDJENA uplata. Nastaviti?",
+                    yesText: "Da", cancelText: "Ne");
+
+                if (potvrda != true) { _cuva = false; StateHasChanged(); return; }
+
+                // Red 1: vezana uplata (iznos = P)
+                Db.Kartice.Add(new KarticaPartnera
+                {
+                    IdRacuna      = _idRacuna,
+                    IdPartnera    = _partner.Broj.ToString(),
+                    NazivPartnera = _partner.Naziv,
+                    PibPartnera   = _partner.PIB,
+                    BrojRacuna    = _pozivNaBroj,
+                    DatumRacuna   = datum,
+                    DatumValute   = valuta,
+                    Dug           = 0,
+                    Uplata        = preostalo,
+                    Status        = status,
+                    selektor      = selektor,
+                    Duguje        = saldo < 0 ? 0 : preostalo,
+                    Potrazuje     = saldo < 0 ? preostalo : 0,
+                    Saldo         = saldo < 0 ? -preostalo : preostalo,
+                    izvod         = _izvod,
+                    opis          = _komentar,
+                    Izmiren       = "NE",
+                    brisano       = 0
+                });
+
+                // Red 2: neraspoređena uplata (iznos = U-P)
+                Db.Kartice.Add(new KarticaPartnera
+                {
+                    IdRacuna      = null,
+                    IdPartnera    = _partner.Broj.ToString(),
+                    NazivPartnera = _partner.Naziv,
+                    PibPartnera   = _partner.PIB,
+                    BrojRacuna    = "NERASPOREDJENO",
+                    DatumRacuna   = datum,
+                    DatumValute   = valuta,
+                    Dug           = 0,
+                    Uplata        = ostatak,
+                    Status        = status,
+                    selektor      = selektor,
+                    Duguje        = saldo < 0 ? 0 : ostatak,
+                    Potrazuje     = saldo < 0 ? ostatak : 0,
+                    Saldo         = saldo < 0 ? -ostatak : ostatak,
+                    izvod         = _izvod,
+                    opis          = _komentar,
+                    Izmiren       = "NE",
+                    brisano       = 0
+                });
+
+                // Zatvori račun
+                racunRed.Uplata = (racunRed.Uplata ?? 0) + preostalo;
+                racunRed.Izmiren = "DA";
+
+                await Db.SaveChangesAsync();
+
+                Snackbar.Add("Stavka sačuvana.", Severity.Success);
+                Snackbar.Add(
+                    $"Ukoliko želite da povežete neraspoređenu uplatu ({ostatak:N2}) sa drugim računom " +
+                    "kako biste ga umanjili, selektujte taj račun i kliknite Unos uplate.",
+                    Severity.Info, cfg => cfg.VisibleStateDuration = 12000);
+            }
+            else
+            {
+                // ── U <= P ili slobodan unos: postojeća logika ──
+                Db.Kartice.Add(new KarticaPartnera
+                {
+                    IdRacuna      = _idRacuna,
+                    IdPartnera    = _partner.Broj.ToString(),
+                    NazivPartnera = _partner.Naziv,
+                    PibPartnera   = _partner.PIB,
+                    BrojRacuna    = _pozivNaBroj,
+                    DatumRacuna   = datum,
+                    DatumValute   = valuta,
+                    Dug           = 0,
+                    Uplata        = _iznos,
+                    Status        = status,
+                    selektor      = selektor,
+                    Duguje        = duguje,
+                    Potrazuje     = potrazuje,
+                    Saldo         = saldo,
+                    izvod         = _izvod,
+                    opis          = _komentar,
+                    Izmiren       = "NE",
+                    brisano       = 0
+                });
 
                 if (racunRed is not null)
                 {
                     racunRed.Uplata = (racunRed.Uplata ?? 0) + _iznos;
-                    var preostalo = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
-                    racunRed.Izmiren = preostalo <= 0 ? "DA" : "NE";
+                    var preostalos = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
+                    racunRed.Izmiren = preostalos <= 0 ? "DA" : "NE";
                 }
-                else
+                else if (!string.IsNullOrWhiteSpace(_idRacuna))
                 {
                     Snackbar.Add("Napomena: povezani račun nije pronađen za ažuriranje stanja.", Severity.Warning);
                 }
+
+                await Db.SaveChangesAsync();
+
+                Snackbar.Add("Stavka sačuvana.", Severity.Success);
             }
 
-            await Db.SaveChangesAsync();
-
-            Snackbar.Add("Stavka sačuvana.", Severity.Success);
-
-            _iznos    = 0;
-            _izvod    = null;
-            _komentar = null;
+            _iznos       = 0;
+            _izvod       = null;
+            _pozivNaBroj = null;
+            _komentar    = null;
             OtkaciRacun();
 
             await OsveziSaldo();
@@ -452,5 +581,98 @@
             _cuva = false;
             StateHasChanged();
         }
+    }
+
+    private async Task ProveriNeraspoređene()
+    {
+        if (_partner is null || string.IsNullOrWhiteSpace(_idRacuna)) return;
+
+        var trazeniStatus = StatusZaTipUnosa;
+        if (string.IsNullOrWhiteSpace(trazeniStatus)) return;
+
+        var nerasporedjena = _sviRedoviPartnera
+            .Where(k => (k.BrojRacuna ?? "") == "NERASPOREDJENO"
+                     && k.Status == trazeniStatus
+                     && string.IsNullOrWhiteSpace(k.IdRacuna))
+            .OrderByDescending(k => k.Id)
+            .FirstOrDefault();
+
+        if (nerasporedjena is null) return;
+
+        var N = nerasporedjena.Uplata ?? 0;
+        var valuta = trazeniStatus.StartsWith("INO") ? "EUR" : "RSD";
+
+        var ok = await Dialog.ShowMessageBox(
+            "Neraspoređena uplata",
+            $"Partner ima neraspoređenu uplatu od {N:N2} {valuta}. " +
+            $"Želite li da je povežete sa ovim računom ({_brojRacunaPrikaz ?? _idRacuna})?",
+            yesText: "Da, poveži", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        var racunRed = await Db.Kartice
+            .FirstOrDefaultAsync(k => k.IdRacuna == _idRacuna && _racunStatusi.Contains(k.Status));
+
+        if (racunRed is null) { Snackbar.Add("Račun nije pronađen.", Severity.Warning); return; }
+
+        var P = (racunRed.Dug ?? 0) - (racunRed.Uplata ?? 0);
+        var isUplata = trazeniStatus is "UPLATA" or "INO_UPLATA";
+        var brojVeza  = _pozivNaBroj ?? _brojRacunaPrikaz;
+
+        var red = await Db.Kartice.FindAsync(nerasporedjena.Id);
+        if (red is null) return;
+
+        if (N <= P)
+        {
+            // Cela neraspoređena se vezuje za račun, iznos ostaje N
+            red.IdRacuna   = _idRacuna;
+            red.BrojRacuna = brojVeza;
+
+            racunRed.Uplata = (racunRed.Uplata ?? 0) + N;
+            var preostalos = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
+            racunRed.Izmiren = preostalos <= 0 ? "DA" : "NE";
+        }
+        else
+        {
+            // N > P: skrati postojeću na P (vezana), INSERT ostatak kao nova NERASPOREDJENO
+            var ostatak = N - P;
+
+            red.IdRacuna   = _idRacuna;
+            red.BrojRacuna = brojVeza;
+            red.Uplata     = P;
+            red.Duguje     = isUplata ? 0 : P;
+            red.Potrazuje  = isUplata ? P : 0;
+            red.Saldo      = isUplata ? -P : P;
+
+            Db.Kartice.Add(new KarticaPartnera
+            {
+                IdRacuna      = null,
+                IdPartnera    = red.IdPartnera,
+                NazivPartnera = red.NazivPartnera,
+                PibPartnera   = red.PibPartnera,
+                BrojRacuna    = "NERASPOREDJENO",
+                DatumRacuna   = red.DatumRacuna,
+                DatumValute   = red.DatumValute,
+                Dug           = 0,
+                Uplata        = ostatak,
+                Status        = red.Status,
+                selektor      = red.selektor,
+                Duguje        = isUplata ? 0 : ostatak,
+                Potrazuje     = isUplata ? ostatak : 0,
+                Saldo         = isUplata ? -ostatak : ostatak,
+                izvod         = red.izvod,
+                opis          = red.opis,
+                Izmiren       = "NE",
+                brisano       = 0
+            });
+
+            racunRed.Uplata = (racunRed.Uplata ?? 0) + P;
+            racunRed.Izmiren = "DA";
+        }
+
+        await Db.SaveChangesAsync();
+        Snackbar.Add("Neraspoređena uplata vezana za račun.", Severity.Success);
+        await OsveziSaldo();
+        StateHasChanged();
     }
 }

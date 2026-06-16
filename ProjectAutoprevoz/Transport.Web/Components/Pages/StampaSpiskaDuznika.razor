@@ -1,0 +1,197 @@
+@page "/finansije/duznici/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject NavigationManager  Nav
+@inject TransportDbContext Db
+@inject IJSRuntime         JS
+
+<PageTitle>@_naslov @_valuta</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 24px 32px; }
+
+    .firm-header { margin-bottom: 16px; }
+    .firm-header .naziv { font-size: 13pt; font-weight: bold; }
+    .firm-header .adresa { font-size: 9pt; color: #333; }
+
+    .doc-title { font-size: 12pt; font-weight: bold; margin-bottom: 4px; border-bottom: 2px solid #333; padding-bottom: 6px; }
+    .doc-sub { font-size: 9.5pt; color: #555; margin-bottom: 14px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 8px; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 5px 6px; border: 1px solid #aaa; text-align: center; }
+    tbody td { padding: 4px 6px; border: 1px solid #ccc; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+
+    tfoot td { padding: 6px; border: 1px solid #aaa; font-weight: bold; background: #f0f0f0; }
+
+    .no-print { margin-top: 24px; text-align: center; padding-bottom: 20px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 8pt; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tfoot td { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else
+{
+    <div class="wrap">
+
+        @* ── Zaglavlje firme ───────────────────────────────── *@
+        <div class="firm-header">
+            <div class="naziv">@_nazivFirme</div>
+            @if (!string.IsNullOrEmpty(_adresaFirme))
+            {
+                <div class="adresa">@_adresaFirme</div>
+            }
+        </div>
+
+        <div class="doc-title">@_naslov (@_valuta)</div>
+        <div class="doc-sub">Datum: @DateTime.Today.ToString("dd.MM.yyyy")</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="center" style="width:6%">R.br</th>
+                    <th>Naziv partnera</th>
+                    <th class="right" style="width:16%">Preostalo</th>
+                    <th class="right" style="width:16%">Van valute</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int rb = 1; }
+                @foreach (var s in _stavke)
+                {
+                    <tr>
+                        <td class="center">@rb</td>
+                        <td>@s.Naziv</td>
+                        <td class="right">@s.Saldo.ToString("N2")</td>
+                        <td class="right">@s.VanValute.ToString("N2")</td>
+                    </tr>
+                    rb++;
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="center" colspan="2">UKUPNO</td>
+                    <td class="right">@_ukupnoPreostalo.ToString("N2")</td>
+                    <td class="right">@_ukupnoVanValute.ToString("N2")</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="no-print">
+            <button onclick="window.print()">Štampaj</button>
+            <button onclick="window.close()">Zatvori</button>
+        </div>
+
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "tip")]      public string? Tip      { get; set; }
+    [SupplyParameterFromQuery(Name = "pretraga")] public string? Pretraga { get; set; }
+
+    private class PartnerSaldo
+    {
+        public string Naziv { get; set; } = "";
+        public decimal Saldo { get; set; }
+        public decimal VanValute { get; set; }
+    }
+
+    private bool   _ucitava     = true;
+    private string _nazivFirme  = "";
+    private string _adresaFirme = "";
+    private string _naslov      = "SPISAK";
+    private string _valuta      = "RSD";
+
+    private List<PartnerSaldo> _stavke = [];
+    private decimal _ukupnoPreostalo;
+    private decimal _ukupnoVanValute;
+
+    // Ključ grupisanja: PIB_Partnera ako postoji, inače fallback na Id_Partnera
+    // (usklađeno sa Kartice.razor — redovi bez PIB-a se grupišu po Id_Partnera).
+    private static string GrupniKljuc(KarticaPartnera k) =>
+        !string.IsNullOrWhiteSpace(k.PibPartnera) ? k.PibPartnera! : $"ID:{k.IdPartnera}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        var podaci = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+        if (podaci is not null)
+        {
+            _nazivFirme  = podaci.NazivFirme ?? "";
+            _adresaFirme = podaci.Adresa     ?? "";
+        }
+
+        var (statusi, racunStatus, obrniRedosled, naslov, valuta) = (Tip ?? "") switch
+        {
+            "duznici_dom"   => (new[] { "IZLAZ", "UPLATA" },         "IZLAZ",     false, "SPISAK DUŽNIKA",   "RSD"),
+            "duznici_ino"   => (new[] { "INOSTRANI", "INO_UPLATA" }, "INOSTRANI", false, "SPISAK DUŽNIKA",   "EUR"),
+            "dugovanja_dom" => (new[] { "ULAZ", "ISPLATA" },         "ULAZ",      true,  "SPISAK DUGOVANJA", "RSD"),
+            "dugovanja_ino" => (new[] { "INO_ULAZ", "INO_ISPLATA" }, "INO_ULAZ",  true,  "SPISAK DUGOVANJA", "EUR"),
+            _               => (Array.Empty<string>(), "", false, "SPISAK", "RSD")
+        };
+
+        _naslov = naslov;
+        _valuta = valuta;
+
+        var danas = DateTime.Today;
+        var sve = await Db.Kartice.AsNoTracking().ToListAsync();
+
+        var nazivPoKljucu = sve
+            .GroupBy(GrupniKljuc)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().NazivPartnera ?? "");
+
+        var grupisano = sve
+            .Where(k => statusi.Contains(k.Status))
+            .GroupBy(GrupniKljuc)
+            .Select(g => new PartnerSaldo
+            {
+                Naziv = nazivPoKljucu.TryGetValue(g.Key, out var n) ? n : (g.First().NazivPartnera ?? ""),
+                Saldo = g.Sum(x => x.Saldo ?? 0),
+                VanValute = g
+                    .Where(x => x.Status == racunStatus
+                             && x.DatumValute.HasValue && x.DatumValute.Value.Date < danas
+                             && (x.Preostalo ?? 0) > 0)
+                    .Sum(x => x.Preostalo ?? 0)
+            });
+
+        if (!string.IsNullOrWhiteSpace(Pretraga))
+            grupisano = grupisano.Where(p => p.Naziv.Contains(Pretraga, StringComparison.OrdinalIgnoreCase));
+
+        _stavke = obrniRedosled
+            ? grupisano.OrderBy(p => p.Saldo).ToList()
+            : grupisano.OrderByDescending(p => p.Saldo).ToList();
+
+        _ukupnoPreostalo = _stavke.Sum(p => p.Saldo);
+        _ukupnoVanValute = _stavke.Sum(p => p.VanValute);
+
+        _ucitava = false;
+        StateHasChanged();
+
+        await Task.Delay(400);
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

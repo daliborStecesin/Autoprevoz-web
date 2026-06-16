@@ -1,4 +1,4 @@
-@page "/finansije/kartice"
+@page "/finansije/duznici"
 @rendermode InteractiveServer
 
 @using Microsoft.EntityFrameworkCore
@@ -8,324 +8,186 @@
 @inject ITenantService      TenantService
 @inject NavigationManager   Nav
 @inject TransportDbContext  Db
-@inject IDialogService      Dialog
-@inject ISnackbar           Snackbar
+@inject IJSRuntime          JS
 
-<PageTitle>Kartice — Autoprevoz</PageTitle>
+<PageTitle>Dužnici i dugovanja — Autoprevoz</PageTitle>
 
 <MudText Typo="Typo.h5" Class="mb-3">
     <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" />
-    Kartice partnera
+    Dužnici i dugovanja
 </MudText>
 
-<MudGrid Spacing="3">
+<MudPaper Elevation="1" Class="pa-3 mb-3">
+    <MudTextField Value="_pretragaNaziv"
+                   ValueChanged="@((string v) => { _pretragaNaziv = v; Filtriraj(); })"
+                   Label="Naziv partnera" Variant="Variant.Outlined"
+                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                   Immediate="true" Margin="Margin.Dense"
+                   T="string" />
+</MudPaper>
 
-    @* ── LEVA STRANA — Filteri ─────────────────────── *@
-    <MudItem xs="12" md="3">
-        <MudPaper Elevation="1" Class="pa-3">
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="false">
 
-            <div class="mb-2">
-                <NativniSelect Label="Tip dokumenta" Value="@_filterTip"
-                               ValueChanged="@((string v) => { _filterTip = v; })">
-                    <option value="SVI">SVI</option>
-                    <option value="IZLAZ">IZLAZ</option>
-                    <option value="INOSTRANI">INOSTRANI</option>
-                    <option value="ULAZ">ULAZ</option>
-                    <option value="INO_ULAZ">INO_ULAZ</option>
-                    <option value="UPLATA">UPLATA</option>
-                    <option value="INO_UPLATA">INO_UPLATA</option>
-                    <option value="ISPLATA">ISPLATA</option>
-                    <option value="INO_ISPLATA">INO_ISPLATA</option>
-                </NativniSelect>
-            </div>
+        @* ── TAB 1: DUŽNICI ─────────────────────────────── *@
+        <MudTabPanel Text="Dužnici (izlazni)" Icon="@Icons.Material.Filled.TrendingUp">
+            <MudGrid Spacing="2" Class="mt-2">
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1">
+                        Dugovanja: <strong>@_duzniciDomUk.ToString("N2") RSD</strong>
+                        &nbsp;|&nbsp; Van valute: <strong>@_duzniciDomVV.ToString("N2") RSD</strong>
+                    </MudText>
+                    <div class="d-flex gap-2 mb-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Receipt"
+                                   Disabled="@(_selDuzniciDom is null)"
+                                   OnClick="@(() => OtvoriKarticu(_selDuzniciDom!.Pib, "izlaz_domaci"))">
+                            Prikaži karticu
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   OnClick="@(() => Stampaj("duznici_dom"))">
+                            Štampa
+                        </MudButton>
+                    </div>
+                    <MudDataGrid T="PartnerSaldo" Items="_duzniciDom" Dense="true" Hover="true" Striped="true"
+                                 RowStyleFunc="@((item, _) => RedStil(item, _selDuzniciDom))"
+                                 RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => { _selDuzniciDom = e.Item; })">
+                        <Columns>
+                            <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
+                            <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <PagerContent>
+                            <MudDataGridPager T="PartnerSaldo" />
+                        </PagerContent>
+                    </MudDataGrid>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1">
+                        Dugovanja INO: <strong>@_duzniciInoUk.ToString("N2") EUR</strong>
+                        &nbsp;|&nbsp; Van valute: <strong>@_duzniciInoVV.ToString("N2") EUR</strong>
+                    </MudText>
+                    <div class="d-flex gap-2 mb-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Receipt"
+                                   Disabled="@(_selDuzniciIno is null)"
+                                   OnClick="@(() => OtvoriKarticu(_selDuzniciIno!.Pib, "izlaz_ino"))">
+                            Prikaži karticu
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   OnClick="@(() => Stampaj("duznici_ino"))">
+                            Štampa
+                        </MudButton>
+                    </div>
+                    <MudDataGrid T="PartnerSaldo" Items="_duzniciIno" Dense="true" Hover="true" Striped="true"
+                                 RowStyleFunc="@((item, _) => RedStil(item, _selDuzniciIno))"
+                                 RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => { _selDuzniciIno = e.Item; })">
+                        <Columns>
+                            <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
+                            <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <PagerContent>
+                            <MudDataGridPager T="PartnerSaldo" />
+                        </PagerContent>
+                    </MudDataGrid>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
 
-            @* Partner *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">Partner:</MudText>
-            <div style="position:relative; margin-bottom:12px; margin-top:4px;">
-                @if (_filterPartner is null)
-                {
-                    <MudTextField Value="_partnerPretraga"
-                                  ValueChanged="@((string v) => { _partnerPretraga = v; AzurirajPartnerPredloge(); })"
-                                  Variant="Variant.Outlined"
-                                  Placeholder="Svi partneri..."
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@Icons.Material.Filled.Business"
-                                  Immediate="true"
-                                  Margin="Margin.Dense"
-                                  T="string" />
-                    @if (!string.IsNullOrWhiteSpace(_partnerPretraga) && _partneriPredlozi.Count > 0)
-                    {
-                        <div style="position:absolute; z-index:9999; left:0; right:0;
-                                    background:white; border:1px solid #ccc; border-radius:4px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.15);
-                                    max-height:220px; overflow-y:auto;">
-                            @foreach (var p in _partneriPredlozi)
-                            {
-                                var opt = p;
-                                <div @onclick="() => IzaberiFilterPartnera(opt)"
-                                     style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
-                                    <span style="font-weight:600;">@p.Naziv</span>
-                                    <span style="color:#999; margin-left:6px;">@KljucPrikaz(p.Pib)</span>
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <MudPaper Elevation="0"
-                              Style="border:1px solid rgba(0,0,0,0.23); border-radius:4px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="color:#666; font-size:0.78rem;">Partner</div>
-                            <span style="font-weight:600; color:#1565C0; font-size:0.9rem;">@_filterPartner.Naziv</span>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                       Size="Size.Small"
-                                       OnClick="@(() => { _filterPartner = null; _partnerPretraga = string.Empty; })" />
-                    </MudPaper>
-                }
-            </div>
+        @* ── TAB 2: DUGOVANJA ───────────────────────────── *@
+        <MudTabPanel Text="Dugovanja (ulazni)" Icon="@Icons.Material.Filled.TrendingDown">
+            <MudGrid Spacing="2" Class="mt-2">
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1">
+                        Obaveze: <strong>@_dugovanjaDomUk.ToString("N2") RSD</strong>
+                        &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaDomVV.ToString("N2") RSD</strong>
+                    </MudText>
+                    <div class="d-flex gap-2 mb-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Receipt"
+                                   Disabled="@(_selDugovanjaDom is null)"
+                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaDom!.Pib, "ulaz_domaci"))">
+                            Prikaži karticu
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   OnClick="@(() => Stampaj("dugovanja_dom"))">
+                            Štampa
+                        </MudButton>
+                    </div>
+                    <MudDataGrid T="PartnerSaldo" Items="_dugovanjaDom" Dense="true" Hover="true" Striped="true"
+                                 RowStyleFunc="@((item, _) => RedStil(item, _selDugovanjaDom))"
+                                 RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => { _selDugovanjaDom = e.Item; })">
+                        <Columns>
+                            <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
+                            <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <PagerContent>
+                            <MudDataGridPager T="PartnerSaldo" />
+                        </PagerContent>
+                    </MudDataGrid>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1">
+                        Obaveze INO: <strong>@_dugovanjaInoUk.ToString("N2") EUR</strong>
+                        &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaInoVV.ToString("N2") EUR</strong>
+                    </MudText>
+                    <div class="d-flex gap-2 mb-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Receipt"
+                                   Disabled="@(_selDugovanjaIno is null)"
+                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaIno!.Pib, "ulaz_ino"))">
+                            Prikaži karticu
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   OnClick="@(() => Stampaj("dugovanja_ino"))">
+                            Štampa
+                        </MudButton>
+                    </div>
+                    <MudDataGrid T="PartnerSaldo" Items="_dugovanjaIno" Dense="true" Hover="true" Striped="true"
+                                 RowStyleFunc="@((item, _) => RedStil(item, _selDugovanjaIno))"
+                                 RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => { _selDugovanjaIno = e.Item; })">
+                        <Columns>
+                            <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
+                            <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
+                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <PagerContent>
+                            <MudDataGridPager T="PartnerSaldo" />
+                        </PagerContent>
+                    </MudDataGrid>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
 
-            <div class="mb-2">
-                <NativniSelect Label="Izmiren" Value="@_filterIzmiren"
-                               ValueChanged="@((string v) => { _filterIzmiren = v; })">
-                    <option value="SVI">SVI</option>
-                    <option value="DA">DA</option>
-                    <option value="NE">NE</option>
-                </NativniSelect>
-            </div>
-
-            <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
-            <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
-
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Search"
-                       OnClick="Izlistaj" Disabled="_ucitava" FullWidth="true" Class="mb-2">
-                @if (_ucitava)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                }
-                Izlistaj
-            </MudButton>
-
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.AccountBox"
-                       FullWidth="true"
-                       Disabled="@(_filterPartner is null)"
-                       OnClick="@(() => { if (_filterPartner is not null) UcitajDetalj(_filterPartner.Pib); })">
-                Kartica partnera
-            </MudButton>
-
-        </MudPaper>
-    </MudItem>
-
-    @* ── DESNA STRANA — Tabovi ─────────────────────── *@
-    <MudItem xs="12" md="9">
-
-        @if (_ucitava)
-        {
-            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-        }
-        else if (_pretrazivano)
-        {
-            <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="false"
-                     @bind-ActivePanelIndex="_aktivniTab">
-
-                @* ── TAB 1: DUŽNICI ─────────────────────────────── *@
-                <MudTabPanel Text="Dužnici (izlazni)" Icon="@Icons.Material.Filled.TrendingUp">
-                    <MudGrid Spacing="2" Class="mt-2">
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">
-                                Dugovanja: <strong>@_duzniciDomUk.ToString("N2") RSD</strong>
-                                &nbsp;|&nbsp; Van valute: <strong>@_duzniciDomVV.ToString("N2") RSD</strong>
-                            </MudText>
-                            <MudDataGrid T="PartnerSaldo" Items="_duzniciDom" Dense="true" Hover="true" Striped="true"
-                                         RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => UcitajDetalj(e.Item.Pib))">
-                                <Columns>
-                                    <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
-                                    <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                    <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                </Columns>
-                                <PagerContent>
-                                    <MudDataGridPager T="PartnerSaldo" />
-                                </PagerContent>
-                            </MudDataGrid>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">
-                                Dugovanja INO: <strong>@_duzniciInoUk.ToString("N2") EUR</strong>
-                                &nbsp;|&nbsp; Van valute: <strong>@_duzniciInoVV.ToString("N2") EUR</strong>
-                            </MudText>
-                            <MudDataGrid T="PartnerSaldo" Items="_duzniciIno" Dense="true" Hover="true" Striped="true"
-                                         RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => UcitajDetalj(e.Item.Pib))">
-                                <Columns>
-                                    <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
-                                    <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                    <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                </Columns>
-                                <PagerContent>
-                                    <MudDataGridPager T="PartnerSaldo" />
-                                </PagerContent>
-                            </MudDataGrid>
-                        </MudItem>
-                    </MudGrid>
-                </MudTabPanel>
-
-                @* ── TAB 2: DUGOVANJA ───────────────────────────── *@
-                <MudTabPanel Text="Dugovanja (ulazni)" Icon="@Icons.Material.Filled.TrendingDown">
-                    <MudGrid Spacing="2" Class="mt-2">
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">
-                                Obaveze: <strong>@_dugovanjaDomUk.ToString("N2") RSD</strong>
-                                &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaDomVV.ToString("N2") RSD</strong>
-                            </MudText>
-                            <MudDataGrid T="PartnerSaldo" Items="_dugovanjaDom" Dense="true" Hover="true" Striped="true"
-                                         RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => UcitajDetalj(e.Item.Pib))">
-                                <Columns>
-                                    <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
-                                    <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                    <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                </Columns>
-                                <PagerContent>
-                                    <MudDataGridPager T="PartnerSaldo" />
-                                </PagerContent>
-                            </MudDataGrid>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">
-                                Obaveze INO: <strong>@_dugovanjaInoUk.ToString("N2") EUR</strong>
-                                &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaInoVV.ToString("N2") EUR</strong>
-                            </MudText>
-                            <MudDataGrid T="PartnerSaldo" Items="_dugovanjaIno" Dense="true" Hover="true" Striped="true"
-                                         RowClick="@((DataGridRowClickEventArgs<PartnerSaldo> e) => UcitajDetalj(e.Item.Pib))">
-                                <Columns>
-                                    <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
-                                    <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                    <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                        <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
-                                    </TemplateColumn>
-                                </Columns>
-                                <PagerContent>
-                                    <MudDataGridPager T="PartnerSaldo" />
-                                </PagerContent>
-                            </MudDataGrid>
-                        </MudItem>
-                    </MudGrid>
-                </MudTabPanel>
-
-                @* ── TAB 3: KARTICA PARTNERA ────────────────────── *@
-                <MudTabPanel Text="Kartica partnera" Icon="@Icons.Material.Filled.Receipt">
-                    @if (_detaljPib is null)
-                    {
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
-                            Izaberite partnera (klikom na red u tabu "Dužnici" / "Dugovanja", ili preko filtera levo).
-                        </MudAlert>
-                    }
-                    else
-                    {
-                        <div class="d-flex flex-wrap align-center gap-2 mt-2 mb-2">
-                            <MudText Typo="Typo.h6">@_detaljNaziv <MudText Typo="Typo.caption" Class="mud-text-secondary">(@KljucPrikaz(_detaljPib!))</MudText></MudText>
-                            <MudSpacer />
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.Business"
-                                       OnClick="OtvoriPodaciPartnera">
-                                Podaci partnera
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" Disabled="true">
-                                Štampa
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Payments"
-                                       Disabled="@(!(_selectedRed is not null && _racunStatusi.Contains(_selectedRed.Status)))"
-                                       OnClick="OtvoriUnosUplate">
-                                Unos uplate
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
-                                       Disabled="@(!(_selectedRed is not null && _platniStatusi.Contains(_selectedRed.Status)))"
-                                       OnClick="ObrisiUplatu">
-                                Brisanje
-                            </MudButton>
-                        </div>
-
-                        <MudDataGrid T="KarticaPartnera" Items="_detaljRedovi" Dense="true" Hover="true" Striped="true"
-                                     RowStyleFunc="@((item, _) => RedStil(item))"
-                                     RowClick="@((DataGridRowClickEventArgs<KarticaPartnera> e) => { _selectedRed = e.Item; })">
-                            <Columns>
-                                <PropertyColumn Property="x => x.BrojRacuna" Title="Br. računa" />
-                                <PropertyColumn Property="x => x.NazivPartnera" Title="Naziv partnera" />
-                                <TemplateColumn Title="Datum dokumenta">
-                                    <CellTemplate>@context.Item.DatumRacuna?.ToString("dd.MM.yyyy")</CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Datum prometa">
-                                    <CellTemplate>@context.Item.DatumPrometa?.ToString("dd.MM.yyyy")</CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Valuta">
-                                    <CellTemplate>@context.Item.DatumValute?.ToString("dd.MM.yyyy")</CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Zaduženje" HeaderStyle="text-align:right;">
-                                    <CellTemplate><span style="display:block; text-align:right;">@context.Item.Duguje?.ToString("N2")</span></CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Razduženje" HeaderStyle="text-align:right;">
-                                    <CellTemplate><span style="display:block; text-align:right;">@context.Item.Potrazuje?.ToString("N2")</span></CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Saldo" HeaderStyle="text-align:right;">
-                                    <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo?.ToString("N2")</span></CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                    <CellTemplate><span style="display:block; text-align:right;">@context.Item.Preostalo?.ToString("N2")</span></CellTemplate>
-                                </TemplateColumn>
-                                <PropertyColumn Property="x => x.Status" Title="Status" />
-                                <PropertyColumn Property="x => x.Izmiren" Title="Izmiren" />
-                                <TemplateColumn Title="Komentar">
-                                    <CellTemplate>
-                                        <span style="max-width:220px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
-                                              title="@context.Item.opis">
-                                            @(context.Item.opis ?? "—")
-                                        </span>
-                                    </CellTemplate>
-                                </TemplateColumn>
-                            </Columns>
-                            <PagerContent>
-                                <MudDataGridPager T="KarticaPartnera" />
-                            </PagerContent>
-                        </MudDataGrid>
-
-                        <MudPaper Elevation="0" Class="pa-3 mt-2" Style="background:#F5F7FA;">
-                            <MudGrid Spacing="2">
-                                <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">POČETNO</MudText><MudText Typo="Typo.subtitle2">@_detaljPocetno.ToString("N2") @_detaljValuta</MudText></MudItem>
-                                <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Uk. zaduženje</MudText><MudText Typo="Typo.subtitle2">@_detaljZaduzenje.ToString("N2") @_detaljValuta</MudText></MudItem>
-                                <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Razduženja (Uplate)</MudText><MudText Typo="Typo.subtitle2">@_detaljRazduzenje.ToString("N2") @_detaljValuta</MudText></MudItem>
-                                <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700;">@_detaljSaldo.ToString("N2") @_detaljValuta</MudText></MudItem>
-                                <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">VAN VALUTE</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700; color:#c62828;">@_detaljVanValute.ToString("N2") @_detaljValuta</MudText></MudItem>
-                            </MudGrid>
-                        </MudPaper>
-                    }
-                </MudTabPanel>
-
-            </MudTabs>
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Info" Dense="true">
-                Podesite filtere i kliknite <b>Izlistaj</b>.
-            </MudAlert>
-        }
-
-    </MudItem>
-</MudGrid>
+    </MudTabs>
+}
 
 @code {
     private class PartnerSaldo
@@ -336,27 +198,13 @@
         public decimal VanValute { get; set; }
     }
 
-    private class PartnerOpcija
-    {
-        public string Pib { get; set; } = "";
-        public string Naziv { get; set; } = "";
-    }
-
-    // ── Filteri ──────────────────────────────────────────────
-    private string _filterTip     = "SVI";
-    private string _filterIzmiren = "SVI";
-    private string _od = "2000-01-01";
-    private string _do = DateTime.Today.ToString("yyyy-MM-dd");
-
-    private List<PartnerOpcija> _svePartneri     = [];
-    private List<PartnerOpcija> _partneriPredlozi = [];
-    private PartnerOpcija?      _filterPartner;
-    private string              _partnerPretraga = string.Empty;
-
-    // ── Podaci ───────────────────────────────────────────────
-    private List<KarticaPartnera> _sve        = [];
-    private List<KarticaPartnera> _filtrirano = [];
+    private List<KarticaPartnera> _sve = [];
     private Dictionary<string, string> _nazivPoKljucu = [];
+
+    private List<PartnerSaldo> _duzniciDomSve   = [];
+    private List<PartnerSaldo> _duzniciInoSve   = [];
+    private List<PartnerSaldo> _dugovanjaDomSve = [];
+    private List<PartnerSaldo> _dugovanjaInoSve = [];
 
     private List<PartnerSaldo> _duzniciDom    = [];
     private List<PartnerSaldo> _duzniciIno    = [];
@@ -368,90 +216,44 @@
     private decimal _dugovanjaDomUk, _dugovanjaDomVV;
     private decimal _dugovanjaInoUk, _dugovanjaInoVV;
 
-    // ── Detalj kartice partnera ──────────────────────────────
-    private string?               _detaljPib;
-    private string                _detaljNaziv = "";
-    private string                _detaljValuta = "RSD";
-    private List<KarticaPartnera> _detaljRedovi = [];
-    private decimal _detaljPocetno, _detaljZaduzenje, _detaljRazduzenje, _detaljSaldo, _detaljVanValute;
-    private KarticaPartnera? _selectedRed;
-
-    private int  _aktivniTab;
+    private string _pretragaNaziv = "";
     private bool _ucitava;
-    private bool _pretrazivano;
 
-    private static readonly string[] _platniStatusi = ["UPLATA", "ISPLATA", "INO_UPLATA", "INO_ISPLATA"];
-    private static readonly string[] _racunStatusi  = ["IZLAZ", "INOSTRANI", "ULAZ", "INO_ULAZ"];
+    // ── Selekcija reda (highlight, dugme "Prikaži karticu") ──
+    private PartnerSaldo? _selDuzniciDom;
+    private PartnerSaldo? _selDuzniciIno;
+    private PartnerSaldo? _selDugovanjaDom;
+    private PartnerSaldo? _selDugovanjaIno;
 
     // Ključ grupisanja: PIB_Partnera ako postoji, inače fallback na Id_Partnera
     // (da redovi bez PIB-a ne ispadnu iz grupisanja i ne spoje se međusobno).
     private static string GrupniKljuc(KarticaPartnera k) =>
         !string.IsNullOrWhiteSpace(k.PibPartnera) ? k.PibPartnera! : $"ID:{k.IdPartnera}";
 
-    private static string KljucPrikaz(string kljuc) =>
-        kljuc.StartsWith("ID:") ? $"Id partnera: {kljuc[3..]}" : $"PIB: {kljuc}";
-
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
-        await Izlistaj();
+        await Ucitaj();
     }
 
-    private async Task Izlistaj()
+    private async Task Ucitaj()
     {
         _ucitava = true; StateHasChanged();
         try
         {
-            var odDate = DateTime.TryParse(_od, out var od) ? od : new DateTime(2000, 1, 1);
-            var doDate = DateTime.TryParse(_do, out var d)  ? d  : DateTime.Today;
-
-            // Sve kartice (poštuje globalni filter brisano==0) — koristi se i za
-            // "najnoviji naziv po ključu" i za POČETNO (stanje pre perioda)
+            // Sve kartice (poštuje globalni filter brisano==0) — trenutno stanje, bez datuma
             _sve = await Db.Kartice.AsNoTracking().ToListAsync();
 
             _nazivPoKljucu = _sve
                 .GroupBy(GrupniKljuc)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().NazivPartnera ?? "");
 
-            _svePartneri = _nazivPoKljucu
-                .Select(kv => new PartnerOpcija { Pib = kv.Key, Naziv = kv.Value })
-                .OrderBy(p => p.Naziv)
-                .ToList();
+            _duzniciDomSve   = GrupisiSaldo(_sve, ["IZLAZ", "UPLATA"], "IZLAZ").OrderByDescending(p => p.Saldo).ToList();
+            _duzniciInoSve   = GrupisiSaldo(_sve, ["INOSTRANI", "INO_UPLATA"], "INOSTRANI").OrderByDescending(p => p.Saldo).ToList();
+            _dugovanjaDomSve = GrupisiSaldo(_sve, ["ULAZ", "ISPLATA"], "ULAZ").OrderBy(p => p.Saldo).ToList();
+            _dugovanjaInoSve = GrupisiSaldo(_sve, ["INO_ULAZ", "INO_ISPLATA"], "INO_ULAZ").OrderBy(p => p.Saldo).ToList();
 
-            IEnumerable<KarticaPartnera> q = _sve.Where(k =>
-                !k.DatumRacuna.HasValue ||
-                (k.DatumRacuna.Value.Date >= odDate.Date && k.DatumRacuna.Value.Date <= doDate.Date));
-
-            if (_filterIzmiren != "SVI")
-                q = q.Where(k => (k.Izmiren ?? "") == _filterIzmiren);
-
-            if (_filterTip != "SVI")
-                q = q.Where(k => k.Status == _filterTip);
-
-            if (_filterPartner is not null)
-                q = q.Where(k => GrupniKljuc(k) == _filterPartner.Pib);
-
-            _filtrirano = q.ToList();
-
-            _duzniciDom   = GrupisiSaldo(_filtrirano, ["IZLAZ", "UPLATA"], "IZLAZ").OrderByDescending(p => p.Saldo).ToList();
-            _duzniciIno   = GrupisiSaldo(_filtrirano, ["INOSTRANI", "INO_UPLATA"], "INOSTRANI").OrderByDescending(p => p.Saldo).ToList();
-            _dugovanjaDom = GrupisiSaldo(_filtrirano, ["ULAZ", "ISPLATA"], "ULAZ").OrderBy(p => p.Saldo).ToList();
-            _dugovanjaIno = GrupisiSaldo(_filtrirano, ["INO_ULAZ", "INO_ISPLATA"], "INO_ULAZ").OrderBy(p => p.Saldo).ToList();
-
-            _duzniciDomUk   = _duzniciDom.Sum(p => p.Saldo);   _duzniciDomVV   = _duzniciDom.Sum(p => p.VanValute);
-            _duzniciInoUk   = _duzniciIno.Sum(p => p.Saldo);   _duzniciInoVV   = _duzniciIno.Sum(p => p.VanValute);
-            _dugovanjaDomUk = _dugovanjaDom.Sum(p => p.Saldo); _dugovanjaDomVV = _dugovanjaDom.Sum(p => p.VanValute);
-            _dugovanjaInoUk = _dugovanjaIno.Sum(p => p.Saldo); _dugovanjaInoVV = _dugovanjaIno.Sum(p => p.VanValute);
-
-            if (_detaljPib is not null)
-                UcitajDetalj(_detaljPib);
-
-            _pretrazivano = true;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
-                cfg => cfg.VisibleStateDuration = 15000);
+            Filtriraj();
         }
         finally
         {
@@ -460,7 +262,7 @@
         }
     }
 
-    // Saldo partnera = SUM(Saldo) svih redova tog PIB-a u opsegu/filteru (uplate su već negativne).
+    // Saldo partnera = SUM(Saldo) svih redova tog PIB-a (uplate su već negativne).
     // Van valute = SUM(Preostalo) SAMO redova RAČUNA (status = racunStatus), gde
     // Datum_Valute < danas AND Preostalo > 0.
     private List<PartnerSaldo> GrupisiSaldo(List<KarticaPartnera> redovi, string[] statusi, string racunStatus)
@@ -484,175 +286,41 @@
             .ToList();
     }
 
-    private void UcitajDetalj(string kljuc)
+    private void Filtriraj()
     {
-        _detaljPib   = kljuc;
-        _detaljNaziv = _nazivPoKljucu.TryGetValue(kljuc, out var n) ? n : kljuc;
-
-        var odDate = DateTime.TryParse(_od, out var od) ? od : new DateTime(2000, 1, 1);
-        var danas  = DateTime.Today;
-
-        _detaljRedovi = _filtrirano
-            .Where(k => GrupniKljuc(k) == kljuc)
-            .OrderBy(k => k.DatumRacuna)
-            .ThenBy(k => k.Id)
-            .ToList();
-
-        _detaljValuta = _detaljRedovi.Any(k => (k.Status ?? "").StartsWith("INO")) ? "EUR" : "RSD";
-
-        // POČETNO — saldo svih redova te grupe PRE perioda (Datum_Racuna < OD)
-        _detaljPocetno = _sve
-            .Where(k => GrupniKljuc(k) == kljuc && k.DatumRacuna.HasValue && k.DatumRacuna.Value.Date < odDate.Date)
-            .Sum(k => k.Saldo ?? 0);
-
-        _detaljZaduzenje  = _detaljRedovi.Sum(k => k.Duguje    ?? 0);
-        _detaljRazduzenje = _detaljRedovi.Sum(k => k.Potrazuje ?? 0);
-        _detaljSaldo      = _detaljPocetno + _detaljRedovi.Sum(k => k.Saldo ?? 0);
-
-        _detaljVanValute = _detaljRedovi
-            .Where(k => _racunStatusi.Contains(k.Status)
-                     && k.DatumValute.HasValue && k.DatumValute.Value.Date < danas
-                     && (k.Preostalo ?? 0) > 0)
-            .Sum(k => k.Preostalo ?? 0);
-
-        _selectedRed = null;
-        _aktivniTab = 2;
-        StateHasChanged();
-    }
-
-    private void OtvoriUnosUplate()
-    {
-        if (_selectedRed is null) return;
-
-        string smer, tip;
-        switch (_selectedRed.Status)
+        if (string.IsNullOrWhiteSpace(_pretragaNaziv))
         {
-            case "IZLAZ":     smer = "IZLAZ"; tip = "UPLATA_RSD";  break;
-            case "INOSTRANI": smer = "IZLAZ"; tip = "UPLATA_EUR";  break;
-            case "ULAZ":      smer = "ULAZ";  tip = "ISPLATA_RSD"; break;
-            case "INO_ULAZ":  smer = "ULAZ";  tip = "ISPLATA_EUR"; break;
-            default: return;
-        }
-
-        var iznos = (_selectedRed.Preostalo ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        var url = $"/finansije/uplate?idRacuna={Uri.EscapeDataString(_selectedRed.IdRacuna ?? "")}" +
-                  $"&idPartnera={_selectedRed.IdPartnera}" +
-                  $"&brojRacuna={Uri.EscapeDataString(_selectedRed.BrojRacuna ?? "")}" +
-                  $"&smer={smer}&tip={tip}&iznos={iznos}";
-
-        Nav.NavigateTo(url);
-    }
-
-    private async Task ObrisiUplatu()
-    {
-        if (_selectedRed is null || !_platniStatusi.Contains(_selectedRed.Status)) return;
-
-        var iznosPrikaz = (_selectedRed.Potrazuje ?? 0) + (_selectedRed.Duguje ?? 0);
-
-        var ok = await Dialog.ShowMessageBox(
-            "Brisanje uplate",
-            $"Da li ste sigurni da želite da obrišete stavku {_selectedRed.Status} u iznosu {iznosPrikaz.ToString("N2")}?",
-            yesText: "Da, obriši", cancelText: "Ne");
-
-        if (ok != true) return;
-
-        try
-        {
-            var uplata = await Db.Kartice.FindAsync(_selectedRed.Id);
-            if (uplata is null) return;
-
-            var iznos = uplata.Uplata ?? 0;
-            var bilaVezana = !string.IsNullOrWhiteSpace(uplata.IdRacuna);
-
-            if (bilaVezana)
-            {
-                var racunRed = await Db.Kartice
-                    .FirstOrDefaultAsync(k => k.IdRacuna == uplata.IdRacuna && _racunStatusi.Contains(k.Status));
-
-                if (racunRed is not null)
-                {
-                    racunRed.Uplata = (racunRed.Uplata ?? 0) - iznos;
-                    var preostalo = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
-                    racunRed.Izmiren = preostalo <= 0 ? "DA" : "NE";
-                }
-            }
-
-            uplata.brisano = 1;
-            await Db.SaveChangesAsync();
-
-            Snackbar.Add(bilaVezana ? "Uplata obrisana, stanje računa vraćeno." : "Uplata obrisana.", Severity.Success);
-
-            _selectedRed = null;
-            await Izlistaj();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
-                cfg => cfg.VisibleStateDuration = 15000);
-        }
-    }
-
-    private string RedStil(KarticaPartnera k)
-    {
-        if (_selectedRed is not null && _selectedRed.Id == k.Id)
-            return "background-color:#BBDEFB;";
-
-        if (_platniStatusi.Contains(k.Status))
-            return "background-color:#FFF9C4;";
-
-        if ((k.Izmiren ?? "") == "DA" || (k.Preostalo ?? 0) == 0)
-            return "background-color:#C8E6C9;";
-
-        if ((k.Preostalo ?? 0) > 0)
-            return "background-color:#FFCDD2;";
-
-        return string.Empty;
-    }
-
-    private void AzurirajPartnerPredloge()
-    {
-        _partneriPredlozi = string.IsNullOrWhiteSpace(_partnerPretraga)
-            ? []
-            : [.. _svePartneri
-                .Where(p => p.Naziv.Contains(_partnerPretraga, StringComparison.OrdinalIgnoreCase) ||
-                            p.Pib.Contains(_partnerPretraga, StringComparison.OrdinalIgnoreCase))
-                .Take(10)];
-    }
-
-    private void IzaberiFilterPartnera(PartnerOpcija p)
-    {
-        _filterPartner    = p;
-        _partnerPretraga  = string.Empty;
-        _partneriPredlozi = [];
-    }
-
-    private async Task OtvoriPodaciPartnera()
-    {
-        if (_detaljPib is null) return;
-
-        Partner? partner;
-        if (_detaljPib.StartsWith("ID:") && int.TryParse(_detaljPib[3..], out var idVal))
-        {
-            partner = await Db.Partneri.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Broj == idVal);
+            _duzniciDom   = _duzniciDomSve;
+            _duzniciIno   = _duzniciInoSve;
+            _dugovanjaDom = _dugovanjaDomSve;
+            _dugovanjaIno = _dugovanjaInoSve;
         }
         else
         {
-            partner = await Db.Partneri.AsNoTracking()
-                .Where(p => p.PIB == _detaljPib)
-                .OrderByDescending(p => p.Broj)
-                .FirstOrDefaultAsync();
+            _duzniciDom   = _duzniciDomSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
+            _duzniciIno   = _duzniciInoSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
+            _dugovanjaDom = _dugovanjaDomSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
+            _dugovanjaIno = _dugovanjaInoSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
-        if (partner is null)
-        {
-            Snackbar.Add("Partner nije pronađen u imeniku.", Severity.Warning);
-            return;
-        }
+        _duzniciDomUk   = _duzniciDom.Sum(p => p.Saldo);   _duzniciDomVV   = _duzniciDom.Sum(p => p.VanValute);
+        _duzniciInoUk   = _duzniciIno.Sum(p => p.Saldo);   _duzniciInoVV   = _duzniciIno.Sum(p => p.VanValute);
+        _dugovanjaDomUk = _dugovanjaDom.Sum(p => p.Saldo); _dugovanjaDomVV = _dugovanjaDom.Sum(p => p.VanValute);
+        _dugovanjaInoUk = _dugovanjaIno.Sum(p => p.Saldo); _dugovanjaInoVV = _dugovanjaIno.Sum(p => p.VanValute);
+    }
 
-        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
-        var prms = new DialogParameters<PartnerDialog> { { x => x.PartnerId, partner.Broj } };
-        await Dialog.ShowAsync<PartnerDialog>("Podaci partnera", prms, opts);
+    private static string RedStil(PartnerSaldo p, PartnerSaldo? selektovan) =>
+        selektovan is not null && selektovan.Pib == p.Pib ? "background-color:#BBDEFB;" : "";
+
+    private void OtvoriKarticu(string kljuc, string kontekst) =>
+        Nav.NavigateTo($"/finansije/kartica?kljuc={Uri.EscapeDataString(kljuc)}&kontekst={kontekst}");
+
+    private async Task Stampaj(string tip)
+    {
+        var url = $"/finansije/duznici/stampa?tip={tip}";
+        if (!string.IsNullOrWhiteSpace(_pretragaNaziv))
+            url += $"&pretraga={Uri.EscapeDataString(_pretragaNaziv)}";
+
+        await JS.InvokeVoidAsync("open", url, "_blank");
     }
 }

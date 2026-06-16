@@ -81,7 +81,13 @@ public class KarticaService : IKarticaService
             .ToListAsync();
 
         if (redovi.Any(k => _platniStatusi.Contains(k.Status)))
-            return "Račun ima vezane uplate — prvo obriši uplate.";
+        {
+            var brojRacunaPrikaz = redovi
+                .Select(r => r.BrojRacuna)
+                .FirstOrDefault(b => !string.IsNullOrWhiteSpace(b)) ?? idRacuna;
+
+            return $"Račun {brojRacunaPrikaz} ima vezane uplate. Prvo obriši uplate, pa zatim račun.";
+        }
 
         foreach (var red in redovi)
             red.brisano = 1;

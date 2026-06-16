@@ -74,30 +74,36 @@
 
     @* ── FINANSIJE ────────────────────────────────────── *@
     <div class="nav-section-title">Finansije</div>
+    <MudNavLink Href="/finansije/kartica"
+                Icon="@Icons.Material.Filled.CreditCard">
+        Kartice
+    </MudNavLink>
+    <MudNavLink Href="/finansije/duznici"
+                Icon="@Icons.Material.Filled.MoneyOff">
+        Dužnici
+    </MudNavLink>
+    <MudNavLink Href="/finansije/unos"
+                Icon="@Icons.Material.Filled.Payment">
+        Unos finansija
+    </MudNavLink>
     <MudNavLink Href="/troskovi"
                 Icon="@Icons.Material.Filled.AccountBalance">
         Troškovi
     </MudNavLink>
-    <MudNavLink Href="/finansije/kartice"
-                Icon="@Icons.Material.Filled.CreditCard">
-        Finansije
-    </MudNavLink>
-    <MudNavLink Href="/finansije/dugovanja"
-                Icon="@Icons.Material.Filled.MoneyOff">
-        Dugovanja
-    </MudNavLink>
-    <MudNavLink Href="/finansije/uplate"
-                Icon="@Icons.Material.Filled.Payment">
-        Uplate
-    </MudNavLink>
-    <MudNavLink Href="/osoblje/plate"
-                Icon="@Icons.Material.Filled.Wallet">
-        Plate
-    </MudNavLink>
-    <MudNavLink Href="/osoblje/dnevnice"
-                Icon="@Icons.Material.Filled.Money">
-        Dnevnice
-    </MudNavLink>
+
+    @* ── ZARADE ───────────────────────────────────────── *@
+    <MudNavGroup Title="Zarade"
+                 Icon="@Icons.Material.Filled.Payments"
+                 Expanded="false">
+        <MudNavLink Href="/plate"
+                    Icon="@Icons.Material.Filled.Wallet">
+            Plate
+        </MudNavLink>
+        <MudNavLink Href="/dnevnice"
+                    Icon="@Icons.Material.Filled.Money">
+            Dnevnice
+        </MudNavLink>
+    </MudNavGroup>
 
     @* ── RESURSI ──────────────────────────────────────── *@
     <div class="nav-section-title">Resursi</div>
