@@ -94,12 +94,13 @@
                     </NativniSelect>
                 </MudItem>
                 <MudItem xs="6">
-                    <NativniSelect Label="Tip unosa" Value="@_tipUnosa"
-                                   ValueChanged="@((string v) => { _tipUnosa = v; AzurirajPrikazValute(); })">
+                    <NativniSelect Label="Tip unosa" Value="@_tipUnosa" ValueChanged="OnTipUnosaChanged">
                         @if (_smer == "IZLAZ")
                         {
                             <option value="UPLATA_RSD">UPLATA (RSD)</option>
                             <option value="UPLATA_EUR">UPLATA EUR</option>
+                            <option value="POCETNO_RSD">POČETNO STANJE (RSD)</option>
+                            <option value="POCETNO_EUR">POČETNO STANJE EUR</option>
                             <option value="KNJIZNO_ODOBRENJE">KNJIŽNO ODOBRENJE</option>
                             <option value="KNJIZNO_ZADUZENJE">KNJIŽNO ZADUŽENJE</option>
                         }
@@ -107,6 +108,8 @@
                         {
                             <option value="ISPLATA_RSD">ISPLATA (RSD)</option>
                             <option value="ISPLATA_EUR">ISPLATA EUR</option>
+                            <option value="POCETNO_RSD">POČETNO STANJE (RSD)</option>
+                            <option value="POCETNO_EUR">POČETNO STANJE EUR</option>
                             <option value="KNJIZNO_ODOBRENJE">KNJIŽNO ODOBRENJE</option>
                             <option value="KNJIZNO_ZADUZENJE">KNJIŽNO ZADUŽENJE</option>
                         }
@@ -128,7 +131,9 @@
                 </MudItem>
 
                 <MudItem xs="12">
-                    <NativniInput TValue="string" Label="Poziv na broj / Broj uplate" @bind-Value="_pozivNaBroj" />
+                    <NativniInput TValue="string"
+                                  Label="@(JePocetno ? "Opis (Broj_Racuna prikaz)" : "Poziv na broj / Broj uplate")"
+                                  @bind-Value="_pozivNaBroj" />
                 </MudItem>
 
                 <MudItem xs="12">
@@ -208,6 +213,7 @@
     [SupplyParameterFromQuery(Name = "smer")]       public string?  QSmer       { get; set; }
     [SupplyParameterFromQuery(Name = "tip")]        public string?  QTip        { get; set; }
     [SupplyParameterFromQuery(Name = "iznos")]      public decimal? QIznos      { get; set; }
+    [SupplyParameterFromQuery(Name = "kontekst")]   public string?  QKontekst   { get; set; }
 
     private static readonly string[] _racunStatusi = ["IZLAZ", "INOSTRANI", "ULAZ", "INO_ULAZ"];
 
@@ -243,6 +249,7 @@
     private List<KarticaPartnera> _poslednjeStavke = [];
 
     private bool JeEur => _tipUnosa.Contains("EUR");
+    private bool JePocetno => _tipUnosa.StartsWith("POCETNO");
 
     private string StatusZaTipUnosa => _tipUnosa switch
     {
@@ -252,6 +259,14 @@
         "ISPLATA_EUR" => "INO_ISPLATA",
         _             => ""
     };
+
+    private void OnTipUnosaChanged(string v)
+    {
+        _tipUnosa = v;
+        if (JePocetno && string.IsNullOrWhiteSpace(_pozivNaBroj))
+            _pozivNaBroj = "POČETNO STANJE";
+        AzurirajPrikazValute();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -298,6 +313,19 @@
     {
         _idRacuna = null;
         _brojRacunaPrikaz = null;
+    }
+
+    // Kad navigacija krene, komponenta se gasi — više ne diramo _cuva/StateHasChanged,
+    // da ne dođe do trke nad deljenim (scoped) TransportDbContext-om sa novom stranicom.
+    private bool _navigirano;
+
+    private void NavigirajNaKarticu()
+    {
+        _navigirano = true;
+        var url = $"/finansije/kartica?kljuc={Uri.EscapeDataString(TrenutniKljuc())}";
+        if (!string.IsNullOrWhiteSpace(QKontekst))
+            url += $"&kontekst={Uri.EscapeDataString(QKontekst)}";
+        Nav.NavigateTo(url);
     }
 
     private void OnSmerChanged(string v)
@@ -409,6 +437,8 @@
 
         string status, selektor;
         decimal duguje, potrazuje, saldo;
+        decimal dug = 0;
+        var jeZaduzenje = false;   // POČETNO STANJE — ručno zaduženje, ponaša se kao otvoreni račun
 
         switch (_tipUnosa)
         {
@@ -428,6 +458,16 @@
                 status = "INO_ISPLATA"; selektor = "Dobavljac";
                 duguje = _iznos; potrazuje = 0; saldo = _iznos;
                 break;
+            case "POCETNO_RSD":
+                jeZaduzenje = true; dug = _iznos;
+                if (_smer == "IZLAZ") { status = "IZLAZ"; selektor = "Kupac";     duguje = _iznos; potrazuje = 0; saldo = _iznos; }
+                else                  { status = "ULAZ";  selektor = "Dobavljac"; duguje = 0; potrazuje = _iznos; saldo = -_iznos; }
+                break;
+            case "POCETNO_EUR":
+                jeZaduzenje = true; dug = _iznos;
+                if (_smer == "IZLAZ") { status = "INOSTRANI"; selektor = "Kupac";     duguje = _iznos; potrazuje = 0; saldo = _iznos; }
+                else                  { status = "INO_ULAZ";  selektor = "Dobavljac"; duguje = 0; potrazuje = _iznos; saldo = -_iznos; }
+                break;
             default:
                 Snackbar.Add("Knjižna odobrenja/zaduženja dolaze u sledećem koraku.", Severity.Info);
                 return;
@@ -438,6 +478,46 @@
         {
             var datum  = DateTime.TryParse(_datum, out var d)  ? d  : DateTime.Today;
             var valuta = DateTime.TryParse(_valuta, out var v) ? v  : DateTime.Today;
+
+            if (jeZaduzenje)
+            {
+                // ── POČETNO STANJE: ručno zaduženje, bez veze sa pravom fakturom ──
+                // Id_Racuna se postavlja NAKON insert-a, na sopstveni Id (prefiks "PS"),
+                // da bi se kasnije moglo zatvarati uplatama kroz POSTOJEĆI U-vs-P mehanizam
+                // (koji vezuje po Id_Racuna), bez izmena tog mehanizma.
+                var pocetnoRed = new KarticaPartnera
+                {
+                    IdRacuna      = null,
+                    IdPartnera    = _partner.Broj.ToString(),
+                    NazivPartnera = _partner.Naziv,
+                    PibPartnera   = _partner.PIB,
+                    BrojRacuna    = string.IsNullOrWhiteSpace(_pozivNaBroj) ? "POČETNO STANJE" : _pozivNaBroj,
+                    DatumRacuna   = datum,
+                    DatumValute   = valuta,
+                    Dug           = dug,
+                    Uplata        = 0,
+                    Status        = status,
+                    selektor      = selektor,
+                    Duguje        = duguje,
+                    Potrazuje     = potrazuje,
+                    Saldo         = saldo,
+                    izvod         = _izvod,
+                    opis          = _komentar,
+                    Izmiren       = "NE",
+                    brisano       = 0
+                };
+
+                Db.Kartice.Add(pocetnoRed);
+                await Db.SaveChangesAsync();
+
+                pocetnoRed.IdRacuna = "PS" + pocetnoRed.Id;
+                await Db.SaveChangesAsync();
+
+                Snackbar.Add("Početno stanje sačuvano.", Severity.Success);
+
+                NavigirajNaKarticu();
+                return;
+            }
 
             // Fetchuj red računa unapred — potreban i za U>P proveru i za vezivanje.
             KarticaPartnera? racunRed = null;
@@ -563,13 +643,9 @@
                 Snackbar.Add("Stavka sačuvana.", Severity.Success);
             }
 
-            _iznos       = 0;
-            _izvod       = null;
-            _pozivNaBroj = null;
-            _komentar    = null;
-            OtkaciRacun();
-
-            await OsveziSaldo();
+            // Vrati korisnika na karticu partnera (osveženu, sa istim kontekstom filtera)
+            // — forma se zatvara, sprečava slučajan dupli SAČUVAJ na istom unosu.
+            NavigirajNaKarticu();
         }
         catch (Exception ex)
         {
@@ -578,8 +654,11 @@
         }
         finally
         {
-            _cuva = false;
-            StateHasChanged();
+            if (!_navigirano)
+            {
+                _cuva = false;
+                StateHasChanged();
+            }
         }
     }
 
@@ -602,77 +681,93 @@
         var N = nerasporedjena.Uplata ?? 0;
         var valuta = trazeniStatus.StartsWith("INO") ? "EUR" : "RSD";
 
-        var ok = await Dialog.ShowMessageBox(
-            "Neraspoređena uplata",
-            $"Partner ima neraspoređenu uplatu od {N:N2} {valuta}. " +
-            $"Želite li da je povežete sa ovim računom ({_brojRacunaPrikaz ?? _idRacuna})?",
-            yesText: "Da, poveži", cancelText: "Ne");
-
-        if (ok != true) return;
-
-        var racunRed = await Db.Kartice
-            .FirstOrDefaultAsync(k => k.IdRacuna == _idRacuna && _racunStatusi.Contains(k.Status));
-
-        if (racunRed is null) { Snackbar.Add("Račun nije pronađen.", Severity.Warning); return; }
-
-        var P = (racunRed.Dug ?? 0) - (racunRed.Uplata ?? 0);
-        var isUplata = trazeniStatus is "UPLATA" or "INO_UPLATA";
-        var brojVeza  = _pozivNaBroj ?? _brojRacunaPrikaz;
-
-        var red = await Db.Kartice.FindAsync(nerasporedjena.Id);
-        if (red is null) return;
-
-        if (N <= P)
+        _cuva = true; StateHasChanged();
+        try
         {
-            // Cela neraspoređena se vezuje za račun, iznos ostaje N
-            red.IdRacuna   = _idRacuna;
-            red.BrojRacuna = brojVeza;
+            var ok = await Dialog.ShowMessageBox(
+                "Neraspoređena uplata",
+                $"Partner ima neraspoređenu uplatu od {N:N2} {valuta}. " +
+                $"Želite li da je povežete sa ovim računom ({_brojRacunaPrikaz ?? _idRacuna})?",
+                yesText: "Da, poveži", cancelText: "Ne");
 
-            racunRed.Uplata = (racunRed.Uplata ?? 0) + N;
-            var preostalos = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
-            racunRed.Izmiren = preostalos <= 0 ? "DA" : "NE";
-        }
-        else
-        {
-            // N > P: skrati postojeću na P (vezana), INSERT ostatak kao nova NERASPOREDJENO
-            var ostatak = N - P;
+            if (ok != true) return;
 
-            red.IdRacuna   = _idRacuna;
-            red.BrojRacuna = brojVeza;
-            red.Uplata     = P;
-            red.Duguje     = isUplata ? 0 : P;
-            red.Potrazuje  = isUplata ? P : 0;
-            red.Saldo      = isUplata ? -P : P;
+            _iznos = N;   // form field prikazuje iznos neraspoređene, ne preostalo računa
 
-            Db.Kartice.Add(new KarticaPartnera
+            var racunRed = await Db.Kartice
+                .FirstOrDefaultAsync(k => k.IdRacuna == _idRacuna && _racunStatusi.Contains(k.Status));
+
+            if (racunRed is null) { Snackbar.Add("Račun nije pronađen.", Severity.Warning); return; }
+
+            var P = (racunRed.Dug ?? 0) - (racunRed.Uplata ?? 0);
+            var isUplata = trazeniStatus is "UPLATA" or "INO_UPLATA";
+            var brojVeza  = _pozivNaBroj ?? _brojRacunaPrikaz;
+
+            var red = await Db.Kartice.FindAsync(nerasporedjena.Id);
+            if (red is null) return;
+
+            if (N <= P)
             {
-                IdRacuna      = null,
-                IdPartnera    = red.IdPartnera,
-                NazivPartnera = red.NazivPartnera,
-                PibPartnera   = red.PibPartnera,
-                BrojRacuna    = "NERASPOREDJENO",
-                DatumRacuna   = red.DatumRacuna,
-                DatumValute   = red.DatumValute,
-                Dug           = 0,
-                Uplata        = ostatak,
-                Status        = red.Status,
-                selektor      = red.selektor,
-                Duguje        = isUplata ? 0 : ostatak,
-                Potrazuje     = isUplata ? ostatak : 0,
-                Saldo         = isUplata ? -ostatak : ostatak,
-                izvod         = red.izvod,
-                opis          = red.opis,
-                Izmiren       = "NE",
-                brisano       = 0
-            });
+                // Cela neraspoređena se vezuje za račun, iznos ostaje N
+                red.IdRacuna   = _idRacuna;
+                red.BrojRacuna = brojVeza;
 
-            racunRed.Uplata = (racunRed.Uplata ?? 0) + P;
-            racunRed.Izmiren = "DA";
+                racunRed.Uplata = (racunRed.Uplata ?? 0) + N;
+                var preostalos = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
+                racunRed.Izmiren = preostalos <= 0 ? "DA" : "NE";
+            }
+            else
+            {
+                // N > P: skrati postojeću na P (vezana), INSERT ostatak kao nova NERASPOREDJENO
+                var ostatak = N - P;
+
+                red.IdRacuna   = _idRacuna;
+                red.BrojRacuna = brojVeza;
+                red.Uplata     = P;
+                red.Duguje     = isUplata ? 0 : P;
+                red.Potrazuje  = isUplata ? P : 0;
+                red.Saldo      = isUplata ? -P : P;
+
+                Db.Kartice.Add(new KarticaPartnera
+                {
+                    IdRacuna      = null,
+                    IdPartnera    = red.IdPartnera,
+                    NazivPartnera = red.NazivPartnera,
+                    PibPartnera   = red.PibPartnera,
+                    BrojRacuna    = "NERASPOREDJENO",
+                    DatumRacuna   = red.DatumRacuna,
+                    DatumValute   = red.DatumValute,
+                    Dug           = 0,
+                    Uplata        = ostatak,
+                    Status        = red.Status,
+                    selektor      = red.selektor,
+                    Duguje        = isUplata ? 0 : ostatak,
+                    Potrazuje     = isUplata ? ostatak : 0,
+                    Saldo         = isUplata ? -ostatak : ostatak,
+                    izvod         = red.izvod,
+                    opis          = red.opis,
+                    Izmiren       = "NE",
+                    brisano       = 0
+                });
+
+                racunRed.Uplata = (racunRed.Uplata ?? 0) + P;
+                racunRed.Izmiren = "DA";
+            }
+
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Neraspoređena uplata vezana za račun.", Severity.Success);
+
+            // Vrati korisnika na karticu partnera (osveženu, sa istim kontekstom filtera)
+            // — forma se zatvara, sprečava slučajan dupli SAČUVAJ na istom unosu.
+            NavigirajNaKarticu();
         }
-
-        await Db.SaveChangesAsync();
-        Snackbar.Add("Neraspoređena uplata vezana za račun.", Severity.Success);
-        await OsveziSaldo();
-        StateHasChanged();
+        finally
+        {
+            if (!_navigirano)
+            {
+                _cuva = false;
+                StateHasChanged();
+            }
+        }
     }
 }

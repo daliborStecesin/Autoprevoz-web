@@ -57,6 +57,9 @@ public class TransportDbContext : DbContext
     public DbSet<PartnerRacun> PartnerRacuni { get; set; }
     public DbSet<KarticaPartnera> Kartice    { get; set; }
 
+    // Centralni log brisanja — ko/kad/forma/opis, samo INSERT, nikad se ne menja/briše
+    public DbSet<LogBrisanja> LogoviBrisanja { get; set; }
+
     // Fakturisanje
     public DbSet<Racun> Racuni { get; set; }
     public DbSet<Stavka> ArtikliRacuna { get; set; }
@@ -189,19 +192,14 @@ public class TransportDbContext : DbContext
         modelBuilder.Entity<KarticaPartnera>()
             .HasKey(k => k.Id);
 
-        modelBuilder.Entity<KarticaPartnera>()
-            .HasQueryFilter(k => k.brisano == 0);
-
         // tbl_racuni ima trigger — EF Core mora koristiti standardni UPDATE bez OUTPUT klauzule
         modelBuilder.Entity<Racun>()
             .ToTable("tbl_racuni", t => t.UseSqlOutputClause(false));
 
-        modelBuilder.Entity<Racun>()
-            .HasQueryFilter(r => r.brisano == 0);
-
-        // Stavke racuna (tbl_artikli_racuna) — bez audita, soft delete preko brisano
-        modelBuilder.Entity<Stavka>()
-            .HasQueryFilter(s => s.brisano == 0);
+        // Računi, kartice i stavke računa (tbl_racuni, tbl_Kartica, tbl_artikli_racuna)
+        // prešli sa soft delete na fizičko UPDATE/DELETE + centralni log brisanja
+        // (ILogBrisanjaService). Bez query filtera — brisano kolone OSTAJU u bazi
+        // (za sad nekorišćene), ne brišu se/koriste se za nove operacije.
 
         // Partner.Racuni navigacija — bez ovoga EF pravi shadow FK "PartnerBroj"
         // koji ne postoji u tbl_racuni (prava kolona je Id_Partnera)

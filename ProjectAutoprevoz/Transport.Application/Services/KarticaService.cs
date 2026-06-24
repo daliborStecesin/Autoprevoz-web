@@ -89,8 +89,7 @@ public class KarticaService : IKarticaService
             return $"Račun {brojRacunaPrikaz} ima vezane uplate. Prvo obriši uplate, pa zatim račun.";
         }
 
-        foreach (var red in redovi)
-            red.brisano = 1;
+        _context.Kartice.RemoveRange(redovi);
 
         return null;
     }

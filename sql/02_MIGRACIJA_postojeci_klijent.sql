@@ -379,6 +379,31 @@ BEGIN
 END
 GO
 
+PRINT 'Provera/kreiranje tabele dbo.tbl_log_brisanja';
+IF OBJECT_ID(N'[dbo].[tbl_log_brisanja]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_log_brisanja](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[datumVreme] [datetime] NOT NULL DEFAULT (getdate()),
+	[idKorisnika] [int] NULL,
+	[imeKorisnika] [varchar](70) NULL,
+	[formaModul] [varchar](50) NULL,
+	[opis] [varchar](500) NULL,
+ CONSTRAINT [PK_tbl_log_brisanja] PRIMARY KEY CLUSTERED
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_log_brisanja vec postoji - preskacem CREATE.';
+END
+GO
+
 
 PRINT '================ 02 - ALTER POSTOJECE STRUKTURE ================'
 GO
@@ -1510,10 +1535,11 @@ END
 GO
 
 -- Oznacavanje verzije baze nakon uspesne migracije
+-- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 207;
-    PRINT 'Verzija baze postavljena na 207 (Blazor migracija).';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 208;
+    PRINT 'Verzija baze postavljena na 208 (Blazor migracija).';
 END
 GO
 

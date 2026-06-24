@@ -1882,6 +1882,29 @@ CREATE TABLE [dbo].[tbl_Kartica](
 GO
 SET ANSI_PADDING OFF
 GO
+/****** Object:  Table [dbo].[tbl_log_brisanja]    Script Date: 8.6.2026. 22:52:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[tbl_log_brisanja](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[datumVreme] [datetime] NOT NULL DEFAULT (getdate()),
+	[idKorisnika] [int] NULL,
+	[imeKorisnika] [varchar](70) NULL,
+	[formaModul] [varchar](50) NULL,
+	[opis] [varchar](500) NULL,
+ CONSTRAINT [PK_tbl_log_brisanja] PRIMARY KEY CLUSTERED
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
 /****** Object:  Table [dbo].[tbl_KEP]    Script Date: 8.6.2026. 22:52:59 ******/
 SET ANSI_NULLS ON
 GO
@@ -2663,7 +2686,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((207)),
+	[verzijaBaze] [int] NULL DEFAULT ((208)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,

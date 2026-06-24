@@ -11,6 +11,7 @@
 @inject IDefaultValuesService  DefaultValues
 @inject IKursService           KursService
 @inject IKarticaService        KarticaServis
+@inject ILogBrisanjaService    LogServis
 @inject NavigationManager      Nav
 @inject TransportDbContext     Db
 @inject ISnackbar              Snackbar
@@ -958,9 +959,10 @@
 
     private void PripremiStavkeZaUpis(List<Stavka> stavke, Racun r)
     {
+        // Broj se NE dira — nova stavka (iz dijaloga) već ima Broj=0, postojeća
+        // nosi svoj PK koji SacuvajPostojeci koristi za UPDATE umesto INSERT-a.
         foreach (var s in stavke)
         {
-            s.Broj        = 0;
             s.Id_Racuna   = r.Broj.ToString();
             s.selektor    = r.Broj.ToString();
             s.Id_Partnera = r.IdPartnera?.ToString();
@@ -1059,14 +1061,34 @@
                 await KarticaServis.UpsertIzRacuna(dbRacun);
                 await Db.SaveChangesAsync();
 
+                // Diff stavki (po Broj/PK): update postojećih, insert novih, delete uklonjenih.
                 var postojeceStavke = await Db.ArtikliRacuna
                     .Where(s => s.Id_Racuna == dbRacun.Broj.ToString())
                     .ToListAsync();
-                foreach (var s in postojeceStavke)
-                    s.brisano = 1;
 
                 PripremiStavkeZaUpis(_stavke, dbRacun);
-                Db.ArtikliRacuna.AddRange(_stavke);
+
+                var brojeviUMemoriji = _stavke.Where(s => s.Broj != 0).Select(s => s.Broj).ToHashSet();
+
+                foreach (var dbStavka in postojeceStavke)
+                {
+                    if (!brojeviUMemoriji.Contains(dbStavka.Broj))
+                    {
+                        await LogServis.Zabelezi("STAVKE",
+                            $"Brisana stavka '{dbStavka.Artikal}' iz računa {dbRacun.BrojRacuna}");
+                        Db.ArtikliRacuna.Remove(dbStavka);
+                    }
+                }
+
+                foreach (var s in _stavke)
+                {
+                    var dbStavka = s.Broj != 0 ? postojeceStavke.FirstOrDefault(p => p.Broj == s.Broj) : null;
+
+                    if (dbStavka is not null)
+                        Db.Entry(dbStavka).CurrentValues.SetValues(s);
+                    else
+                        Db.ArtikliRacuna.Add(s);
+                }
 
                 await Db.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -1127,7 +1149,16 @@
                 return;
             }
 
-            dbRacun.brisano = 1;
+            var valuta = dbRacun.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+            await LogServis.Zabelezi("RACUNI",
+                $"Brisan račun {dbRacun.BrojRacuna}, vrednost {(dbRacun.SumaRacuna ?? 0):N2} {valuta}");
+
+            var stavke = await Db.ArtikliRacuna
+                .Where(s => s.Id_Racuna == dbRacun.Broj.ToString())
+                .ToListAsync();
+            Db.ArtikliRacuna.RemoveRange(stavke);
+
+            Db.Racuni.Remove(dbRacun);
             await Db.SaveChangesAsync();
 
             Snackbar.Add("Račun obrisan.", Severity.Success);

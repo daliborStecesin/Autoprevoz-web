@@ -68,6 +68,7 @@ builder.Services.AddScoped<IPdvService, PdvService>();
 builder.Services.AddScoped<IDefaultValuesService, DefaultValuesService>();
 builder.Services.AddScoped<IKursService, KursService>();
 builder.Services.AddScoped<IKarticaService, KarticaService>();
+builder.Services.AddScoped<ILogBrisanjaService, LogBrisanjaService>();
 builder.Services.AddScoped<SefApiClient>();
 builder.Services.AddScoped<ISefService, SefService>();
 

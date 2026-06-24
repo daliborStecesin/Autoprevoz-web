@@ -10,6 +10,7 @@
 @inject TransportDbContext  Db
 @inject IDialogService      Dialog
 @inject ISnackbar           Snackbar
+@inject ILogBrisanjaService LogServis
 
 <PageTitle>Kartica partnera — Autoprevoz</PageTitle>
 
@@ -101,15 +102,20 @@ else
             <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
             <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Search"
-                       OnClick="Izlistaj" Disabled="_ucitava" FullWidth="true">
-                @if (_ucitava)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                }
-                Izlistaj
-            </MudButton>
+            <div class="d-flex gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="Izlistaj" Disabled="_ucitava" Class="flex-grow-1">
+                    @if (_ucitava)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    }
+                    Izlistaj
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" Disabled="true">
+                    Štampa
+                </MudButton>
+            </div>
 
         </MudPaper>
     </MudItem>
@@ -126,23 +132,29 @@ else
             <div class="d-flex flex-wrap align-center gap-2 mb-2">
                 <MudText Typo="Typo.subtitle1">@KljucPrikaz(Kljuc ?? "")</MudText>
                 <MudSpacer />
+
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Business"
                            OnClick="OtvoriPodaciPartnera">
                     Podaci partnera
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" Disabled="true">
-                    Štampa
-                </MudButton>
+
+                <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+
                 <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Payments"
                            Disabled="@(!(_selectedRed is not null && _racunStatusi.Contains(_selectedRed.Status)))"
                            OnClick="OtvoriUnosUplate">
                     Unos uplate
                 </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.LinkOff"
+                           Disabled="@(!(_selectedRed is not null && _platniStatusi.Contains(_selectedRed.Status) && !string.IsNullOrWhiteSpace(_selectedRed.IdRacuna)))"
+                           OnClick="OdveziUplatu">
+                    Odveži uplatu
+                </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
                            Disabled="@(!(_selectedRed is not null && _platniStatusi.Contains(_selectedRed.Status)))"
                            OnClick="ObrisiUplatu">
-                    Brisanje
+                    Obriši uplatu
                 </MudButton>
             </div>
 
@@ -195,13 +207,16 @@ else
             </MudDataGrid>
 
             <MudPaper Elevation="0" Class="pa-3 mt-2" Style="background:#F5F7FA;">
-                <MudGrid Spacing="2">
-                    <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">POČETNO</MudText><MudText Typo="Typo.subtitle2">@_detaljPocetno.ToString("N2") @_detaljValuta</MudText></MudItem>
-                    <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Uk. zaduženje</MudText><MudText Typo="Typo.subtitle2">@_detaljZaduzenje.ToString("N2") @_detaljValuta</MudText></MudItem>
-                    <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Razduženja (Uplate)</MudText><MudText Typo="Typo.subtitle2">@_detaljRazduzenje.ToString("N2") @_detaljValuta</MudText></MudItem>
-                    <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700;">@_detaljSaldo.ToString("N2") @_detaljValuta</MudText></MudItem>
-                    <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">VAN VALUTE</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700; color:#c62828;">@_detaljVanValute.ToString("N2") @_detaljValuta</MudText></MudItem>
-                </MudGrid>
+                @foreach (var s in SaldoRedovi())
+                {
+                    <MudGrid Spacing="2" Class="mb-2">
+                        <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">POČETNO</MudText><MudText Typo="Typo.subtitle2">@s.Pocetno.ToString("N2") @s.Valuta</MudText></MudItem>
+                        <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Uk. zaduženje</MudText><MudText Typo="Typo.subtitle2">@s.Zaduzenje.ToString("N2") @s.Valuta</MudText></MudItem>
+                        <MudItem xs="6" sm="2"><MudText Typo="Typo.caption" Class="mud-text-secondary">Razduženja (Uplate)</MudText><MudText Typo="Typo.subtitle2">@s.Razduzenje.ToString("N2") @s.Valuta</MudText></MudItem>
+                        <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">SALDO @s.Valuta</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700;">@s.Saldo.ToString("N2") @s.Valuta</MudText></MudItem>
+                        <MudItem xs="6" sm="3"><MudText Typo="Typo.caption" Class="mud-text-secondary">VAN VALUTE</MudText><MudText Typo="Typo.subtitle2" Style="font-weight:700; color:#c62828;">@s.VanValute.ToString("N2") @s.Valuta</MudText></MudItem>
+                    </MudGrid>
+                }
             </MudPaper>
         }
 
@@ -225,9 +240,10 @@ else
     // ── Podaci ───────────────────────────────────────────────
     private List<KarticaPartnera> _sviRedoviPartnera = [];
     private string                _detaljNaziv = "";
-    private string                _detaljValuta = "RSD";
     private List<KarticaPartnera> _detaljRedovi = [];
-    private decimal _detaljPocetno, _detaljZaduzenje, _detaljRazduzenje, _detaljSaldo, _detaljVanValute;
+    private bool     _detaljSamoEur;
+    private decimal _detaljPocetnoRsd, _detaljZaduzenjeRsd, _detaljRazduzenjeRsd, _detaljSaldoRsd, _detaljVanValuteRsd;
+    private decimal _detaljPocetnoEur, _detaljZaduzenjeEur, _detaljRazduzenjeEur, _detaljSaldoEur, _detaljVanValuteEur;
     private KarticaPartnera? _selectedRed;
 
     private bool _ucitava;
@@ -268,6 +284,23 @@ else
 
     private static string KljucPrikaz(string kljuc) =>
         kljuc.StartsWith("ID:") ? $"Id partnera: {kljuc[3..]}" : $"PIB: {kljuc}";
+
+    // RSD i EUR su uvek odvojeni — INO-prefiksirani status = EUR, sve ostalo = RSD.
+    private static bool JeIno(KarticaPartnera k) => (k.Status ?? "").StartsWith("INO");
+
+    private List<(string Valuta, decimal Pocetno, decimal Zaduzenje, decimal Razduzenje, decimal Saldo, decimal VanValute)> SaldoRedovi()
+    {
+        if (_filterTip == "SVI")
+            return
+            [
+                ("RSD", _detaljPocetnoRsd, _detaljZaduzenjeRsd, _detaljRazduzenjeRsd, _detaljSaldoRsd, _detaljVanValuteRsd),
+                ("EUR", _detaljPocetnoEur, _detaljZaduzenjeEur, _detaljRazduzenjeEur, _detaljSaldoEur, _detaljVanValuteEur)
+            ];
+
+        return _detaljSamoEur
+            ? [("EUR", _detaljPocetnoEur, _detaljZaduzenjeEur, _detaljRazduzenjeEur, _detaljSaldoEur, _detaljVanValuteEur)]
+            : [("RSD", _detaljPocetnoRsd, _detaljZaduzenjeRsd, _detaljRazduzenjeRsd, _detaljSaldoRsd, _detaljVanValuteRsd)];
+    }
 
     protected override Task OnInitializedAsync()
     {
@@ -367,19 +400,36 @@ else
 
             _detaljRedovi = q.OrderBy(k => k.DatumRacuna).ThenBy(k => k.Id).ToList();
 
-            _detaljValuta = _detaljRedovi.Any(k => (k.Status ?? "").StartsWith("INO")) ? "EUR" : "RSD";
+            _detaljSamoEur = _detaljRedovi.Any(JeIno);
 
-            // POČETNO — saldo svih redova te grupe PRE perioda (Datum_Racuna < OD)
-            _detaljPocetno = _sviRedoviPartnera
+            // RSD i EUR se NIKAD ne sabiraju u isti zbir — uvek odvojeno po valuti.
+            var redoviRsd = _detaljRedovi.Where(k => !JeIno(k)).ToList();
+            var redoviEur = _detaljRedovi.Where(JeIno).ToList();
+
+            // POČETNO — saldo svih redova te grupe PRE perioda (Datum_Racuna < OD), po valuti
+            var pocetniRedovi = _sviRedoviPartnera
                 .Where(k => k.DatumRacuna.HasValue && k.DatumRacuna.Value.Date < odDate.Date)
-                .Sum(k => k.Saldo ?? 0);
+                .ToList();
 
-            _detaljZaduzenje  = _detaljRedovi.Sum(k => k.Duguje    ?? 0);
-            _detaljRazduzenje = _detaljRedovi.Sum(k => k.Potrazuje ?? 0);
-            _detaljSaldo      = _detaljPocetno + _detaljRedovi.Sum(k => k.Saldo ?? 0);
+            _detaljPocetnoRsd = pocetniRedovi.Where(k => !JeIno(k)).Sum(k => k.Saldo ?? 0);
+            _detaljPocetnoEur = pocetniRedovi.Where(JeIno).Sum(k => k.Saldo ?? 0);
+
+            _detaljZaduzenjeRsd  = redoviRsd.Sum(k => k.Duguje    ?? 0);
+            _detaljRazduzenjeRsd = redoviRsd.Sum(k => k.Potrazuje ?? 0);
+            _detaljSaldoRsd      = _detaljPocetnoRsd + redoviRsd.Sum(k => k.Saldo ?? 0);
+
+            _detaljZaduzenjeEur  = redoviEur.Sum(k => k.Duguje    ?? 0);
+            _detaljRazduzenjeEur = redoviEur.Sum(k => k.Potrazuje ?? 0);
+            _detaljSaldoEur      = _detaljPocetnoEur + redoviEur.Sum(k => k.Saldo ?? 0);
 
             var danas = DateTime.Today;
-            _detaljVanValute = _detaljRedovi
+            _detaljVanValuteRsd = redoviRsd
+                .Where(k => _racunStatusi.Contains(k.Status)
+                         && k.DatumValute.HasValue && k.DatumValute.Value.Date < danas
+                         && (k.Preostalo ?? 0) > 0)
+                .Sum(k => k.Preostalo ?? 0);
+
+            _detaljVanValuteEur = redoviEur
                 .Where(k => _racunStatusi.Contains(k.Status)
                          && k.DatumValute.HasValue && k.DatumValute.Value.Date < danas
                          && (k.Preostalo ?? 0) > 0)
@@ -419,7 +469,8 @@ else
         var url = $"/finansije/unos?idRacuna={Uri.EscapeDataString(_selectedRed.IdRacuna ?? "")}" +
                   $"&idPartnera={_selectedRed.IdPartnera}" +
                   $"&brojRacuna={Uri.EscapeDataString(_selectedRed.BrojRacuna ?? "")}" +
-                  $"&smer={smer}&tip={tip}&iznos={iznos}";
+                  $"&smer={smer}&tip={tip}&iznos={iznos}" +
+                  $"&kontekst={Uri.EscapeDataString(_filterTip)}";
 
         Nav.NavigateTo(url);
     }
@@ -458,10 +509,68 @@ else
                 }
             }
 
-            uplata.brisano = 1;
+            var valuta = (uplata.Status ?? "").StartsWith("INO") ? "EUR" : "RSD";
+            var racunDeo = bilaVezana ? $", račun {uplata.BrojRacuna}" : "";
+            await LogServis.Zabelezi("KARTICE",
+                $"Brisana uplata {iznos:N2} {valuta}, partner {uplata.NazivPartnera}{racunDeo}");
+
+            Db.Kartice.Remove(uplata);
             await Db.SaveChangesAsync();
 
             Snackbar.Add(bilaVezana ? "Uplata obrisana, stanje računa vraćeno." : "Uplata obrisana.", Severity.Success);
+
+            _selectedRed = null;
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+    }
+
+    private async Task OdveziUplatu()
+    {
+        if (_selectedRed is null || !_platniStatusi.Contains(_selectedRed.Status)
+            || string.IsNullOrWhiteSpace(_selectedRed.IdRacuna)) return;
+
+        var iznosPrikaz = (_selectedRed.Potrazuje ?? 0) + (_selectedRed.Duguje ?? 0);
+
+        var ok = await Dialog.ShowMessageBox(
+            "Odvezivanje uplate",
+            $"Da li ste sigurni da želite da odvežete uplatu u iznosu {iznosPrikaz.ToString("N2")} sa računa {_selectedRed.BrojRacuna}? " +
+            "Novac se NE briše — uplata postaje neraspoređena i može se vezati za drugi račun.",
+            yesText: "Da, odveži", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        try
+        {
+            var uplata = await Db.Kartice.FindAsync(_selectedRed.Id);
+            if (uplata is null) return;
+
+            var iznos = uplata.Uplata ?? 0;
+
+            var racunRed = await Db.Kartice
+                .FirstOrDefaultAsync(k => k.IdRacuna == uplata.IdRacuna && _racunStatusi.Contains(k.Status));
+
+            if (racunRed is not null)
+            {
+                racunRed.Uplata = (racunRed.Uplata ?? 0) - iznos;
+                var preostalo = (racunRed.Dug ?? 0) - racunRed.Uplata.Value;
+                racunRed.Izmiren = preostalo <= 0 ? "DA" : "NE";
+            }
+
+            var valuta = (uplata.Status ?? "").StartsWith("INO") ? "EUR" : "RSD";
+            await LogServis.Zabelezi("KARTICE",
+                $"Odvezana uplata {iznos:N2} {valuta} sa računa {uplata.BrojRacuna}, partner {uplata.NazivPartnera}");
+
+            uplata.IdRacuna   = null;
+            uplata.BrojRacuna = "NERASPOREDJENO";
+
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Uplata odvezana, vraćena u neraspoređeno.", Severity.Success);
 
             _selectedRed = null;
             await Izlistaj();

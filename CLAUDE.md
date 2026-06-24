@@ -55,7 +55,13 @@ Sav UI tekst na srpskom.
 
 ## PRAVILA (obavezno)
 1. NIKAD ne menjati šemu postojećih tabela bez dogovora
-2. Soft delete uvek (`brisano=1` ili `aktivan=0`), nikad fizičko brisanje
+2. Soft delete uvek (`brisano=1` ili `aktivan=0`) za šifarničke entitete
+   (partner/vozač/vozilo/firma/banka — ID im živi u istorijskim dokumentima).
+   IZUZETAK (svesna odluka): `tbl_racuni`, `tbl_Kartica`, `tbl_artikli_racuna`
+   prešli na FIZIČKO brisanje + centralni log (`tbl_log_brisanja`,
+   `ILogBrisanjaService`) — nemaju referencijalnu vrednost / zaštite
+   (blokada, confirm) i log nadoknađuju izgubljenu istoriju. `brisano` kolone
+   ostaju u bazi, nekorišćene.
 3. Sav UI tekst na srpskom
 4. Decimal za novac (2 ili 4 decimale)
 5. Global Query Filter za soft delete
@@ -109,6 +115,13 @@ Svaka buduća migracija inkrementira ovaj broj.
   `tbl_racuni` UKLONJENI — `KarticaService` (Transport.Application) sada upisuje/
   ažurira/briše `tbl_Kartica` iz aplikacije, u istoj transakciji kao račun
   (vidi `/fakture/unos`)
+- 208 = `tbl_log_brisanja` dodato (centralni log brisanja: ko/kad/forma/opis).
+  `LogBrisanjaService`/`ILogBrisanjaService` (Transport.Application) STAGE-uje
+  INSERT (samo `Add`, bez `SaveChangesAsync`) pre brisanja računa, uplate/
+  isplate, odvezivanja uplate i stavke računa — uvek u istoj transakciji kao
+  samo brisanje. Log se nikad ne menja/briše (samo INSERT, nema soft delete).
+  Stavke računa (`tbl_artikli_racuna`) takođe prešle sa soft delete na pravi
+  UPDATE/DELETE (nemaju referencijalnu vrednost) — query filter uklonjen.
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
@@ -280,47 +293,52 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 ---
 
 ## STATUS PROJEKTA
-- [x] Infrastruktura, Login, Multi-tenant
-- [x] Dashboard (kurs EUR, podsetnici, važni datumi vozila i zaposlenih, ime korisnika)
-- [x] Partneri + NBS SOAP + žiro računi
-- [x] Zaposleni + tip isplate + registracija kao web korisnik
-- [x] Vozila + Važni datumi
-- [x] Podsetnici (CRUD, ponavljanje, popup)
-- [x] Podaci firme + Banke
-- [x] NBS Kurs servis + Kursna lista
-- [x] Troškovi (modul: CRUD, filteri, NBS kurs, podela na mesece, štampa)
-- [x] Dnevnice (modul: CRUD, obračun po minutima, 4 vrste štampe, označi plaćeno)
-- [x] Plate (4 vrste isplate)
-- [x] Šifarnici
-- [x] Dozvole MUP (tbl_DozvoleMinistarstva, batch unos)
-- [x] Podešavanja (4 taba: opšta, brojevi, izgled štampe, e-fakture)
-- [x] BrojDokumentaService (formati, provera duplikata)
-- [x] SEF integracija (ISefService/SefApiClient, lista PDV oslobođenja)
-- [x] Multi-korisnik (registracija, login, aktivacija/deaktivacija, kaskada)
-- [x] Audit trag (uneo/izmenio automatski na svim tabelama)
-- [x] **Transport — Ture** (collapsible forma, agencijski/sopstveni, brojevi)
-- [x] **Transport — Nalozi** (kompletna forma, lista, Excel export, template)
-- [x] **Štampa naloga** (2 strane, uslovi iz podešavanja)
-- [x] **Štampa putnog naloga** (zvanični obrazac, 2 strane)
-- [x] **Troškovi ture** (unos, dvosmerna konverzija, 2 checkboxa, obračun zarade u EUR)
-- [x] **Dnevnice na turi** (obračun sati/dnevnica, panel)
-- [x] **Štampa troškovnika** (samo gotovinski, obračun isplate, dnevnice)
-- [x] **SQL migracije** (01_CREATE blanko baza + 02_MIGRACIJA za stare klijente, /sql/ folder)
-- [x] **Deploy na test server** (95.211.62.35, nginx + Kestrel na :5001, login/SignalR rade)
-- [x] **Dnevnice → Plate** (KOMPLETNO — desktop model, plata sa ture, kurs servis)
-- [x] **IKursService** (NBS po datumu, fallback, strane firme)
-- [x] **Agencijska tura svedena** (skriveni paneli, samo Nalozi+Troškovi+Zarada)
-- [x] **Kilometraža/gorivo panel** (start/kraj/pređeno/utrošeno/potrošnja editabilno)
-- [x] **NativniSelect/NativniInput** (zamena za nepouzdani MudSelect)
-- [ ] Skenirani dokumenti (nalozi, vozači, vozila, firma)
-- [ ] Finansije
-- [ ] Fakturisanje
+# PATCH za CLAUDE.md — zameni samo donji deo
+
+U postojećem CLAUDE.md (koji je ODLIČAN i tačan do v207), zameni sekcije
+"STATUS PROJEKTA" i "TRENUTNI FOKUS" sledećim. Sve ostalo (migracije, mapiranja,
+pravila, KarticaService) OSTAJE — ne diraj.
+
+================ ZAMENI OD "## STATUS PROJEKTA" DO "## NAPOMENA — nginx" ================
+
+## STATUS PROJEKTA
+- [x] Infrastruktura, Login, Multi-tenant, Dashboard
+- [x] Partneri, Zaposleni, Vozila, Podsetnici, Podaci firme + Banke
+- [x] NBS Kurs servis + Kursna lista, IKursService
+- [x] Troškovi, Dnevnice, Plate, Šifarnici, Dozvole MUP, Podešavanja
+- [x] BrojDokumentaService, SEF osnova, Multi-korisnik, Audit
+- [x] **Transport — Ture, Nalozi, Štampe (nalog, putni nalog, troškovnik)**
+- [x] **Troškovi ture, Dnevnice na turi, Dnevnice → Plate**
+- [x] **Agencijska tura svedena, Kilometraža panel, NativniSelect/Input**
+- [x] **Deploy na test server (95.211.62.35)**
+- [x] **FAKTURISANJE — lista/arhiva (/fakture)**: filteri, soft delete, sort DatumRacuna+Broj DESC
+- [x] **Detaljna statistika faktura**: padajući filteri, Excel, štampa, dom/ino zbirovi
+- [x] **Unos računa**: glava+stavke (dialog), EUR/RSD konverzija, rabat %, PDV po tipu, broj na Save, edit
+- [x] **Štampa fakture (3 varijante)**: domaća RSD srpski / EUR srpski (+kurs/RSD) / EUR engleski (+OpcijaText1/2)
+- [x] **Izbor banke na fakturi** (idBanke zamrznut)
+- [x] **FINANSIJE/KARTICE** (KarticaService, trigger skinut v207):
+      - Dužnici/dugovanja (2 taba, dom RSD + ino EUR, grupisanje po PIB, štampa spiska)
+      - Kartica partnera (kontekstualna, filteri, POČETNO saldo do perioda)
+      - Unos finansija (UPLATA/ISPLATA RSD/EUR + POČETNO STANJE)
+      - Vezivanje uplate (Preostalo, Izmiren auto, delimično, više uplata)
+      - Preplata → cepanje (NERASPOREDJENO), vezivanje neraspoređene, Odveži/Obriši
+      - Blokada brisanja računa sa uplatama, razdvojene valute, van valute, kolona VEZA
+- [ ] Štampa kartice + IOS (sledeće)
+- [ ] Migracija 200 starih klijenata (Preostalo/van valute)
+- [ ] Knjižna odobrenja/zaduženja
+- [ ] Predračuni dom+ino
+- [ ] Statistika tura/naloga (POSTOJI, nije testirana)
+- [ ] Gorivo, Servisi, CMR, Skenirani dokumenti (nije započeto)
 - [ ] E-fakture
 
 ## TRENUTNI FOKUS
-Plate / Dnevnice / Kurs — ZAVRŠENO i testirano kroz pun ciklus (desktop + test server).
-Sledeće: Gorivo + Servisi (lakši moduli), pa FAKTURISANJE blok (fakture + predračuni
-dom/ino, knjižna odobrenja/zaduženja, kartice partnera, uplate/isplate).
+Kartice (Finansije) — ZAVRŠENE i testirane kroz pun ciklus (uplate, preplata,
+neraspoređeno, vezivanje, odveži/obriši, razdvojene valute, van valute, početno stanje).
+Sledeće: (1) Migracija 200 starih klijenata — da Preostalo/van valute bude tačan kod
+postojećih; (2) Štampa kartice + IOS; (3) Knjižna odobrenja/zaduženja.
+ZAOSTALO ZAKONSKO: Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja),
+primeniti na sidebar dnevnica + dugmiće + modul Dnevnice.
+
 
 ## NAPOMENA — nginx na test serveru (95.211.62.35)
 Login ide preko `/api/auth/login-form` (form POST, ne fetch — radi pouzdano i na mobilnom).

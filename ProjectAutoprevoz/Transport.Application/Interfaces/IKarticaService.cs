@@ -17,9 +17,9 @@ public interface IKarticaService
     Task UpsertIzRacuna(Racun racun);
 
     /// <summary>
-    /// Soft-delete reda kartice za dati račun. Vraća poruku o grešci ako
-    /// postoje vezane uplate (u tom slučaju ništa nije izmenjeno), ili
-    /// null ako je uspešno.
+    /// Fizički briše red(ove) kartice za dati račun (Remove, ne soft delete).
+    /// Vraća poruku o grešci ako postoje vezane uplate (u tom slučaju ništa
+    /// nije izmenjeno), ili null ako je uspešno.
     /// </summary>
     Task<string?> ObrisiIzRacuna(int brojRacuna);
 }

@@ -1,207 +1,126 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Jun 2026*
+*Poslednje ažuriranje: Jun 2026 — verzija baze 207*
 
-Blazor Server SaaS za transport firme (Srbija/region). Rewrite WinForms aplikacije.
-Multi-tenant: master baza `daksoft` (login/licence) + klijentske baze (podaci).
+Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
+Rewrite WinForms aplikacije. ~200 klijenata. Multi-tenant: master `daksoft` + klijentske baze.
 Vlasnik: DAK-SOFT (Dalibor Stečešin).
+*Tehnička pravila, mapiranja, migracije → vidi CLAUDE.md (merodavan).*
 
 ---
 
 ## ✅ ZAVRŠENO
 
-### Osnova
-- Infrastruktura, Login, Multi-tenant (TenantService, ap_conn cookie)
-- Dashboard (kurs EUR, podsetnici, važni datumi vozila + zaposlenih, ime korisnika)
-- Vizuelni identitet (#2D3E50 / #3D8EB9)
+### Osnova / Sistem
+- Infrastruktura, Login, Multi-tenant, Dashboard
+- NBS Kurs servis + IKursService (po datumu, fallback, strane firme) + Kursna lista
+- Multi-korisnik (registracija/login/aktivacija/kaskada), Audit (automatski)
+- BrojDokumentaService, SEF osnova (ISefService/SefApiClient)
 
-### Moduli
-- Partneri + NBS SOAP integracija + žiro računi
-- Zaposleni + tip isplate + registracija kao web korisnik
-- Vozila + Važni datumi + filter stranica
-- Podsetnici (CRUD, ponavljanje, popup)
-- Podaci firme + Banke
-- NBS Kurs servis + Kursna lista
-- Troškovi (modul: CRUD, filteri, NBS kurs, podela na mesece, štampa)
-- Dnevnice (modul: CRUD, obračun po minutima, 4 vrste štampe, označi plaćeno)
-- Plate (4 vrste isplate)
-- Šifarnici
-- Dozvole MUP (tbl_DozvoleMinistarstva, batch unos)
-- Podešavanja (4 taba: opšta, brojevi dokumenata, izgled štampe, e-fakture)
-
-### Sistem
-- BrojDokumentaService (formati: broj/godina2/godina4/mesec, provera duplikata)
-- Multi-korisnik (registracija, login, aktivacija/deaktivacija, kaskadna deaktivacija)
-- Audit trag (uneo/izmenio automatski preko SaveChanges override na svim tabelama)
-- SEF integracija (ISefService/SefApiClient, lista PDV oslobođenja)
+### Moduli (osnova)
+- Partneri + NBS SOAP + žiro računi, Zaposleni + registracija korisnika
+- Vozila + Važni datumi, Podsetnici, Podaci firme + Banke
+- Troškovi, Dnevnice, Plate (4 metode), Šifarnici, Dozvole MUP, Podešavanja (4 taba)
 
 ### Transport (CORE — završen)
-- Ture (collapsible forma, agencijski/sopstveni, brojevi po tipu, paneli sa pamćenjem)
-- Nalozi za prevoz (kompletna forma, lista, Excel export, template učitaj/sačuvaj)
-- Štampa naloga (2 strane, logo, nalogodavac+prevoznik, carinjenje conditional,
-  cena na drugoj strani, opšti uslovi iz podešavanja sa fallback)
-- Štampa putnog naloga (landscape, zvanični obrazac, 2 strane HTML)
-- Troškovi ture (unos, dvosmerna konverzija RSD↔EUR, 2 checkboxa, obračun zarade u EUR)
-- Dnevnice na turi (obračun sati/dnevnica, collapsible panel)
-- Štampa troškovnika (samo gotovinski + dnevnice, obračun isplate za banku)
+- Ture (agencijski/sopstveni), Nalozi (forma/lista/Excel/template)
+- Štampa naloga + putnog naloga, Troškovi ture (konverzija, zarada EUR)
+- Dnevnice na turi + Dnevnice→Plate (desktop model), Štampa troškovnika
+- Kilometraža panel, Agencijska tura svedena, NativniSelect/NativniInput
+
+### Fakturisanje (završeno)
+- Lista/arhiva (/fakture): filteri, soft delete, sort DatumRacuna+Broj DESC
+- Detaljna statistika: padajući filteri, Excel, štampa, dom/ino zbirovi
+- Unos računa: glava+stavke (dialog), EUR/RSD konverzija, rabat %, PDV po tipu, broj na Save, edit
+- Tipovi IZLAZ/IZLAZ_BP/INOSTRANI, napomene po tip×uvozIzvoz, izbor banke (idBanke)
+- Štampa 3 varijante: domaća RSD srpski / EUR srpski (+kurs/RSD) / EUR engleski (+OpcijaText1/2)
+
+### Finansije / Kartice (završeno — testirano kroz pun ciklus)
+- Dužnici/dugovanja: 2 taba, dom RSD + ino EUR, grupisanje po PIB (fallback Id_Partnera), štampa spiska
+- Kartica partnera: kontekstualna po tabu, datumski/tip/izmiren filteri, POČETNO (saldo do perioda)
+- Unos finansija: UPLATA/ISPLATA (RSD/EUR) + POČETNO STANJE (ručno zaduženje, Id_Racuna="PS"+PK)
+- KarticaService (zamenio SQL trigger — SKINUT, v207): upsert/obriši iz računa, u transakciji
+- Vezivanje uplate: Preostalo (calc), Izmiren auto, delimično, više uplata
+- Preplata → cepanje (vezani deo + NERASPOREDJENO, narandžasto), vezivanje neraspoređene
+- Odveži uplatu (vs Obriši), blokada brisanja računa sa uplatama
+- Razdvojene valute (RSD/EUR nikad zajedno), van valute (dospeli neplaćeni), kolona VEZA, zaštita od duplog Save
 
 ---
 
 ## 🎯 TRENUTNO RADIMO / SLEDEĆE
-1. **Gorivo** (`/gorivo`) — evidencija točenja, potrošnja po vozilu/turi
-2. **Servisi / Održavanje** (`/servisi`) — evidencija servisa, podsetnici
-3. **Fakturisanje blok** — fakture + predračuni (dom/ino), knjižna odobrenja i
-   zaduženja, kartice partnera, uplate/isplate
+
+### Kartice — preostalo (zaokružiti)
+- [ ] **Migracija 200 starih**: Izmiren=DA → Uplata=Dug → Preostalo=0; NE → Preostalo=Dug. Tek tada van valute tačan kod postojećih. + ekran ručnog usklađivanja.
+- [ ] **Štampa kartice + IOS**: uplate grupisane po datumu/izvodu (kolona VEZA), IOS = otvorene stavke (Preostalo>0)
+- [ ] **Knjižna odobrenja/zaduženja**: 4 tipa (izlazna+ulazna), znaci po matrici, bez dokumenta
+
+### Zaostalo (zakonsko)
+- [ ] **Dnevnice — kurs na DAN POVRATKA** (poslednji datum putovanja). Jedino po zakonu. Mesta: sidebar dnevnica na turi, "Dodaj dnevnice vozaču", "Dodaj u troškove ture", modul Dnevnice.
+
+### Predračuni
+- [ ] Predračuni dom+ino (pattern fakture, lakši — bez ture/vozila)
 
 ---
 
-## 📋 PREOSTALO — TRANSPORT (dovršiti)
-- [x] Dnevnice → Plate (desktop model, sidebar + PLATE tab, kurs servis)
-- [x] Cena × Količina na nalozima (vrednost = cena × količina)
-- [ ] Statistika tura (po dispečeru — IdKorisnika, po vozaču, vozilu)
-- [ ] Statistika naloga
-- [ ] CMR dokumenti
+## 📋 PREOSTALO
 
-## 📋 LAKI MODULI (sledeće)
-- [ ] Gorivo (`/gorivo`) — evidencija točenja goriva, potrošnja po vozilu/turi
-- [ ] Servisi / Održavanje (`/servisi`) — evidencija servisa, podsetnici po vozilu
+### Transport (dovršiti)
+- [ ] Statistika tura — POSTOJI, NIJE TESTIRANA
+- [ ] Statistika naloga — POSTOJI, NIJE TESTIRANA
+- [ ] CMR dokumenti — nije započeto
 
-## 📋 SKENIRANI DOKUMENTI (zaseban segment)
-- [ ] Upload fajlova (PDF, JPG)
-- [ ] Vezivanje za: nalog/turu, vozača, vozilo, partnera, firmu
-- [ ] Odluka o čuvanju: baza (varbinary) vs server (path) vs cloud storage
-      (bitno za multi-tenant SaaS — baza raste; razmotriti pred implementaciju)
-- [ ] Pregled i download
-- [ ] Zaseban modul vezan za firmu (ne samo po dokumentu)
+### Laki moduli (nije započeto)
+- [ ] Gorivo (`/gorivo`) — točenje, potrošnja po vozilu/turi
+- [ ] Servisi / Održavanje (`/servisi`) — evidencija, podsetnici
 
-## 📋 FINANSIJE
-- [ ] Kartice partnera/kupaca + štampa
-- [ ] Uplate/isplate u valuti (RSD/EUR)
-- [ ] Dužnici/dugovanja
+### Skenirani dokumenti
+- [ ] Upload (PDF/JPG), vezivanje za nalog/vozača/vozilo/partnera/firmu
+- [ ] Čuvanje: baza (varbinary) vs server (path) vs cloud — odlučiti (baza raste)
+- [ ] Pregled/download, zaseban modul po firmi
 
-## 📋 FAKTURISANJE
-- [ ] Novi račun
-- [ ] Arhiva računa
-- [ ] Predračuni — domaći + ino
-- [ ] Knjižna odobrenja i zaduženja
-- [ ] Otpremnice
-- [ ] Veza nalog → faktura (status FAKTURISAN automatski)
-- [ ] Kurs na fakturama/predračunima = kurs na dan istovara (IKursService)
+### Audit GAP (iz CLAUDE.md — dodati IAuditable kad se radi)
+- [ ] GotovinskiRacun, Otpremnica, Ponuda, Artikal, ObavestenjePP, VatDeductionRecord
+- [ ] Partner: DatumUnosa/DatumIzmene su [NotMapped] — dodati kolone ako zatreba
 
-## 📋 PODEŠAVANJA SISTEMA (dovršiti)
-- [ ] Korisnici i privilegije (fine dozvole po modulima — vidi dole)
-- [ ] Podešavanja e-fakture (delom urađeno u tabu E-fakture)
+### Privilegije (odloženo — za sad svi Admin)
+- [ ] tbl_role + tbl_role_moduli (mozeCitati/Unositi/Menjati/Brisati)
 
-## 📋 NIVOI PRISTUPA / PRIVILEGIJE (odloženo)
-*Za sad svi korisnici su Admin. Fine privilegije dolaze kasnije.*
-- [ ] tbl_role (template role: Admin, Korisnik, Vozač, Računovođa, Readonly)
-- [ ] tbl_role_moduli (mozeCitati, mozeUnositi, mozeMenjati, mozeBrisati)
-- [ ] Firm admini upravljaju svojim korisnicima nezavisno
-- [ ] Provera idRole iz sesije pri pristupu modulima
-
-## 📋 DOKUMENTA / OSTALO
-- [ ] Potvrda o kvalifikovanosti vozača
-- [ ] Planer (kalendarski prikaz obaveza: dnevno/nedeljno/mesečno)
-
-## 📋 E-FAKTURE (poreska usklađenost — Srbija)
-- [ ] Slanje faktura na SEF (osnova ISefService postoji)
-- [ ] Praćenje statusa
-- [ ] PDV evidencija
-- [ ] Analitika EPP (uvoz CSV)
-- [ ] Obaveštenja poreske uprave
-- [ ] Prethodni PDV unos
+### E-fakture (na kraju)
+- [ ] Slanje na SEF, praćenje statusa, PDV evidencija, EPP (CSV), prethodni PDV
 
 ---
 
-## 🚀 STRATEŠKE FAZE (TEK posle stabilnog transporta + prvih klijenata)
-*NE krećemo dok osnovni transport flow ne radi savršeno u produkciji.*
+## 🚀 STRATEŠKE FAZE (posle stabilnog transporta + prvih klijenata)
 
-### FAZA 8 — Self-Service Onboarding (SaaS registracija)
-*Cilj: korisnik se sam registruje preko landing page-a, bez intervencije DAK-SOFT-a*
+### FAZA 8 — Self-Service Onboarding
+- [ ] Landing → registracija (email/lozinka/zemlja/PIB), NBS povlačenje podataka
+- [ ] ProvisioningService: baza = prefiks zemlje + PIB (rs111784317), INSERT licence/korisnik, seed
+- [ ] CREATE DATABASE dozvola, idempotentan seed (migracija_full.sql)
+- [ ] Demo → plaćeni: reset baze, migracija na localhost, cloud kao premium
 
-Flow registracije:
-- [ ] Landing page → dugme "Testiraj odmah"
-- [ ] Korak 1: email + lozinka + odabir zemlje
-- [ ] Korak 2: unos PIB-a (validacija: max 13 cifara)
-      - Za Srbiju: PIB → povlačenje podataka firme preko NBS API
-- [ ] Dugme "Započni test" (aktivno kad je PIB validan)
-
-ProvisioningService (master baza):
-- [ ] Naziv baze = prefiks zemlje + PIB (npr. rs111784317)
-      - rs=Srbija, ba=Bosna... (izbegava sudar PIB-ova iz raznih zemalja)
-- [ ] INSERT tbl_licence: PIB, ConnectionString
-      - ConnectionString = isti template, menja se SAMO Initial Catalog
-- [ ] INSERT tbl_web_korisnici: email, hash, IdLicence, Privilegija=Admin
-- [ ] Izvrši seed skriptu: CREATE DATABASE + sve tabele + seed admin
-- [ ] Loading indikator dok se baza kreira
-
-Tehnički zahtevi:
-- Master SQL nalog mora imati CREATE DATABASE dozvolu
-- CREATE DATABASE NE može u transakciji; seed mora biti idempotentan
-- Seed = kompletna šema (.sql) izvršena programski (= migracija_full.sql)
-- Radi samo na sopstvenom serveru (ne shared hosting)
-
-Prelazak demo → plaćeni:
-- [ ] Reset baze jednim klikom (ista baza, status reset — bez migracije)
-- [ ] Opcija: migracija baze na klijentov localhost (ručno menja ConnectionString)
-- [ ] Cloud baza = premium opcija (+~8€/mes); localhost klijenti preko
-      Network Library=DBMSSOCN connection stringa (već radi)
-
-### ADMIN PANEL — DAK-SOFT super-admin (samo vlasnik)
-*Cilj: centralno mesto za upravljanje SVIM klijentima/licencama/bazama.
-Nivo iznad svih firmi — pristup samo DAK-SOFT (super-admin u master bazi).
-Alat kroz koji se radi licenciranje i onboarding (povezano sa Fazama 8/9).*
-
-Pristup:
-- [ ] Zaseban login / zaštićena ruta, samo super-admin (flag u master bazi)
-- [ ] Odvojeno od običnog klijentskog interfejsa
-
-Licence (tbl_licence):
-- [ ] Lista svih licenci/klijenata sa statusom (aktivna / istekla / demo)
-- [ ] Datum isteka + produženje licence
-- [ ] Aktiviraj / deaktiviraj licencu
-- [ ] Prikaz/izmena ConnectionString svake baze
-- [ ] Koji moduli su uključeni po licenci (transport / trgovina / oba)
-
-Klijenti / nadzor:
-- [ ] Pregled svih firmi (naziv, PIB, broj korisnika)
-- [ ] Poslednja aktivnost (ZadnjaPrijava korisnika po firmi)
-- [ ] Statistika logovanja
-- [ ] (opciono) pregled grešaka / logova
-
-Onboarding / baze (pre Faze 8 self-service — ručno):
-- [ ] Ručno kreiranje nove licence + baze (CREATE DATABASE + seed)
-- [ ] Reset demo baze
-- [ ] Migracija baze (localhost ↔ cloud)
-- [ ] Pokretanje migracija (migracija_full.sql) nad izabranom bazom
+### ADMIN PANEL — DAK-SOFT super-admin
+- [ ] Zaštićena ruta, samo super-admin (flag master baza)
+- [ ] Licence: lista/status/istek/produženje, ConnectionString, moduli po licenci
+- [ ] Klijenti: pregled firmi, poslednja aktivnost, statistika
+- [ ] Ručni onboarding (CREATE DB + seed), reset, migracija
 
 ### FAZA 9 — Licenciranje (mesečna naplata)
-*Cilj: automatska kontrola trajanja licence (upravljano kroz Admin Panel)*
-- [ ] Datum licence u master tbl_licence (samo DAK-SOFT pristup)
-- [ ] Keširanje datuma u lokalnu bazu (da se ne povezuje na master pri svakom pokretanju)
-- [ ] Prozor za licenciranje: pokupi datum iz master + dugme "Aktiviraj"
-- [ ] Mesečno produženje uz izdavanje fakture
-- [ ] Aktivacija može zahtevati preuzimanje PDF fakture
+- [ ] Datum licence u master tbl_licence, keširanje lokalno
+- [ ] Prozor za licenciranje + mesečno produženje uz fakturu
 
 ### FAZA 10 — Modularnost + Lager modul
-*Cilj: deljenje koda sa softverom za trgovinu, moduli pali/gasi po licenci*
-
-Zajednički moduli (postoje ili planirani):
-- E-faktura, Finansije, Predračuni, Otpremnice, Fakturisanje
-
-Novi moduli iz softvera za trgovinu:
-- [ ] Lager (artikli, stanje)
-- [ ] Kalkulacije
-- [ ] Ulaz / izlaz artikala
-- [ ] Prilagođen unos faktura (više elemenata nego transport)
-
-Sistem modula:
-- [ ] Pali/gasi modul po licenci (kao transportModulAktivan)
-- [ ] tbl_moduli kontroliše dostupnost
-- [ ] Jedna baza koda, razni profili klijenata (transport / trgovina / oba)
+- [ ] Lager (artikli, stanje), kalkulacije, ulaz/izlaz — deljenje koda sa softverom za trgovinu
+- [ ] Pali/gasi modul po licenci (tbl_moduli), jedna baza koda za transport/trgovinu/oba
+- [ ] NAPOMENA: "Iz Šifarnika" autocomplete u stavkama fakture čeka Lager (tbl_lager) — TODO veza
 
 ---
 
-## ⚠️ NAPOMENA O PRIORITETIMA
-Faze 8/9/10 su STRATEŠKE. Plate/Dnevnice/Kurs i deploy na test server su završeni.
-Trenutni fokus: Gorivo + Servisi (laki moduli), pa Fakturisanje blok. Tehnička
-pravila, arhitektura i mapiranja → vidi CLAUDE.md.
+## ⚠️ KLJUČNO ZA KARTICE (najnovije naučeno)
+- **Kartice = KarticaService, NE trigger** (skinuti v207 — pravili prazne NULL redove u Blazoru)
+- **Grupisanje po PIB** (fallback Id_Partnera ako prazan) — rešava dvojnike
+- **RSD i EUR se NIKAD ne sabiraju** u isti saldo
+- **TipRacuna u tbl_banka = 'DOMACI' bez Ć** (normalizovano v205)
+- **Preostalo je calculated** (Dug-Uplata) — otvoreno = Preostalo na RAČUNU, ignoriše se na uplatama
+- **Poziv na broj ima prednost** pri zatvaranju; van valute = dospeli neplaćeni nezavisno od plaćenih nedospelih
+- **POČETNO STANJE**: Id_Racuna = "PS"+PK (da se ne pomeša sa pravim računima), zatvorivo kao račun
+
+### Verzija baze: 207 (vidi CLAUDE.md za pun spisak 201-207)

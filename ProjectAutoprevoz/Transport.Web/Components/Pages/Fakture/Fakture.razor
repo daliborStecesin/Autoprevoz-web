@@ -13,6 +13,7 @@
 @inject IDialogService          Dialog
 @inject ISnackbar               Snackbar
 @inject IKarticaService         KarticaServis
+@inject ILogBrisanjaService     LogServis
 
 <PageTitle>Računi — Autoprevoz</PageTitle>
 
@@ -423,7 +424,16 @@
                 return;
             }
 
-            entitet.brisano = 1;
+            var valuta = entitet.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+            await LogServis.Zabelezi("RACUNI",
+                $"Brisan račun {entitet.BrojRacuna}, vrednost {(entitet.SumaRacuna ?? 0):N2} {valuta}");
+
+            var stavke = await Db.ArtikliRacuna
+                .Where(s => s.Id_Racuna == entitet.Broj.ToString())
+                .ToListAsync();
+            Db.ArtikliRacuna.RemoveRange(stavke);
+
+            Db.Racuni.Remove(entitet);
             await Db.SaveChangesAsync();
             _selektovani = null;
             Snackbar.Add("Račun obrisan.", Severity.Success);
