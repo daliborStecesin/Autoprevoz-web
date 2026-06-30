@@ -156,6 +156,19 @@ else
                            OnClick="ObrisiUplatu">
                     Obriši uplatu
                 </MudButton>
+
+                <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" StartIcon="@Icons.Material.Filled.CheckCircle"
+                           Disabled="@(!(_selectedRed is not null && _racunStatusi.Contains(_selectedRed.Status) && (_selectedRed.Preostalo ?? 0) > 0))"
+                           OnClick="OznaciPlaceno">
+                    Označi plaćeno
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.MoneyOff"
+                           Disabled="@(!(_selectedRed is not null && _racunStatusi.Contains(_selectedRed.Status) && (_selectedRed.Izmiren ?? "") == "DA" && (_selectedRed.Preostalo ?? 0) <= 0))"
+                           OnClick="OznaciNeplaceno">
+                    Označi neplaćeno
+                </MudButton>
             </div>
 
             <MudDataGrid T="KarticaPartnera" Items="_detaljRedovi" Dense="true" Hover="true" Striped="true"
@@ -571,6 +584,96 @@ else
             await Db.SaveChangesAsync();
 
             Snackbar.Add("Uplata odvezana, vraćena u neraspoređeno.", Severity.Success);
+
+            _selectedRed = null;
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+    }
+
+    private async Task OznaciPlaceno()
+    {
+        if (_selectedRed is null || !_racunStatusi.Contains(_selectedRed.Status)) return;
+
+        var preostalo = _selectedRed.Preostalo ?? 0;
+        var valuta    = JeIno(_selectedRed) ? "EUR" : "RSD";
+
+        var ok = await Dialog.ShowMessageBox(
+            "Označi plaćeno",
+            $"Označavanjem računa kao plaćenog, saldo partnera se umanjuje za {preostalo:N2} {valuta}. " +
+            "Račun NIJE naplaćen kroz uplatu. Nastaviti?",
+            yesText: "Da, označi plaćeno", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        try
+        {
+            var racun = await Db.Kartice.FindAsync(_selectedRed.Id);
+            if (racun is null) return;
+
+            await LogServis.Zabelezi("KARTICE",
+                $"Račun {racun.BrojRacuna} ručno označen PLAĆEN, iznos {preostalo:N2} {valuta}, partner {racun.NazivPartnera}");
+
+            racun.Uplata  = racun.Dug ?? 0;
+            racun.Izmiren = "DA";
+            racun.Saldo   = 0;
+
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Račun označen kao plaćen.", Severity.Success);
+
+            _selectedRed = null;
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+    }
+
+    private async Task OznaciNeplaceno()
+    {
+        if (_selectedRed is null || !_racunStatusi.Contains(_selectedRed.Status)) return;
+
+        var imaVezaneUplate = await Db.Kartice
+            .AnyAsync(k => k.IdRacuna == _selectedRed.IdRacuna && _platniStatusi.Contains(k.Status));
+
+        if (imaVezaneUplate)
+        {
+            Snackbar.Add("Račun ima vezane uplate, koristite Odveži.", Severity.Warning);
+            return;
+        }
+
+        var dug    = _selectedRed.Dug ?? 0;
+        var valuta = JeIno(_selectedRed) ? "EUR" : "RSD";
+
+        var ok = await Dialog.ShowMessageBox(
+            "Označi neplaćeno",
+            $"Račun {_selectedRed.BrojRacuna} će biti vraćen na NEPLAĆEN, saldo partnera se uvećava za {dug:N2} {valuta}. Nastaviti?",
+            yesText: "Da, označi neplaćeno", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        try
+        {
+            var racun = await Db.Kartice.FindAsync(_selectedRed.Id);
+            if (racun is null) return;
+
+            await LogServis.Zabelezi("KARTICE",
+                $"Račun {racun.BrojRacuna} vraćen na NEPLAĆEN, iznos {dug:N2} {valuta}, partner {racun.NazivPartnera}");
+
+            racun.Uplata  = 0;
+            racun.Izmiren = "NE";
+            racun.Saldo   = dug;
+
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Račun vraćen na neplaćeno.", Severity.Success);
 
             _selectedRed = null;
             await Izlistaj();
