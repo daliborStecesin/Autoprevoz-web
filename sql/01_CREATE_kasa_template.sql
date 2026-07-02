@@ -1882,6 +1882,56 @@ CREATE TABLE [dbo].[tbl_Kartica](
 GO
 SET ANSI_PADDING OFF
 GO
+/****** Object:  Table [dbo].[tbl_KarticaNova] ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[tbl_KarticaNova](
+	[Id]              [int] IDENTITY(1,1) NOT NULL,
+	[idPartnera]      [int] NULL,
+	[PIB]             [varchar](20) NULL,
+	[nazivPartnera]   [varchar](150) NULL,
+	[partnerUloga]    [varchar](15) NOT NULL,
+	[tipDokumenta]    [varchar](25) NOT NULL,
+	[brojDokumenta]   [varchar](50) NULL,
+	[idRacun]         [int] NULL,
+	[duguje]          [decimal](18,2) NOT NULL DEFAULT ((0)),
+	[potrazuje]       [decimal](18,2) NOT NULL DEFAULT ((0)),
+	[saldo]           [decimal](18,2) NOT NULL DEFAULT ((0)),
+	[preostalo]       [decimal](18,2) NOT NULL DEFAULT ((0)),
+	[izmiren]         [bit] NOT NULL DEFAULT ((0)),
+	[valuta]          [varchar](3) NOT NULL DEFAULT ('RSD'),
+	[datumDokumenta]  [date] NULL,
+	[datumPrometa]    [date] NULL,
+	[datumValute]     [date] NULL,
+	[idStavkeVeza]    [int] NULL,
+	[kurs]            [decimal](18,4) NULL,
+	[izvod]           [varchar](50) NULL,
+	[opis]            [varchar](255) NULL,
+	[uneo]            [int] NULL,
+	[datumUnosa]      [datetime] NULL,
+	[izmenio]         [int] NULL,
+	[datumIzmene]     [datetime] NULL,
+ CONSTRAINT [PK_tbl_KarticaNova] PRIMARY KEY CLUSTERED
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+CREATE NONCLUSTERED INDEX [IX_KarticaNova_PIB] ON [dbo].[tbl_KarticaNova] ([PIB] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [IX_KarticaNova_idPartnera] ON [dbo].[tbl_KarticaNova] ([idPartnera] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [IX_KarticaNova_idRacun] ON [dbo].[tbl_KarticaNova] ([idRacun] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [IX_KarticaNova_ulogaValuta] ON [dbo].[tbl_KarticaNova] ([partnerUloga] ASC, [valuta] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
 /****** Object:  Table [dbo].[tbl_log_brisanja]    Script Date: 8.6.2026. 22:52:59 ******/
 SET ANSI_NULLS ON
 GO
@@ -2686,7 +2736,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((208)),
+	[verzijaBaze] [int] NULL DEFAULT ((209)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,

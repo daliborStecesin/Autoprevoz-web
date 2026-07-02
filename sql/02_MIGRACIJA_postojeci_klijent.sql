@@ -1534,12 +1534,73 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
+-- ================================================================
+IF OBJECT_ID('dbo.tbl_KarticaNova', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[tbl_KarticaNova](
+        [Id]              [int] IDENTITY(1,1) NOT NULL,
+        [idPartnera]      [int] NULL,
+        [PIB]             [varchar](20) NULL,
+        [nazivPartnera]   [varchar](150) NULL,
+        [partnerUloga]    [varchar](15) NOT NULL,
+        [tipDokumenta]    [varchar](25) NOT NULL,
+        [brojDokumenta]   [varchar](50) NULL,
+        [idRacun]         [int] NULL,
+        [duguje]          [decimal](18,2) NOT NULL DEFAULT ((0)),
+        [potrazuje]       [decimal](18,2) NOT NULL DEFAULT ((0)),
+        [saldo]           [decimal](18,2) NOT NULL DEFAULT ((0)),
+        [preostalo]       [decimal](18,2) NOT NULL DEFAULT ((0)),
+        [izmiren]         [bit] NOT NULL DEFAULT ((0)),
+        [valuta]          [varchar](3) NOT NULL DEFAULT ('RSD'),
+        [datumDokumenta]  [date] NULL,
+        [datumPrometa]    [date] NULL,
+        [datumValute]     [date] NULL,
+        [idStavkeVeza]    [int] NULL,
+        [kurs]            [decimal](18,4) NULL,
+        [izvod]           [varchar](50) NULL,
+        [opis]            [varchar](255) NULL,
+        [uneo]            [int] NULL,
+        [datumUnosa]      [datetime] NULL,
+        [izmenio]         [int] NULL,
+        [datumIzmene]     [datetime] NULL,
+     CONSTRAINT [PK_tbl_KarticaNova] PRIMARY KEY CLUSTERED ([Id] ASC)
+     WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF,
+           ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+    ) ON [PRIMARY];
+    PRINT 'Kreirana tabela tbl_KarticaNova.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KarticaNova_PIB' AND object_id = OBJECT_ID('dbo.tbl_KarticaNova'))
+    CREATE NONCLUSTERED INDEX [IX_KarticaNova_PIB] ON [dbo].[tbl_KarticaNova] ([PIB] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KarticaNova_idPartnera' AND object_id = OBJECT_ID('dbo.tbl_KarticaNova'))
+    CREATE NONCLUSTERED INDEX [IX_KarticaNova_idPartnera] ON [dbo].[tbl_KarticaNova] ([idPartnera] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KarticaNova_idRacun' AND object_id = OBJECT_ID('dbo.tbl_KarticaNova'))
+    CREATE NONCLUSTERED INDEX [IX_KarticaNova_idRacun] ON [dbo].[tbl_KarticaNova] ([idRacun] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KarticaNova_ulogaValuta' AND object_id = OBJECT_ID('dbo.tbl_KarticaNova'))
+    CREATE NONCLUSTERED INDEX [IX_KarticaNova_ulogaValuta] ON [dbo].[tbl_KarticaNova] ([partnerUloga] ASC, [valuta] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
+-- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 208;
-    PRINT 'Verzija baze postavljena na 208 (Blazor migracija).';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 209;
+    PRINT 'Verzija baze postavljena na 209.';
 END
 GO
 

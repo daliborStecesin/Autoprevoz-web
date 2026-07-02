@@ -56,6 +56,7 @@ public class TransportDbContext : DbContext
     public DbSet<Partner>      Partneri      { get; set; }
     public DbSet<PartnerRacun> PartnerRacuni { get; set; }
     public DbSet<KarticaPartnera> Kartice    { get; set; }
+    public DbSet<KarticaNova>     KarticeNova { get; set; }
 
     // Centralni log brisanja — ko/kad/forma/opis, samo INSERT, nikad se ne menja/briše
     public DbSet<LogBrisanja> LogoviBrisanja { get; set; }

@@ -1,10 +1,10 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Jun 2026 — verzija baze 207*
+*Poslednje ažuriranje: Jul 2026 — verzija baze 209*
 
 Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
-Rewrite WinForms aplikacije. ~200 klijenata. Multi-tenant: master `daksoft` + klijentske baze.
+Rewrite WinForms aplikacije. Multi-tenant: master `daksoft` + klijentske baze.
 Vlasnik: DAK-SOFT (Dalibor Stečešin).
-*Tehnička pravila, mapiranja, migracije → vidi CLAUDE.md (merodavan).*
+*Tehnička pravila, mapiranja → vidi CLAUDE.md.*
 
 ---
 
@@ -14,7 +14,7 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 - Infrastruktura, Login, Multi-tenant, Dashboard
 - NBS Kurs servis + IKursService (po datumu, fallback, strane firme) + Kursna lista
 - Multi-korisnik (registracija/login/aktivacija/kaskada), Audit (automatski)
-- BrojDokumentaService, SEF osnova (ISefService/SefApiClient)
+- BrojDokumentaService, SEF osnova, Centralni log brisanja (tbl_log_brisanja v208)
 
 ### Moduli (osnova)
 - Partneri + NBS SOAP + žiro računi, Zaposleni + registracija korisnika
@@ -28,99 +28,126 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 - Kilometraža panel, Agencijska tura svedena, NativniSelect/NativniInput
 
 ### Fakturisanje (završeno)
-- Lista/arhiva (/fakture): filteri, soft delete, sort DatumRacuna+Broj DESC
+- Lista/arhiva (/fakture): filteri, sort DatumRacuna+Broj DESC
 - Detaljna statistika: padajući filteri, Excel, štampa, dom/ino zbirovi
 - Unos računa: glava+stavke (dialog), EUR/RSD konverzija, rabat %, PDV po tipu, broj na Save, edit
 - Tipovi IZLAZ/IZLAZ_BP/INOSTRANI, napomene po tip×uvozIzvoz, izbor banke (idBanke)
 - Štampa 3 varijante: domaća RSD srpski / EUR srpski (+kurs/RSD) / EUR engleski (+OpcijaText1/2)
 
-### Finansije / Kartice (završeno — testirano kroz pun ciklus)
-- Dužnici/dugovanja: 2 taba, dom RSD + ino EUR, grupisanje po PIB (fallback Id_Partnera), štampa spiska
-- Kartica partnera: kontekstualna po tabu, datumski/tip/izmiren filteri, POČETNO (saldo do perioda)
-- Unos finansija: UPLATA/ISPLATA (RSD/EUR) + POČETNO STANJE (ručno zaduženje, Id_Racuna="PS"+PK)
-- KarticaService (zamenio SQL trigger — SKINUT, v207): upsert/obriši iz računa, u transakciji
-- Vezivanje uplate: Preostalo (calc), Izmiren auto, delimično, više uplata
-- Preplata → cepanje (vezani deo + NERASPOREDJENO, narandžasto), vezivanje neraspoređene
-- Odveži uplatu (vs Obriši), blokada brisanja računa sa uplatama
-- Razdvojene valute (RSD/EUR nikad zajedno), van valute (dospeli neplaćeni), kolona VEZA, zaštita od duplog Save
+### STARE Finansije/Kartice (tbl_Kartica — zadržane kao read-only istorija)
+- Dužnici/dugovanja, kartica partnera, unos finansija, vezivanje, van valute — SVE na staroj tabeli
+- Ostaju u meniju kao "Kartice (staro)" / "Dužnici (staro)" za kontrolu/referencu starih klijenata
+- BIĆE UKLONJENE kad se novi model potvrdi u produkciji
 
 ---
 
-## 🎯 TRENUTNO RADIMO / SLEDEĆE
+## 🆕 NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — U TOKU
 
-### Kartice — preostalo (zaokružiti)
-- [ ] **Migracija 200 starih**: Izmiren=DA → Uplata=Dug → Preostalo=0; NE → Preostalo=Dug. Tek tada van valute tačan kod postojećih. + ekran ručnog usklađivanja.
-- [ ] **Štampa kartice + IOS**: uplate grupisane po datumu/izvodu (kolona VEZA), IOS = otvorene stavke (Preostalo>0)
-- [ ] **Knjižna odobrenja/zaduženja**: 4 tipa (izlazna+ulazna), znaci po matrici, bez dokumenta
+**Strateška odluka:** umesto migracije starih podataka (koja je lomila desktop — desktop
+računa Preostalo kao SUM(Saldo) uživo i filtrira Preostalo<>0, pa diranje Uplata razbija saldo),
+napravljena je POTPUNO NOVA tabela za superiorni model. Stari klijenti ostaju na staroj
+kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
+Ko želi prelazak: ručni unos početnog stanja (kasnije eventualno dugme za kopiranje otvorenih).
+
+**Dizajn tbl_KarticaNova (knjigovodstveni pristup):**
+- Duguje / Potrazuje / Saldo (Saldo = Duguje - Potrazuje, sa znakom) — pravo knjigovodstvo
+- preostalo = PRAVA kolona (NE computed — stara computed nas je zeznula)
+- partnerUloga (KUPAC/DOBAVLJAC) umesto starih 8 statusa
+- tipDokumenta (RACUN/UPLATA/ISPLATA/KNJIZNO_ODOBRENJE/KNJIZNO_ZADUZENJE/POCETNO)
+- valuta kao KOLONA (RSD/EUR/BAM/DEN/HRK...) — ne kao status
+- 3 datuma: datumDokumenta / datumPrometa / datumValute (dospeće)
+- idRacun (veza na tbl_racuni) + idStavkeVeza (uplata -> koju stavku zatvara)
+- Grupisanje po PIB od početka, bez duplih firmi
+- Fizičko brisanje + log (bez kolone brisano)
+
+**Matrica upisa (potvrđena računovodstveno):**
+- RACUN kupac -> duguje, saldo +   | UPLATA kupac -> potrazuje, saldo -
+- RACUN dobavljač -> potrazuje, saldo -   | ISPLATA dobavljač -> duguje, saldo +
+- KNJIZNO_ODOBRENJE kupcu -> potrazuje (-)   | KNJIZNO_ZADUZENJE kupcu -> duguje (+)
+- POCETNO po ulozi
+
+**Van valute (NOVI, precizni stavka-model):**
+  van valute = SUM(preostalo) zaduženja gde (tipDokumenta zaduženje + datumValute<danas + preostalo>0)
+  Nevezana uplata NE umanjuje van valute (rešava 5 žalbi iz desktopa — pokazuje pun dospeli dug).
+  Vezana uplata umanjuje preostalo zaduženja -> van valute automatski tačan.
+
+### ✅ Gotovo (novi model)
+- [x] tbl_KarticaNova (CREATE + oba SQL fajla, v209) + entitet + DbSet
+- [x] KarticaNovaService (matrica ApplyMatrix, DodajStavku, UpisiIzRacuna, ObrisiIzRacuna, SaldoPartnera)
+- [x] Upis iz računa (paralelno sa starom tabelom, atomično, kurs za EUR)
+- [x] Unos finansija prebačen na novi model (UPLATA/ISPLATA/POCETNO, 4 salda panel)
+- [x] Ekran Kartica nova (/finansije/kartica-nova): filteri, boje, kontekstualna dugmad, saldo panel, van valute
+- [x] Ekran Dužnici novi (/finansije/duznici-novi): 2 taba, po valuti, van valute stavka-model
+- [x] Označi plaćeno/neplaćeno na novom modelu
+- [x] Vezivanje uplate + cepanje (idStavkeVeza, U-vs-P, NERASPOREDJENO ostatak) — TESTIRANO
+
+### 🎯 Sledeće (novi model)
+- [ ] Kolona VEZA na novoj kartici (koje zaduženje uplata zatvara — preko idStavkeVeza)
+- [ ] Odveži uplatu (vrati u NERASPOREDJENO) na novom modelu
+- [ ] Meni: dodati nove (Kartice/Dužnici) + preimenovati stare u "(staro)"
+- [ ] Redirect posle unosa finansija -> nova kartica (bio bug: vodio na staru)
+- [ ] Detaljni testovi (svi scenariji: preplata, više uplata, odveži, ino EUR)
+- [ ] Štampa kartice + IOS (nova) — uplate grupisane, kolona VEZA, IOS otvorene stavke
+- [ ] Knjižna odobrenja/zaduženja (matrica već u servisu — treba UI + unos)
+- [ ] Podešavanje "rad sa više moneta" (isključi -> sakrij stranu/ino polovinu)
+
+---
+
+## 📋 PREOSTALO (ostali moduli)
 
 ### Zaostalo (zakonsko)
-- [ ] **Dnevnice — kurs na DAN POVRATKA** (poslednji datum putovanja). Jedino po zakonu. Mesta: sidebar dnevnica na turi, "Dodaj dnevnice vozaču", "Dodaj u troškove ture", modul Dnevnice.
-
-### Predračuni
-- [ ] Predračuni dom+ino (pattern fakture, lakši — bez ture/vozila)
-
----
-
-## 📋 PREOSTALO
+- [ ] Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja). Mesta: sidebar dnevnica, "Dodaj dnevnice vozaču", "Dodaj u troškove ture", modul Dnevnice.
 
 ### Transport (dovršiti)
-- [ ] Statistika tura — POSTOJI, NIJE TESTIRANA
-- [ ] Statistika naloga — POSTOJI, NIJE TESTIRANA
+- [ ] Statistika tura / naloga — POSTOJI, NIJE TESTIRANA
 - [ ] CMR dokumenti — nije započeto
 
+### Predračuni
+- [ ] Predračuni dom+ino (pattern fakture, lakši)
+
 ### Laki moduli (nije započeto)
-- [ ] Gorivo (`/gorivo`) — točenje, potrošnja po vozilu/turi
-- [ ] Servisi / Održavanje (`/servisi`) — evidencija, podsetnici
+- [ ] Gorivo, Servisi/Održavanje
 
 ### Skenirani dokumenti
-- [ ] Upload (PDF/JPG), vezivanje za nalog/vozača/vozilo/partnera/firmu
-- [ ] Čuvanje: baza (varbinary) vs server (path) vs cloud — odlučiti (baza raste)
-- [ ] Pregled/download, zaseban modul po firmi
+- [ ] Upload (PDF/JPG), vezivanje, čuvanje (baza/server/cloud — odlučiti)
 
-### Audit GAP (iz CLAUDE.md — dodati IAuditable kad se radi)
-- [ ] GotovinskiRacun, Otpremnica, Ponuda, Artikal, ObavestenjePP, VatDeductionRecord
-- [ ] Partner: DatumUnosa/DatumIzmene su [NotMapped] — dodati kolone ako zatreba
+### Admin ekrani
+- [ ] Pregled loga brisanja (tbl_log_brisanja — read-only)
+- [ ] Arhiva/reaktivacija (soft-obrisani partneri/vozači/vozila -> vrati aktivne)
 
-### Privilegije (odloženo — za sad svi Admin)
-- [ ] tbl_role + tbl_role_moduli (mozeCitati/Unositi/Menjati/Brisati)
+### Privilegije (odloženo — svi Admin)
+- [ ] tbl_role + tbl_role_moduli
 
 ### E-fakture (na kraju)
-- [ ] Slanje na SEF, praćenje statusa, PDV evidencija, EPP (CSV), prethodni PDV
+- [ ] Slanje na SEF, statusi, PDV evidencija, EPP (CSV); ulazne fakture -> auto upis u karticu
 
 ---
 
 ## 🚀 STRATEŠKE FAZE (posle stabilnog transporta + prvih klijenata)
 
 ### FAZA 8 — Self-Service Onboarding
-- [ ] Landing → registracija (email/lozinka/zemlja/PIB), NBS povlačenje podataka
-- [ ] ProvisioningService: baza = prefiks zemlje + PIB (rs111784317), INSERT licence/korisnik, seed
-- [ ] CREATE DATABASE dozvola, idempotentan seed (migracija_full.sql)
-- [ ] Demo → plaćeni: reset baze, migracija na localhost, cloud kao premium
+- [ ] Landing → registracija (email/lozinka/zemlja/PIB), NBS povlačenje
+- [ ] ProvisioningService: baza = prefiks zemlje + PIB, INSERT licence/korisnik, seed
+- [ ] Demo → plaćeni: reset, migracija na localhost, cloud premium
 
 ### ADMIN PANEL — DAK-SOFT super-admin
-- [ ] Zaštićena ruta, samo super-admin (flag master baza)
-- [ ] Licence: lista/status/istek/produženje, ConnectionString, moduli po licenci
-- [ ] Klijenti: pregled firmi, poslednja aktivnost, statistika
+- [ ] Licence (status/istek/produženje/ConnectionString/moduli), klijenti (pregled/aktivnost)
 - [ ] Ručni onboarding (CREATE DB + seed), reset, migracija
 
 ### FAZA 9 — Licenciranje (mesečna naplata)
-- [ ] Datum licence u master tbl_licence, keširanje lokalno
-- [ ] Prozor za licenciranje + mesečno produženje uz fakturu
+- [ ] Datum licence u master, keširanje lokalno, produženje uz fakturu
 
 ### FAZA 10 — Modularnost + Lager modul
-- [ ] Lager (artikli, stanje), kalkulacije, ulaz/izlaz — deljenje koda sa softverom za trgovinu
-- [ ] Pali/gasi modul po licenci (tbl_moduli), jedna baza koda za transport/trgovinu/oba
-- [ ] NAPOMENA: "Iz Šifarnika" autocomplete u stavkama fakture čeka Lager (tbl_lager) — TODO veza
+- [ ] Lager/kalkulacije/ulaz-izlaz, deljenje koda sa softverom za trgovinu
+- [ ] Pali/gasi modul po licenci (tbl_moduli)
+- [ ] "Iz Šifarnika" autocomplete u stavkama fakture čeka Lager (tbl_lager)
 
 ---
 
-## ⚠️ KLJUČNO ZA KARTICE (najnovije naučeno)
-- **Kartice = KarticaService, NE trigger** (skinuti v207 — pravili prazne NULL redove u Blazoru)
-- **Grupisanje po PIB** (fallback Id_Partnera ako prazan) — rešava dvojnike
-- **RSD i EUR se NIKAD ne sabiraju** u isti saldo
-- **TipRacuna u tbl_banka = 'DOMACI' bez Ć** (normalizovano v205)
-- **Preostalo je calculated** (Dug-Uplata) — otvoreno = Preostalo na RAČUNU, ignoriše se na uplatama
-- **Poziv na broj ima prednost** pri zatvaranju; van valute = dospeli neplaćeni nezavisno od plaćenih nedospelih
-- **POČETNO STANJE**: Id_Racuna = "PS"+PK (da se ne pomeša sa pravim računima), zatvorivo kao račun
-
-### Verzija baze: 207 (vidi CLAUDE.md za pun spisak 201-207)
+## ⚠️ KLJUČNO NAUČENO
+- **NOVI model = tbl_KarticaNova** (Duguje/Potrazuje/Saldo, valuta kolona, preostalo prava kolona). Stari = tbl_Kartica (read-only istorija).
+- **Zašto nema migracije starih podataka:** desktop računa Preostalo kao SUM(Saldo) uživo + filtrira fizičku kolonu Preostalo<>0. Diranje Uplata (Uplata=Dug) postavlja Preostalo=0 -> desktop filter izbacuje te redove -> saldo razbijen. ZATO nova tabela umesto migracije.
+- **Van valute novi = stavka-bazirano** (SUM preostalo dospelih otvorenih zaduženja). Nevezana uplata ne umanjuje. Precizniji od desktop saldo-modela.
+- **Vezivanje preko idStavkeVeza** (int, pokazuje na Id stavke), ne preko broja računa. Radi za račune, početno, knjižna.
+- **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
+- Verzija baze: 209 (208=tbl_log_brisanja, 209=tbl_KarticaNova). Vidi CLAUDE.md.

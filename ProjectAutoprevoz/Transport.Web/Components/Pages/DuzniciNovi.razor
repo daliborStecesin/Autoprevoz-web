@@ -1,16 +1,16 @@
-@page "/finansije/duznici"
+@page "/finansije/duznici-novi"
 @rendermode InteractiveServer
 
 @using Microsoft.EntityFrameworkCore
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService      TenantService
-@inject NavigationManager   Nav
-@inject TransportDbContext  Db
-@inject IJSRuntime          JS
+@inject ITenantService    TenantService
+@inject NavigationManager Nav
+@inject TransportDbContext Db
+@inject IJSRuntime        JS
 
-<PageTitle>Dužnici i dugovanja — Autoprevoz</PageTitle>
+<PageTitle>Dužnici i dugovanja (novi) — Autoprevoz</PageTitle>
 
 <MudText Typo="Typo.h5" Class="mb-3">
     <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" />
@@ -34,19 +34,23 @@ else
 {
     <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="false">
 
-        @* ── TAB 1: DUŽNICI ─────────────────────────────── *@
-        <MudTabPanel Text="Dužnici (izlazni)" Icon="@Icons.Material.Filled.TrendingUp">
+        @* ── TAB 1: DUŽNICI (kupci) ─────────────────────── *@
+        <MudTabPanel Text="Dužnici (kupci)" Icon="@Icons.Material.Filled.TrendingUp">
             <MudGrid Spacing="2" Class="mt-2">
+
+                @* ── DOM (RSD) ── *@
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
-                        Dugovanja: <strong>@_duzniciDomUk.ToString("N2") RSD</strong>
-                        &nbsp;|&nbsp; Van valute: <strong>@_duzniciDomVV.ToString("N2") RSD</strong>
+                        Dugovanja:
+                        <strong>@SumaKupciRsd.ToString("N2") RSD</strong>
+                        &nbsp;|&nbsp; Van valute:
+                        <strong>@_duzniciDomVV.ToString("N2") RSD</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDuzniciDom is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDuzniciDom!.Pib, "izlaz_domaci"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDuzniciDom!, "KUPAC", "RSD"))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -61,27 +65,37 @@ else
                         <Columns>
                             <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
                             <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.Saldo < 0 ? "color:#B71C1C;" : "")">
+                                        @context.Item.Saldo.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.VanValute > 0 ? "color:#E65100;" : "")">
+                                        @context.Item.VanValute.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                         </Columns>
-                        <PagerContent>
-                            <MudDataGridPager T="PartnerSaldo" />
-                        </PagerContent>
+                        <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+
+                @* ── INO (EUR) ── *@
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
-                        Dugovanja INO: <strong>@_duzniciInoUk.ToString("N2") EUR</strong>
-                        &nbsp;|&nbsp; Van valute: <strong>@_duzniciInoVV.ToString("N2") EUR</strong>
+                        Dugovanja INO:
+                        <strong>@SumaKupciEur.ToString("N2") EUR</strong>
+                        &nbsp;|&nbsp; Van valute:
+                        <strong>@_duzniciInoVV.ToString("N2") EUR</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDuzniciIno is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDuzniciIno!.Pib, "izlaz_ino"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDuzniciIno!, "KUPAC", "EUR"))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -96,33 +110,44 @@ else
                         <Columns>
                             <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
                             <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.Saldo < 0 ? "color:#B71C1C;" : "")">
+                                        @context.Item.Saldo.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.VanValute > 0 ? "color:#E65100;" : "")">
+                                        @context.Item.VanValute.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                         </Columns>
-                        <PagerContent>
-                            <MudDataGridPager T="PartnerSaldo" />
-                        </PagerContent>
+                        <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+
             </MudGrid>
         </MudTabPanel>
 
-        @* ── TAB 2: DUGOVANJA ───────────────────────────── *@
-        <MudTabPanel Text="Dugovanja (ulazni)" Icon="@Icons.Material.Filled.TrendingDown">
+        @* ── TAB 2: DUGOVANJA (dobavljači) ──────────────── *@
+        <MudTabPanel Text="Dugovanja (dobavljači)" Icon="@Icons.Material.Filled.TrendingDown">
             <MudGrid Spacing="2" Class="mt-2">
+
+                @* ── DOM (RSD) ── *@
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
-                        Obaveze: <strong>@_dugovanjaDomUk.ToString("N2") RSD</strong>
-                        &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaDomVV.ToString("N2") RSD</strong>
+                        Obaveze:
+                        <strong>@SumaDobavljacRsd.ToString("N2") RSD</strong>
+                        &nbsp;|&nbsp; Van valute:
+                        <strong>@_dugovanjaDomVV.ToString("N2") RSD</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDugovanjaDom is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaDom!.Pib, "ulaz_domaci"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaDom!, "DOBAVLJAC", "RSD"))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -137,27 +162,37 @@ else
                         <Columns>
                             <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
                             <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right;">
+                                        @context.Item.Saldo.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.VanValute > 0 ? "color:#E65100;" : "")">
+                                        @context.Item.VanValute.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                         </Columns>
-                        <PagerContent>
-                            <MudDataGridPager T="PartnerSaldo" />
-                        </PagerContent>
+                        <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+
+                @* ── INO (EUR) ── *@
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
-                        Obaveze INO: <strong>@_dugovanjaInoUk.ToString("N2") EUR</strong>
-                        &nbsp;|&nbsp; Van valute: <strong>@_dugovanjaInoVV.ToString("N2") EUR</strong>
+                        Obaveze INO:
+                        <strong>@SumaDobavljacEur.ToString("N2") EUR</strong>
+                        &nbsp;|&nbsp; Van valute:
+                        <strong>@_dugovanjaInoVV.ToString("N2") EUR</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDugovanjaIno is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaIno!.Pib, "ulaz_ino"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaIno!, "DOBAVLJAC", "EUR"))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -172,17 +207,24 @@ else
                         <Columns>
                             <PropertyColumn Property="x => x.Naziv" Title="Naziv partnera" />
                             <TemplateColumn Title="Preostalo" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.Saldo.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right;">
+                                        @context.Item.Saldo.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                             <TemplateColumn Title="Van valute" HeaderStyle="text-align:right;">
-                                <CellTemplate><span style="display:block; text-align:right;">@context.Item.VanValute.ToString("N2")</span></CellTemplate>
+                                <CellTemplate>
+                                    <span style="display:block; text-align:right; @(context.Item.VanValute > 0 ? "color:#E65100;" : "")">
+                                        @context.Item.VanValute.ToString("N2")
+                                    </span>
+                                </CellTemplate>
                             </TemplateColumn>
                         </Columns>
-                        <PagerContent>
-                            <MudDataGridPager T="PartnerSaldo" />
-                        </PagerContent>
+                        <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+
             </MudGrid>
         </MudTabPanel>
 
@@ -192,43 +234,49 @@ else
 @code {
     private class PartnerSaldo
     {
-        public string Pib { get; set; } = "";
-        public string Naziv { get; set; } = "";
-        public decimal Saldo { get; set; }
-        public decimal VanValute { get; set; }
+        public string  Kljuc      { get; set; } = "";
+        public int?    IdPartnera { get; set; }
+        public string  Naziv      { get; set; } = "";
+        public decimal Saldo      { get; set; }   // SUM(k.Saldo) per group — neto saldo partnera
+        public decimal VanValute  { get; set; }   // SUM(k.Preostalo) dospelih otvorenih zaduženja
     }
 
-    private List<KarticaPartnera> _sve = [];
-    private Dictionary<string, string> _nazivPoKljucu = [];
+    // tipDokumenta koji otvaraju obavezu (zaduženja) — jedino ovi ulaze u van-valute logiku
+    private static readonly string[] ZaduzenjaTip = ["RACUN", "KNJIZNO_ZADUZENJE", "POCETNO"];
+
+    private List<KarticaNova> _sve = [];
 
     private List<PartnerSaldo> _duzniciDomSve   = [];
     private List<PartnerSaldo> _duzniciInoSve   = [];
     private List<PartnerSaldo> _dugovanjaDomSve = [];
     private List<PartnerSaldo> _dugovanjaInoSve = [];
 
-    private List<PartnerSaldo> _duzniciDom    = [];
-    private List<PartnerSaldo> _duzniciIno    = [];
-    private List<PartnerSaldo> _dugovanjaDom  = [];
-    private List<PartnerSaldo> _dugovanjaIno  = [];
+    private List<PartnerSaldo> _duzniciDom   = [];
+    private List<PartnerSaldo> _duzniciIno   = [];
+    private List<PartnerSaldo> _dugovanjaDom = [];
+    private List<PartnerSaldo> _dugovanjaIno = [];
 
-    private decimal _duzniciDomUk, _duzniciDomVV;
-    private decimal _duzniciInoUk, _duzniciInoVV;
-    private decimal _dugovanjaDomUk, _dugovanjaDomVV;
-    private decimal _dugovanjaInoUk, _dugovanjaInoVV;
+    // Van-valute sume po podgrupi (ne ukupno — ukupno se računaju u Filtriraj)
+    private decimal _duzniciDomVV, _duzniciInoVV;
+    private decimal _dugovanjaDomVV, _dugovanjaInoVV;
+
+    // Sume preostalog (samo pravi dužnici / obaveze, bez pretplaćenih)
+    private decimal SumaKupciRsd     => _duzniciDom.Where(p => p.Saldo > 0).Sum(p => p.Saldo);
+    private decimal SumaKupciEur     => _duzniciIno.Where(p => p.Saldo > 0).Sum(p => p.Saldo);
+    private decimal SumaDobavljacRsd => _dugovanjaDom.Where(p => p.Saldo < 0).Sum(p => p.Saldo);
+    private decimal SumaDobavljacEur => _dugovanjaIno.Where(p => p.Saldo < 0).Sum(p => p.Saldo);
 
     private string _pretragaNaziv = "";
-    private bool _ucitava;
+    private bool   _ucitava;
 
-    // ── Selekcija reda (highlight, dugme "Prikaži karticu") ──
     private PartnerSaldo? _selDuzniciDom;
     private PartnerSaldo? _selDuzniciIno;
     private PartnerSaldo? _selDugovanjaDom;
     private PartnerSaldo? _selDugovanjaIno;
 
-    // Ključ grupisanja: PIB_Partnera ako postoji, inače fallback na Id_Partnera
-    // (da redovi bez PIB-a ne ispadnu iz grupisanja i ne spoje se međusobno).
-    private static string GrupniKljuc(KarticaPartnera k) =>
-        !string.IsNullOrWhiteSpace(k.PibPartnera) ? k.PibPartnera! : $"ID:{k.IdPartnera}";
+    // Ključ grupisanja: PIB ako postoji, inače "ID:{IdPartnera}"
+    private static string GrupniKljuc(KarticaNova k) =>
+        !string.IsNullOrWhiteSpace(k.PIB) ? k.PIB! : $"ID:{k.IdPartnera}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -241,17 +289,12 @@ else
         _ucitava = true; StateHasChanged();
         try
         {
-            // Sve kartice (poštuje globalni filter brisano==0) — trenutno stanje, bez datuma
-            _sve = await Db.Kartice.AsNoTracking().ToListAsync();
+            _sve = await Db.KarticeNova.AsNoTracking().ToListAsync();
 
-            _nazivPoKljucu = _sve
-                .GroupBy(GrupniKljuc)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().NazivPartnera ?? "");
-
-            _duzniciDomSve   = GrupisiSaldo(_sve, ["IZLAZ", "UPLATA"], "IZLAZ").OrderByDescending(p => p.Saldo).ToList();
-            _duzniciInoSve   = GrupisiSaldo(_sve, ["INOSTRANI", "INO_UPLATA"], "INOSTRANI").OrderByDescending(p => p.Saldo).ToList();
-            _dugovanjaDomSve = GrupisiSaldo(_sve, ["ULAZ", "ISPLATA"], "ULAZ").OrderBy(p => p.Saldo).ToList();
-            _dugovanjaInoSve = GrupisiSaldo(_sve, ["INO_ULAZ", "INO_ISPLATA"], "INO_ULAZ").OrderBy(p => p.Saldo).ToList();
+            _duzniciDomSve   = GrupisiSaldo(_sve, "KUPAC",     "RSD").OrderByDescending(p => p.Saldo).ToList();
+            _duzniciInoSve   = GrupisiSaldo(_sve, "KUPAC",     "EUR").OrderByDescending(p => p.Saldo).ToList();
+            _dugovanjaDomSve = GrupisiSaldo(_sve, "DOBAVLJAC", "RSD").OrderBy(p => p.Saldo).ToList();
+            _dugovanjaInoSve = GrupisiSaldo(_sve, "DOBAVLJAC", "EUR").OrderBy(p => p.Saldo).ToList();
 
             Filtriraj();
         }
@@ -262,26 +305,28 @@ else
         }
     }
 
-    // Saldo partnera = SUM(Saldo) svih redova tog PIB-a (uplate su već negativne).
-    // Van valute = SUM(Preostalo) SAMO redova RAČUNA (status = racunStatus), gde
-    // Datum_Valute < danas AND Preostalo > 0.
-    private List<PartnerSaldo> GrupisiSaldo(List<KarticaPartnera> redovi, string[] statusi, string racunStatus)
+    private List<PartnerSaldo> GrupisiSaldo(List<KarticaNova> redovi, string uloga, string valuta)
     {
         var danas = DateTime.Today;
 
         return redovi
-            .Where(k => statusi.Contains(k.Status))
+            .Where(k => k.PartnerUloga == uloga && k.Valuta == valuta)
             .GroupBy(GrupniKljuc)
-            .Select(g => new PartnerSaldo
+            .Select(g =>
             {
-                Pib   = g.Key,
-                Naziv = _nazivPoKljucu.TryGetValue(g.Key, out var n) ? n : (g.First().NazivPartnera ?? ""),
-                Saldo = g.Sum(x => x.Saldo ?? 0),
-                VanValute = g
-                    .Where(x => x.Status == racunStatus
-                             && x.DatumValute.HasValue && x.DatumValute.Value.Date < danas
-                             && (x.Preostalo ?? 0) > 0)
-                    .Sum(x => x.Preostalo ?? 0)
+                var poslednjiRed = g.OrderByDescending(x => x.Id).First();
+                return new PartnerSaldo
+                {
+                    Kljuc      = g.Key,
+                    IdPartnera = g.FirstOrDefault(x => x.IdPartnera.HasValue)?.IdPartnera,
+                    Naziv      = poslednjiRed.NazivPartnera ?? "",
+                    Saldo      = g.Sum(x => x.Saldo),
+                    VanValute  = g.Where(x => ZaduzenjaTip.Contains(x.TipDokumenta)
+                                           && x.DatumValute.HasValue
+                                           && x.DatumValute.Value.Date < danas
+                                           && x.Preostalo > 0)
+                                  .Sum(x => x.Preostalo)
+                };
             })
             .Where(p => p.Saldo != 0)
             .ToList();
@@ -298,30 +343,34 @@ else
         }
         else
         {
-            _duzniciDom   = _duzniciDomSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
-            _duzniciIno   = _duzniciInoSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
+            _duzniciDom   = _duzniciDomSve  .Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
+            _duzniciIno   = _duzniciInoSve  .Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
             _dugovanjaDom = _dugovanjaDomSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
             _dugovanjaIno = _dugovanjaInoSve.Where(p => p.Naziv.Contains(_pretragaNaziv, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
-        _duzniciDomUk   = _duzniciDom.Sum(p => p.Saldo);   _duzniciDomVV   = _duzniciDom.Sum(p => p.VanValute);
-        _duzniciInoUk   = _duzniciIno.Sum(p => p.Saldo);   _duzniciInoVV   = _duzniciIno.Sum(p => p.VanValute);
-        _dugovanjaDomUk = _dugovanjaDom.Sum(p => p.Saldo); _dugovanjaDomVV = _dugovanjaDom.Sum(p => p.VanValute);
-        _dugovanjaInoUk = _dugovanjaIno.Sum(p => p.Saldo); _dugovanjaInoVV = _dugovanjaIno.Sum(p => p.VanValute);
+        _duzniciDomVV   = _duzniciDom  .Sum(p => p.VanValute);
+        _duzniciInoVV   = _duzniciIno  .Sum(p => p.VanValute);
+        _dugovanjaDomVV = _dugovanjaDom.Sum(p => p.VanValute);
+        _dugovanjaInoVV = _dugovanjaIno.Sum(p => p.VanValute);
     }
 
     private static string RedStil(PartnerSaldo p, PartnerSaldo? selektovan) =>
-        selektovan is not null && selektovan.Pib == p.Pib ? "background-color:#BBDEFB;" : "";
+        selektovan is not null && selektovan.Kljuc == p.Kljuc ? "background-color:#BBDEFB;" : "";
 
-    private void OtvoriKarticu(string kljuc, string kontekst) =>
-        Nav.NavigateTo($"/finansije/kartica?kljuc={Uri.EscapeDataString(kljuc)}&kontekst={kontekst}");
+    private void OtvoriKarticu(PartnerSaldo p, string uloga, string valuta)
+    {
+        var url = p.IdPartnera.HasValue
+            ? $"/finansije/kartica-nova?idPartnera={p.IdPartnera}&uloga={uloga}&valuta={valuta}"
+            : $"/finansije/kartica-nova?kljuc={Uri.EscapeDataString(p.Kljuc)}&uloga={uloga}&valuta={valuta}";
+        Nav.NavigateTo(url);
+    }
 
     private async Task Stampaj(string tip)
     {
-        var url = $"/finansije/duznici/stampa?tip={tip}";
+        var url = $"/finansije/duznici-novi/stampa?tip={tip}";
         if (!string.IsNullOrWhiteSpace(_pretragaNaziv))
             url += $"&pretraga={Uri.EscapeDataString(_pretragaNaziv)}";
-
         await JS.InvokeVoidAsync("open", url, "_blank");
     }
 }

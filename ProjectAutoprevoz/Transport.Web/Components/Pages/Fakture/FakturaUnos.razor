@@ -11,6 +11,7 @@
 @inject IDefaultValuesService  DefaultValues
 @inject IKursService           KursService
 @inject IKarticaService        KarticaServis
+@inject IKarticaNovaService    KarticaNovaServis
 @inject ILogBrisanjaService    LogServis
 @inject NavigationManager      Nav
 @inject TransportDbContext     Db
@@ -1014,6 +1015,7 @@
                 Db.ArtikliRacuna.AddRange(_stavke);
 
                 await KarticaServis.UpsertIzRacuna(racun);
+                await KarticaNovaServis.UpisiIzRacuna(racun);
                 await Db.SaveChangesAsync();
 
                 if (pod is not null)
@@ -1059,6 +1061,7 @@
                 PopuniGlavu(dbRacun);
                 // Broj_Racuna se ne menja, brojač se ne dira
                 await KarticaServis.UpsertIzRacuna(dbRacun);
+                await KarticaNovaServis.UpisiIzRacuna(dbRacun);
                 await Db.SaveChangesAsync();
 
                 // Diff stavki (po Broj/PK): update postojećih, insert novih, delete uklonjenih.
@@ -1142,27 +1145,41 @@
             var dbRacun = await Db.Racuni.FirstOrDefaultAsync(r => r.Broj == Id.Value);
             if (dbRacun is null) return;
 
-            var greska = await KarticaServis.ObrisiIzRacuna(dbRacun.Broj);
-            if (greska is not null)
+            // Jedina blokada: vezane uplate na novom modelu
+            var greskaNova = await KarticaNovaServis.ProveriUplateZaRacun(dbRacun.Broj);
+            if (greskaNova is not null)
             {
-                Snackbar.Add(greska, Severity.Warning);
+                Snackbar.Add(greskaNova, Severity.Warning);
                 return;
             }
 
-            var valuta = dbRacun.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
-            await LogServis.Zabelezi("RACUNI",
-                $"Brisan račun {dbRacun.BrojRacuna}, vrednost {(dbRacun.SumaRacuna ?? 0):N2} {valuta}");
+            using var tx = await Db.Database.BeginTransactionAsync();
+            try
+            {
+                var valuta = dbRacun.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+                await LogServis.Zabelezi("RACUNI",
+                    $"Brisan račun {dbRacun.BrojRacuna}, vrednost {(dbRacun.SumaRacuna ?? 0):N2} {valuta}");
 
-            var stavke = await Db.ArtikliRacuna
-                .Where(s => s.Id_Racuna == dbRacun.Broj.ToString())
-                .ToListAsync();
-            Db.ArtikliRacuna.RemoveRange(stavke);
+                var stavke = await Db.ArtikliRacuna
+                    .Where(s => s.Id_Racuna == dbRacun.Broj.ToString())
+                    .ToListAsync();
+                Db.ArtikliRacuna.RemoveRange(stavke);
+                Db.Racuni.Remove(dbRacun);
 
-            Db.Racuni.Remove(dbRacun);
-            await Db.SaveChangesAsync();
+                // Briše RACUN stavku iz tbl_KarticaNova u istoj transakciji
+                await KarticaNovaServis.ObrisiIzRacuna(dbRacun.Broj);
 
-            Snackbar.Add("Račun obrisan.", Severity.Success);
-            Nav.NavigateTo("/fakture");
+                await Db.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                Snackbar.Add("Račun obrisan.", Severity.Success);
+                Nav.NavigateTo("/fakture");
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
         catch (Exception ex)
         {

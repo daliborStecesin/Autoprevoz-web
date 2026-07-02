@@ -13,6 +13,7 @@
 @inject IDialogService          Dialog
 @inject ISnackbar               Snackbar
 @inject IKarticaService         KarticaServis
+@inject IKarticaNovaService     KarticaNovaServis
 @inject ILogBrisanjaService     LogServis
 
 <PageTitle>Računi — Autoprevoz</PageTitle>
@@ -415,29 +416,49 @@
         if (ok != true) return;
 
         var entitet = await Db.Racuni.FindAsync(_selektovani.Broj);
-        if (entitet is not null)
+        if (entitet is null) return;
+
+        // Jedina blokada: vezane uplate na novom modelu
+        var greskaNova = await KarticaNovaServis.ProveriUplateZaRacun(entitet.Broj);
+        if (greskaNova is not null)
         {
-            var greska = await KarticaServis.ObrisiIzRacuna(entitet.Broj);
-            if (greska is not null)
+            Snackbar.Add(greskaNova, Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var tx = await Db.Database.BeginTransactionAsync();
+            try
             {
-                Snackbar.Add(greska, Severity.Warning);
-                return;
+                var valuta = entitet.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+                await LogServis.Zabelezi("RACUNI",
+                    $"Brisan račun {entitet.BrojRacuna}, vrednost {(entitet.SumaRacuna ?? 0):N2} {valuta}");
+
+                var stavke = await Db.ArtikliRacuna
+                    .Where(s => s.Id_Racuna == entitet.Broj.ToString())
+                    .ToListAsync();
+                Db.ArtikliRacuna.RemoveRange(stavke);
+                Db.Racuni.Remove(entitet);
+
+                await KarticaNovaServis.ObrisiIzRacuna(entitet.Broj);
+
+                await Db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
             }
 
-            var valuta = entitet.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
-            await LogServis.Zabelezi("RACUNI",
-                $"Brisan račun {entitet.BrojRacuna}, vrednost {(entitet.SumaRacuna ?? 0):N2} {valuta}");
-
-            var stavke = await Db.ArtikliRacuna
-                .Where(s => s.Id_Racuna == entitet.Broj.ToString())
-                .ToListAsync();
-            Db.ArtikliRacuna.RemoveRange(stavke);
-
-            Db.Racuni.Remove(entitet);
-            await Db.SaveChangesAsync();
             _selektovani = null;
             Snackbar.Add("Račun obrisan.", Severity.Success);
             await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
         }
     }
 }
