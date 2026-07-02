@@ -91,6 +91,10 @@
                             <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option>
                             <option value="RACUN_RSD">RAČUN (RSD)</option>
                             <option value="RACUN_EUR">RAČUN (EUR)</option>
+                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (RSD)</option>
+                            <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option>
+                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (RSD)</option>
+                            <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option>
                         }
                         else
                         {
@@ -100,6 +104,10 @@
                             <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option>
                             <option value="RACUN_RSD">RAČUN (RSD)</option>
                             <option value="RACUN_EUR">RAČUN (EUR)</option>
+                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (RSD)</option>
+                            <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option>
+                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (RSD)</option>
+                            <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option>
                         }
                     </NativniSelect>
                 </MudItem>
@@ -113,17 +121,17 @@
 
                 @if (JeEur)
                 {
-                    <MudItem xs="@(JeRacun ? 12 : 6)">
+                    <MudItem xs="@(JeRacun || JeKnjizno ? 12 : 6)">
                         <NativniInput TValue="decimal" Label="Kurs EUR" Value="@_kursEur" Format="0.0000" Disabled="true" />
                     </MudItem>
-                    @if (!JeRacun)
+                    @if (!JeRacun && !JeKnjizno)
                     {
                         <MudItem xs="6">
                             <NativniInput TValue="string" Label="Izvod" @bind-Value="_izvod" />
                         </MudItem>
                     }
                 }
-                else if (!JeRacun)
+                else if (!JeRacun && !JeKnjizno)
                 {
                     <MudItem xs="12">
                         <NativniInput TValue="string" Label="Izvod" @bind-Value="_izvod" />
@@ -136,18 +144,58 @@
 
                 <MudItem xs="12">
                     <NativniInput TValue="string"
-                                  Label="@(JeRacun ? "Broj dokumenta *" : JePocetno ? "Opis" : "Poziv na broj / Broj uplate")"
+                                  Label="@(JeRacun || JeKnjizno ? "Broj dokumenta *" : JePocetno ? "Opis" : "Poziv na broj / Broj uplate")"
                                   @bind-Value="_pozivNaBroj" />
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudTextField @bind-Value="_komentar" Label="Komentar" Variant="Variant.Outlined"
-                                   Margin="Margin.Dense" Lines="2" />
+                    <MudTextField @bind-Value="_komentar"
+                                  Label="@(JeKnjizno ? "Razlog / Napomena" : "Komentar")"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
                 </MudItem>
+
+                @* ── Knjižna: opciona referenca na račun ──────────── *@
+                @if (JeKnjizno)
+                {
+                    <MudItem xs="12">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                            <MudCheckBox Value="_vezoZaRacun"
+                                         ValueChanged="@(async (bool v) => await OnVezoZaRacunChanged(v))"
+                                         Label="Vezano za konkretni račun"
+                                         Color="Color.Primary" Dense="true" />
+                        </div>
+                    </MudItem>
+                    @if (_vezoZaRacun)
+                    {
+                        <MudItem xs="12">
+                            <NativniSelect Label="Račun (referenca)"
+                                           Value="@(_izabraniRacunId?.ToString() ?? "")"
+                                           ValueChanged="@OnIzabraniRacunChanged"
+                                           Disabled="@(_partner is null || _sviRacuniPartnera.Count == 0)">
+                                <option value="">— izaberi račun —</option>
+                                @foreach (var r in _sviRacuniPartnera)
+                                {
+                                    var iznos = r.Duguje != 0 ? r.Duguje : r.Potrazuje;
+                                    <option value="@r.Id">
+                                        @r.BrojDokumenta — @iznos.ToString("N2") @r.Valuta — @r.DatumDokumenta?.ToString("dd.MM.yyyy")
+                                    </option>
+                                }
+                            </NativniSelect>
+                            @if (_partner is null)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Izaberite partnera da biste videli račune.</MudText>
+                            }
+                            else if (_sviRacuniPartnera.Count == 0)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Nema računa za ovog partnera.</MudText>
+                            }
+                        </MudItem>
+                    }
+                }
             </MudGrid>
 
             @* ── Banner: vezivanje za zaduženje (Case A) ── *@
-            @if (_zaduzenje is not null && !JeRacun)
+            @if (_zaduzenje is not null && !JeRacun && !JeKnjizno)
             {
                 <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2 mb-1">
                     Vezivanje za: <strong>@_zaduzenje.BrojDokumenta</strong>
@@ -156,7 +204,7 @@
             }
 
             @* ── Banner: postoji neraspoređena uplata (Case B) ── *@
-            @if (_nerasporedjenaNalaz is not null && !JeRacun)
+            @if (_nerasporedjenaNalaz is not null && !JeRacun && !JeKnjizno)
             {
                 var iznosNer = Math.Max(_nerasporedjenaNalaz.Potrazuje, _nerasporedjenaNalaz.Duguje);
                 <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 mb-1">
@@ -295,6 +343,11 @@
     private bool _cuva;
     private bool _navigirano;
 
+    // ── Knjižna — opciona referenca na račun ─────────────────────
+    private bool              _vezoZaRacun;
+    private int?              _izabraniRacunId;
+    private List<KarticaNova> _sviRacuniPartnera = [];
+
     // ── Vezivanje za zaduženje ────────────────────────────────
     private KarticaNova? _zaduzenje;         // učitano iz QIdZaduzenja (Case A kontekst)
     private KarticaNova? _nerasporedjenaNalaz; // nađena NERASPOREDJENO stavka za Case B
@@ -311,6 +364,8 @@
     private bool   JeEur      => _tipUnosa.Contains("EUR");
     private bool   JePocetno  => _tipUnosa.StartsWith("POCETNO");
     private bool   JeRacun    => _tipUnosa.StartsWith("RACUN");
+    private bool   JeKnjizno  => _tipUnosa.StartsWith("KNJIZNO");
+    private bool   JeKnjiznoZaduzenje => _tipUnosa.StartsWith("KNJIZNO_ZADUZENJE");
     private string IznosLabel => $"Iznos ({(JeEur ? "EUR" : "RSD")})";
 
     private decimal TrenutniSaldo => _smer == "IZLAZ"
@@ -360,15 +415,27 @@
         AzurirajPrikazValute();
         if (JeEur && _kursEur == 0 && DateTime.TryParse(_datum, out var d))
             _kursEur = await KursService.GetKursAsync(d);
+        // Reload račune kad se menja valuta (RSD↔EUR) dok je vezivanje aktivno
+        if (_vezoZaRacun && _partner is not null)
+        {
+            _izabraniRacunId = null;
+            await UcitajRacunePartnera();
+        }
     }
 
-    private void OnSmerChanged(string v)
+    private async Task OnSmerChanged(string v)
     {
         _smer = v;
-        // RACUN i POCETNO su zajednički za oba smera — ne resetuj
-        if (!JeRacun && !JePocetno)
+        // RACUN, POCETNO i KNJIZNO su zajednički za oba smera — ne resetuj
+        if (!JeRacun && !JePocetno && !JeKnjizno)
             _tipUnosa = _smer == "IZLAZ" ? "UPLATA_RSD" : "ISPLATA_RSD";
         AzurirajPrikazValute();
+        // Reload račune kad se menja smer jer se Uloga (KUPAC/DOBAVLJAC) menja
+        if (_vezoZaRacun && _partner is not null)
+        {
+            _izabraniRacunId   = null;
+            await UcitajRacunePartnera();
+        }
     }
 
     // ── Partner autocomplete ──────────────────────────────────
@@ -399,10 +466,15 @@
         _partneriPredlozi = [];
         _partnerOpen      = false;
 
+        _izabraniRacunId  = null;
+        _sviRacuniPartnera = [];
+
         if (p is not null)
         {
             await OsveziSaldo();
             ProveriNerasporedjene();
+            if (_vezoZaRacun)
+                await UcitajRacunePartnera();
         }
         else
         {
@@ -465,6 +537,38 @@
         }
     }
 
+    private async Task OnVezoZaRacunChanged(bool v)
+    {
+        _vezoZaRacun = v;
+        if (v && _partner is not null)
+            await UcitajRacunePartnera();
+        else if (!v)
+        {
+            _izabraniRacunId  = null;
+            _sviRacuniPartnera = [];
+        }
+    }
+
+    private async Task UcitajRacunePartnera()
+    {
+        if (_partner is null) return;
+        var valuta = JeEur ? "EUR" : "RSD";
+        _sviRacuniPartnera = await Db.KarticeNova.AsNoTracking()
+            .Where(k => k.IdPartnera == _partner.Broj
+                     && k.TipDokumenta == "RACUN"
+                     && k.PartnerUloga == Uloga
+                     && k.Valuta == valuta)
+            .OrderByDescending(k => k.DatumDokumenta)
+            .ThenByDescending(k => k.Id)
+            .Take(100)
+            .ToListAsync();
+    }
+
+    private void OnIzabraniRacunChanged(string? v)
+    {
+        _izabraniRacunId = int.TryParse(v, out var id) && id > 0 ? id : null;
+    }
+
     private void AzurirajPrikazValute()
     {
         var jeEur = JeEur;
@@ -503,16 +607,20 @@
             case "ISPLATA_EUR": partnerUloga = "DOBAVLJAC"; tipDokumenta = "ISPLATA"; valuta = "EUR"; break;
             case "POCETNO_RSD": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = "RSD"; break;
             case "POCETNO_EUR": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = "EUR"; break;
-            case "RACUN_RSD":   partnerUloga = Uloga;       tipDokumenta = "RACUN";   valuta = "RSD"; break;
-            case "RACUN_EUR":   partnerUloga = Uloga;       tipDokumenta = "RACUN";   valuta = "EUR"; break;
+            case "RACUN_RSD":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = "RSD"; break;
+            case "RACUN_EUR":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = "EUR"; break;
+            case "KNJIZNO_ODOBRENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = "RSD"; break;
+            case "KNJIZNO_ODOBRENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = "EUR"; break;
+            case "KNJIZNO_ZADUZENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = "RSD"; break;
+            case "KNJIZNO_ZADUZENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = "EUR"; break;
             default:
-                Snackbar.Add("Knjižna odobrenja/zaduženja dolaze u sledećem koraku.", Severity.Info);
+                Snackbar.Add("Nepoznat tip unosa.", Severity.Warning);
                 return;
         }
 
-        if (JeRacun && string.IsNullOrWhiteSpace(_pozivNaBroj))
+        if ((JeRacun || JeKnjizno) && string.IsNullOrWhiteSpace(_pozivNaBroj))
         {
-            Snackbar.Add("Unesite broj dokumenta za ručni račun.", Severity.Warning);
+            Snackbar.Add("Unesite broj dokumenta.", Severity.Warning);
             return;
         }
 
@@ -541,7 +649,7 @@
             var datum       = DateTime.TryParse(_datum,   out var d) ? d : DateTime.Today;
             var valutaDatum = DateTime.TryParse(_valuta,  out var v) ? v : datum;
 
-            var brojDokumenta = JeRacun
+            var brojDokumenta = (JeRacun || JeKnjizno)
                 ? _pozivNaBroj!
                 : JePocetno
                     ? (string.IsNullOrWhiteSpace(_pozivNaBroj) ? "POČETNO STANJE" : _pozivNaBroj)
@@ -549,24 +657,26 @@
 
             var stavka = new KarticaNova
             {
-                IdPartnera    = _partner.Broj,
-                PIB           = _partner.PIB,
-                NazivPartnera = _partner.Naziv,
-                PartnerUloga  = partnerUloga,
-                TipDokumenta  = tipDokumenta,
-                BrojDokumenta = brojDokumenta,
-                IdRacun       = null,
-                Valuta        = valuta,
-                Kurs          = valuta == "EUR" ? _kursEur : null,
+                IdPartnera     = _partner.Broj,
+                PIB            = _partner.PIB,
+                NazivPartnera  = _partner.Naziv,
+                PartnerUloga   = partnerUloga,
+                TipDokumenta   = tipDokumenta,
+                BrojDokumenta  = brojDokumenta,
+                IdRacun        = JeKnjizno && _vezoZaRacun
+                    ? _sviRacuniPartnera.FirstOrDefault(k => k.Id == _izabraniRacunId)?.IdRacun
+                    : null,
+                Valuta         = valuta,
+                Kurs           = valuta == "EUR" ? _kursEur : null,
                 DatumDokumenta = datum,
-                DatumPrometa  = datum,
-                DatumValute   = valutaDatum,
-                Opis          = _komentar,
-                Izvod         = _izvod,
+                DatumPrometa   = datum,
+                DatumValute    = valutaDatum,
+                Opis           = _komentar,
+                Izvod          = _izvod,
             };
 
-            // RACUN je uvek standalone zaduženje, nikad se ne vezuje automatski
-            if (_zaduzenje is not null && !JeRacun)
+            // RACUN i KNJIZNO su uvek standalone — nikad se ne vezuju automatski
+            if (_zaduzenje is not null && !JeRacun && !JeKnjizno)
                 await KarticaNovaServis.DodajUplatuVezanu(stavka, _iznos, _zaduzenje.Id);
             else
                 await KarticaNovaServis.DodajStavku(stavka, _iznos);

@@ -67,7 +67,7 @@ public interface IKarticaNovaService
     Task OdveziUplatu(int idUplate);
 
     /// <summary>
-    /// Briše ručno unetu RACUN stavku (idRacun==null).
+    /// Briše ručno unetu RACUN stavku (idRacun==null) ili KNJIZNO_ZADUZENJE stavku.
     /// Guard: vraća poruku greške ako ima vezanih uplata (blokira brisanje).
     /// Ako nema → loguje + fizički briše + SaveChangesAsync. Vraća null ako ok.
     /// </summary>

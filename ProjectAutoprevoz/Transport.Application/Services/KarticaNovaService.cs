@@ -103,7 +103,7 @@ public class KarticaNovaService : IKarticaNovaService
         stavka.Potrazuje = pot;
         stavka.Saldo     = sal;
         stavka.Preostalo = pre;
-        stavka.Izmiren   = false;
+        stavka.Izmiren   = pre <= 0;  // ODOBRENJA i UPLATE nemaju preostalo → odmah izmireni
 
         PopuniAuditUnos(stavka);
 
@@ -390,8 +390,11 @@ public class KarticaNovaService : IKarticaNovaService
         var stavka = await _db.KarticeNova.FindAsync(idStavke)
             ?? throw new InvalidOperationException($"Stavka {idStavke} nije pronađena.");
 
-        if (stavka.TipDokumenta != TipRacun || stavka.IdRacun is not null)
-            throw new InvalidOperationException("Metoda je samo za ručno unete RACUN stavke (bez FK na tbl_racuni).");
+        var tipOk = (stavka.TipDokumenta == TipRacun && stavka.IdRacun is null)
+                 || stavka.TipDokumenta == TipKnjiznoZaduzenje;
+        if (!tipOk)
+            throw new InvalidOperationException(
+                $"Metoda je za ručne RACUN (bez FK) i KNJIZNO_ZADUZENJE stavke, ne za '{stavka.TipDokumenta}'.");
 
         var imaVezanih = await _db.KarticeNova.AnyAsync(k => k.IdStavkeVeza == idStavke);
         if (imaVezanih)

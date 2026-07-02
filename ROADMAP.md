@@ -37,59 +37,67 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 ### STARE Finansije/Kartice (tbl_Kartica — zadržane kao read-only istorija)
 - Dužnici/dugovanja, kartica partnera, unos finansija, vezivanje, van valute — SVE na staroj tabeli
 - Ostaju u meniju kao "Kartice (staro)" / "Dužnici (staro)" za kontrolu/referencu starih klijenata
+- NE diraju se više nikako (ni provere ni brisanje) — čista arhiva
 - BIĆE UKLONJENE kad se novi model potvrdi u produkciji
 
----
-
-## 🆕 NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — U TOKU
-
+### NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — ZAVRŠEN OSNOVNI CIKLUS
 **Strateška odluka:** umesto migracije starih podataka (koja je lomila desktop — desktop
 računa Preostalo kao SUM(Saldo) uživo i filtrira Preostalo<>0, pa diranje Uplata razbija saldo),
 napravljena je POTPUNO NOVA tabela za superiorni model. Stari klijenti ostaju na staroj
 kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
-Ko želi prelazak: ručni unos početnog stanja (kasnije eventualno dugme za kopiranje otvorenih).
 
-**Dizajn tbl_KarticaNova (knjigovodstveni pristup):**
-- Duguje / Potrazuje / Saldo (Saldo = Duguje - Potrazuje, sa znakom) — pravo knjigovodstvo
-- preostalo = PRAVA kolona (NE computed — stara computed nas je zeznula)
-- partnerUloga (KUPAC/DOBAVLJAC) umesto starih 8 statusa
-- tipDokumenta (RACUN/UPLATA/ISPLATA/KNJIZNO_ODOBRENJE/KNJIZNO_ZADUZENJE/POCETNO)
-- valuta kao KOLONA (RSD/EUR/BAM/DEN/HRK...) — ne kao status
+**Dizajn (knjigovodstveni pristup):**
+- Duguje / Potrazuje / Saldo (Saldo = Duguje - Potrazuje, sa znakom)
+- preostalo = PRAVA kolona (ne computed)
+- partnerUloga (KUPAC/DOBAVLJAC), tipDokumenta (RACUN/UPLATA/ISPLATA/
+  KNJIZNO_ODOBRENJE/KNJIZNO_ZADUZENJE/POCETNO), valuta kao KOLONA
 - 3 datuma: datumDokumenta / datumPrometa / datumValute (dospeće)
-- idRacun (veza na tbl_racuni) + idStavkeVeza (uplata -> koju stavku zatvara)
-- Grupisanje po PIB od početka, bez duplih firmi
-- Fizičko brisanje + log (bez kolone brisano)
+- idRacun (veza tbl_racuni, NULL za ručne unose) + idStavkeVeza (uplata → koju stavku zatvara)
+- Grupisanje po PIB, fizičko brisanje + log (bez kolone brisano)
 
-**Matrica upisa (potvrđena računovodstveno):**
-- RACUN kupac -> duguje, saldo +   | UPLATA kupac -> potrazuje, saldo -
-- RACUN dobavljač -> potrazuje, saldo -   | ISPLATA dobavljač -> duguje, saldo +
-- KNJIZNO_ODOBRENJE kupcu -> potrazuje (-)   | KNJIZNO_ZADUZENJE kupcu -> duguje (+)
+**Matrica upisa (potvrđena, testirana kroz softver):**
+- RACUN kupac → duguje, saldo +   | UPLATA kupac → potrazuje, saldo -
+- RACUN dobavljač → potrazuje, saldo -   | ISPLATA dobavljač → duguje, saldo +
+- KNJIZNO_ODOBRENJE kupcu → potrazuje (-)   | KNJIZNO_ZADUZENJE kupcu → duguje (+)
 - POCETNO po ulozi
+- Ručni "Račun" (bez idRacun) — predznak iz partnerUloga, slobodan broj dokumenta,
+  obavezan datumValute (za van valute obračun)
 
-**Van valute (NOVI, precizni stavka-model):**
-  van valute = SUM(preostalo) zaduženja gde (tipDokumenta zaduženje + datumValute<danas + preostalo>0)
-  Nevezana uplata NE umanjuje van valute (rešava 5 žalbi iz desktopa — pokazuje pun dospeli dug).
-  Vezana uplata umanjuje preostalo zaduženja -> van valute automatski tačan.
+**Van valute (stavka-model, TESTIRANO):**
+- van valute = SUM(preostalo) zaduženja gde (datumValute < danas + preostalo>0)
+- Strogo `<` (ne `<=`) — dospeva DANAS ne ulazi u van valute (knjigovodstvena konvencija:
+  docnja počinje sledećeg dana)
+- Nevezana uplata NE umanjuje van valute (rešava 5 žalbi iz desktopa)
+- Vezana uplata umanjuje preostalo → van valute automatski tačan
+- Odveži/brisanje uplate → van valute se vraća gore (preostalo raste nazad)
 
-### ✅ Gotovo (novi model)
+**Gotovo:**
 - [x] tbl_KarticaNova (CREATE + oba SQL fajla, v209) + entitet + DbSet
-- [x] KarticaNovaService (matrica ApplyMatrix, DodajStavku, UpisiIzRacuna, ObrisiIzRacuna, SaldoPartnera)
+- [x] KarticaNovaService (ApplyMatrix, DodajStavku, UpisiIzRacuna, ObrisiIzRacuna, SaldoPartnera)
 - [x] Upis iz računa (paralelno sa starom tabelom, atomično, kurs za EUR)
-- [x] Unos finansija prebačen na novi model (UPLATA/ISPLATA/POCETNO, 4 salda panel)
-- [x] Ekran Kartica nova (/finansije/kartica-nova): filteri, boje, kontekstualna dugmad, saldo panel, van valute
+- [x] Unos finansija na novom modelu (UPLATA/ISPLATA/POCETNO/RACUN ručni, 4 salda panel)
+- [x] Ekran Kartica nova (/finansije/kartica-nova): filteri, boje, kontekstualna dugmad, van valute
 - [x] Ekran Dužnici novi (/finansije/duznici-novi): 2 taba, po valuti, van valute stavka-model
 - [x] Označi plaćeno/neplaćeno na novom modelu
-- [x] Vezivanje uplate + cepanje (idStavkeVeza, U-vs-P, NERASPOREDJENO ostatak) — TESTIRANO
+- [x] Vezivanje uplate + cepanje (idStavkeVeza, NERASPOREDJENO ostatak)
+- [x] Kolona VEZA (prikaz broja dokumenta zaduženja preko idStavkeVeza)
+- [x] Odveži uplatu (OdveziUplatu — preostalo raste, kapa na original, saldo partnera nepromenjen)
+- [x] Brisanje uplate reotvara zaduženje (ObrisiUplatuNova — preostalo raste, saldo partnera SE menja)
+- [x] Blokada brisanja računa sa vezanom uplatom (ProveriUplateZaRacun) + fizičko
+      brisanje RACUN stavke iz kartice pri brisanju računa (fix)
+- [x] Ručni unos tipa "Račun" u finansije/unos (van automatskog fakturisanja)
+- [x] Meni: nove stavke (Kartica/Dužnici) + stare preimenovane u "(staro)"
+- [x] Redirect posle unosa finansija → nova kartica (bio bug, vodio na staru)
+- [x] Detaljni testovi kroz softver: preplata/cepanje, više parcijalnih uplata, van
+      valute granica, brisanje uplate sa zatvorenog računa, blokada brisanja računa
 
-### 🎯 Sledeće (novi model)
-- [ ] Kolona VEZA na novoj kartici (koje zaduženje uplata zatvara — preko idStavkeVeza)
-- [ ] Odveži uplatu (vrati u NERASPOREDJENO) na novom modelu
-- [ ] Meni: dodati nove (Kartice/Dužnici) + preimenovati stare u "(staro)"
-- [ ] Redirect posle unosa finansija -> nova kartica (bio bug: vodio na staru)
-- [ ] Detaljni testovi (svi scenariji: preplata, više uplata, odveži, ino EUR)
+---
+
+## 🎯 SLEDEĆE (novi finansijski model)
+- [ ] Knjižna odobrenja/zaduženja — UI + unos (matrica već postoji u servisu)
 - [ ] Štampa kartice + IOS (nova) — uplate grupisane, kolona VEZA, IOS otvorene stavke
-- [ ] Knjižna odobrenja/zaduženja (matrica već u servisu — treba UI + unos)
-- [ ] Podešavanje "rad sa više moneta" (isključi -> sakrij stranu/ino polovinu)
+- [ ] Podešavanje "rad sa više moneta" (isključi → sakrij stranu/ino polovinu)
+- [ ] Ino EUR pun test prolaz na novom modelu (paralelan set A1-A5, EUR partner)
 
 ---
 
@@ -113,13 +121,13 @@ Ko želi prelazak: ručni unos početnog stanja (kasnije eventualno dugme za kop
 
 ### Admin ekrani
 - [ ] Pregled loga brisanja (tbl_log_brisanja — read-only)
-- [ ] Arhiva/reaktivacija (soft-obrisani partneri/vozači/vozila -> vrati aktivne)
+- [ ] Arhiva/reaktivacija (soft-obrisani partneri/vozači/vozila → vrati aktivne)
 
 ### Privilegije (odloženo — svi Admin)
 - [ ] tbl_role + tbl_role_moduli
 
 ### E-fakture (na kraju)
-- [ ] Slanje na SEF, statusi, PDV evidencija, EPP (CSV); ulazne fakture -> auto upis u karticu
+- [ ] Slanje na SEF, statusi, PDV evidencija, EPP (CSV); ulazne fakture → auto upis u karticu
 
 ---
 
@@ -145,9 +153,11 @@ Ko želi prelazak: ručni unos početnog stanja (kasnije eventualno dugme za kop
 ---
 
 ## ⚠️ KLJUČNO NAUČENO
-- **NOVI model = tbl_KarticaNova** (Duguje/Potrazuje/Saldo, valuta kolona, preostalo prava kolona). Stari = tbl_Kartica (read-only istorija).
-- **Zašto nema migracije starih podataka:** desktop računa Preostalo kao SUM(Saldo) uživo + filtrira fizičku kolonu Preostalo<>0. Diranje Uplata (Uplata=Dug) postavlja Preostalo=0 -> desktop filter izbacuje te redove -> saldo razbijen. ZATO nova tabela umesto migracije.
-- **Van valute novi = stavka-bazirano** (SUM preostalo dospelih otvorenih zaduženja). Nevezana uplata ne umanjuje. Precizniji od desktop saldo-modela.
-- **Vezivanje preko idStavkeVeza** (int, pokazuje na Id stavke), ne preko broja računa. Radi za račune, početno, knjižna.
+- **NOVI model = tbl_KarticaNova** (Duguje/Potrazuje/Saldo, valuta kolona, preostalo prava kolona). Stari = tbl_Kartica (read-only istorija, ne dira se više nikako).
+- **Zašto nema migracije starih podataka:** desktop računa Preostalo kao SUM(Saldo) uživo + filtrira fizičku kolonu Preostalo<>0. Diranje Uplata (Uplata=Dug) postavlja Preostalo=0 → desktop filter izbacuje te redove → saldo razbijen. ZATO nova tabela umesto migracije.
+- **Van valute novi = stavka-bazirano**, strogo `datumValute < danas` (ne `<=`) — knjigovodstvena konvencija, docnja počinje sutradan. Nevezana uplata ne umanjuje. Precizniji od desktop saldo-modela.
+- **Vezivanje preko idStavkeVeza** (int, pokazuje na Id stavke), ne preko broja računa. Radi za račune, početno, knjižna, ručne unose.
+- **Odveži vs Briši uplatu:** odveži ne menja saldo partnera (novac ostaje, samo raspoređivanje); brisanje uplate MENJA saldo partnera (novac nestaje) — oba reotvaraju zaduženje (preostalo raste, kapa na original).
+- **Blokada brisanja računa:** samo novi model se proverava (ProveriUplateZaRacun); stari model (tbl_Kartica) se ne proverava niti ažurira nikad — čista arhiva.
 - **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
 - Verzija baze: 209 (208=tbl_log_brisanja, 209=tbl_KarticaNova). Vidi CLAUDE.md.

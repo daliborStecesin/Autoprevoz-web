@@ -529,9 +529,13 @@ else
 
         try
         {
-            if (_selectedRed.TipDokumenta == "RACUN" && _selectedRed.IdRacun is null)
+            bool jeRucnoZaduzenje =
+                (_selectedRed.TipDokumenta == "RACUN" && _selectedRed.IdRacun is null) ||
+                _selectedRed.TipDokumenta == "KNJIZNO_ZADUZENJE";
+
+            if (jeRucnoZaduzenje)
             {
-                // Ručno uneti račun — guard + brisanje kroz poseban servisni metod
+                // Zaduženja (ručni RACUN / KNJIZNO_ZADUZENJE) — guard: nema vezanih uplata
                 var greska = await KarticaNovaServis.ObrisiRucniRacunStavku(_selectedRed.Id);
                 if (greska is not null)
                 {
