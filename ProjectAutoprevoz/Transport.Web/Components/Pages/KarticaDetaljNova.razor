@@ -13,6 +13,7 @@
 @inject ISnackbar           Snackbar
 @inject ILogBrisanjaService LogServis
 @inject IKarticaNovaService KarticaNovaServis
+@inject IJSRuntime          JS
 
 <PageTitle>Kartica partnera — Autoprevoz</PageTitle>
 
@@ -180,6 +181,19 @@ else
                            Disabled="@(!MozeOznaciNeplaceno)"
                            OnClick="OznaciNeplaceno">
                     Označi neplaćeno
+                </MudButton>
+
+                <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Print"
+                           OnClick="@(async () => await OtvoriStampu(false))">
+                    Kartica
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Print"
+                           OnClick="@(async () => await OtvoriStampu(true))">
+                    IOS
                 </MudButton>
             </div>
 
@@ -661,6 +675,36 @@ else
             Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
                 cfg => cfg.VisibleStateDuration = 15000);
         }
+    }
+
+    // ── Štampa (kartica / IOS) ───────────────────────────────
+    private async Task OtvoriStampu(bool ios)
+    {
+        var sb = new System.Text.StringBuilder("/finansije/kartica-nova/stampa?");
+
+        if (IdPartnera.HasValue)
+            sb.Append($"idPartnera={IdPartnera.Value}");
+        else if (!string.IsNullOrWhiteSpace(Kljuc))
+            sb.Append($"kljuc={Uri.EscapeDataString(Kljuc)}");
+
+        if (!ios)
+        {
+            sb.Append($"&datumOd={_od}");
+            sb.Append($"&datumDo={_do}");
+        }
+
+        // Uvek prosleđuj sve filtere (i kad su SVE/SVI) da print ima identičan filter kao ekran
+        sb.Append($"&uloga={_filterUloga}");
+        sb.Append($"&valuta={_filterValuta}");
+        if (!ios)
+        {
+            sb.Append($"&tip={_filterTip}");
+            sb.Append($"&izmiren={_filterIzmiren}");
+        }
+
+        sb.Append($"&samoOtvorene={ios.ToString().ToLower()}");
+
+        await JS.InvokeVoidAsync("open", sb.ToString(), "_blank");
     }
 
     // ── Stilovi redova ────────────────────────────────────────

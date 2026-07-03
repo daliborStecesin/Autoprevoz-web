@@ -40,7 +40,7 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 - NE diraju se više nikako (ni provere ni brisanje) — čista arhiva
 - BIĆE UKLONJENE kad se novi model potvrdi u produkciji
 
-### NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — ZAVRŠEN OSNOVNI CIKLUS
+### NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — ZAVRŠEN
 **Strateška odluka:** umesto migracije starih podataka (koja je lomila desktop — desktop
 računa Preostalo kao SUM(Saldo) uživo i filtrira Preostalo<>0, pa diranje Uplata razbija saldo),
 napravljena je POTPUNO NOVA tabela za superiorni model. Stari klijenti ostaju na staroj
@@ -58,7 +58,7 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
 **Matrica upisa (potvrđena, testirana kroz softver):**
 - RACUN kupac → duguje, saldo +   | UPLATA kupac → potrazuje, saldo -
 - RACUN dobavljač → potrazuje, saldo -   | ISPLATA dobavljač → duguje, saldo +
-- KNJIZNO_ODOBRENJE kupcu → potrazuje (-)   | KNJIZNO_ZADUZENJE kupcu → duguje (+)
+- KNJIZNO_ODOBRENJE (KUPAC: potrazuje/DOBAVLJAC: duguje) | KNJIZNO_ZADUZENJE (obrnuto)
 - POCETNO po ulozi
 - Ručni "Račun" (bez idRacun) — predznak iz partnerUloga, slobodan broj dokumenta,
   obavezan datumValute (za van valute obračun)
@@ -80,22 +80,32 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
 - [x] Ekran Dužnici novi (/finansije/duznici-novi): 2 taba, po valuti, van valute stavka-model
 - [x] Označi plaćeno/neplaćeno na novom modelu
 - [x] Vezivanje uplate + cepanje (idStavkeVeza, NERASPOREDJENO ostatak)
-- [x] Kolona VEZA (prikaz broja dokumenta zaduženja preko idStavkeVeza)
+- [x] Kolona VEZA na ekranu (prikaz broja dokumenta zaduženja preko idStavkeVeza)
 - [x] Odveži uplatu (OdveziUplatu — preostalo raste, kapa na original, saldo partnera nepromenjen)
 - [x] Brisanje uplate reotvara zaduženje (ObrisiUplatuNova — preostalo raste, saldo partnera SE menja)
 - [x] Blokada brisanja računa sa vezanom uplatom (ProveriUplateZaRacun) + fizičko
-      brisanje RACUN stavke iz kartice pri brisanju računa (fix)
+      brisanje RACUN stavke iz kartice pri brisanju računa
 - [x] Ručni unos tipa "Račun" u finansije/unos (van automatskog fakturisanja)
+- [x] Knjižna odobrenja/zaduženja — UI u finansije/unos, oba tipa, toggle "Vezano za
+      račun" (slobodno ili vezano), ručni broj dokumenta, KNJIZNO_ZADUZENJE ponaša
+      se kao puno zaduženje (vezivanje/van valute/blokada brisanja), KNJIZNO_ODOBRENJE
+      odmah izmiren
 - [x] Meni: nove stavke (Kartica/Dužnici) + stare preimenovane u "(staro)"
 - [x] Redirect posle unosa finansija → nova kartica (bio bug, vodio na staru)
+- [x] **Štampa kartice** (/finansije/kartica-nova/stampa) — klasičan knjigovodstveni
+      format (Duguje/Potražuje/Saldo running), preneseno stanje, kolona VEZA odvojena
+      od Br.dokumenta (fix: štampa je ranije mešala broj vezanog zaduženja sa
+      sopstvenim brojem uplate), filter identičan ekranu za sve uloge uključujući
+      SVE (fix: ranije gubila DOBAVLJAC redove kad je uloga=SVE)
+- [x] **IOS** (dugme na /finansije/kartica-nova) — ista štampa, samoOtvorene=true,
+      bez preneseno stanje, samo preostalo>0/izmiren=false, dospele stavke označene
 - [x] Detaljni testovi kroz softver: preplata/cepanje, više parcijalnih uplata, van
-      valute granica, brisanje uplate sa zatvorenog računa, blokada brisanja računa
+      valute granica, brisanje uplate sa zatvorenog računa, blokada brisanja računa,
+      štampa/IOS poklapanje sa ekranom (SVE/KUPAC/DOBAVLJAC uloge)
 
 ---
 
 ## 🎯 SLEDEĆE (novi finansijski model)
-- [ ] Knjižna odobrenja/zaduženja — UI + unos (matrica već postoji u servisu)
-- [ ] Štampa kartice + IOS (nova) — uplate grupisane, kolona VEZA, IOS otvorene stavke
 - [ ] Podešavanje "rad sa više moneta" (isključi → sakrij stranu/ino polovinu)
 - [ ] Ino EUR pun test prolaz na novom modelu (paralelan set A1-A5, EUR partner)
 
@@ -159,5 +169,10 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
 - **Vezivanje preko idStavkeVeza** (int, pokazuje na Id stavke), ne preko broja računa. Radi za račune, početno, knjižna, ručne unose.
 - **Odveži vs Briši uplatu:** odveži ne menja saldo partnera (novac ostaje, samo raspoređivanje); brisanje uplate MENJA saldo partnera (novac nestaje) — oba reotvaraju zaduženje (preostalo raste, kapa na original).
 - **Blokada brisanja računa:** samo novi model se proverava (ProveriUplateZaRacun); stari model (tbl_Kartica) se ne proverava niti ažurira nikad — čista arhiva.
+- **Štampa mora koristiti IDENTIČAN filter kao ekran** — bio je bug gde je štampa
+  gubila DOBAVLJAC redove kad je uloga=SVE, i mešala broj vezanog zaduženja sa
+  sopstvenim brojem dokumenta uplate (sad rešeno kolonom VEZA odvojenom od Br.dok.).
+  Svaka buduća print stranica mora se testirati poređenjem broj-redova + footer
+  totala protiv ekrana, za sve kombinacije filtera (posebno uloga=SVE).
 - **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
 - Verzija baze: 209 (208=tbl_log_brisanja, 209=tbl_KarticaNova). Vidi CLAUDE.md.

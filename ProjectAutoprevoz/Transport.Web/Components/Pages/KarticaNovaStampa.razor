@@ -1,0 +1,443 @@
+@page "/finansije/kartica-nova/stampa"
+@layout EmptyLayout
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService     TenantService
+@inject NavigationManager  Nav
+@inject TransportDbContext Db
+@inject IJSRuntime         JS
+
+<PageTitle>@_pageTitle</PageTitle>
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+    .wrap { padding: 24px 32px; }
+
+    .firm-header { margin-bottom: 8px; }
+    .firm-header .naziv { font-size: 13pt; font-weight: bold; }
+    .firm-header .adresa { font-size: 9pt; color: #333; }
+
+    .partner-box { border: 1px solid #bbb; padding: 7px 12px; margin-bottom: 14px;
+                   display: inline-block; min-width: 280px; background: #fafafa; }
+    .partner-naziv { font-size: 10.5pt; font-weight: bold; }
+    .partner-pib { font-size: 9pt; color: #555; }
+
+    .doc-title { font-size: 12pt; font-weight: bold; margin-bottom: 4px;
+                 border-bottom: 2px solid #333; padding-bottom: 6px; }
+    .doc-sub { font-size: 9pt; color: #555; margin-bottom: 16px; }
+
+    .sekcija { margin-bottom: 28px; }
+    .sekcija-naslov { font-size: 10pt; font-weight: bold; color: #2D3E50;
+                      border-bottom: 1px solid #aaa; padding-bottom: 3px; margin-bottom: 6px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    thead th { background: #e8e8e8; font-weight: bold; padding: 5px 6px;
+               border: 1px solid #aaa; }
+    tbody td { padding: 4px 6px; border: 1px solid #ccc; vertical-align: middle; }
+    tbody tr:nth-child(even) td { background: #f7f7f7; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+
+    .preneseno td { background: #d8eaf8 !important; font-style: italic; font-weight: 600; }
+    tfoot td { padding: 5px 6px; border: 1px solid #aaa; font-weight: bold; background: #f0f0f0; }
+
+    .dospelo { color: #c62828; font-weight: bold; font-size: 0.8em; letter-spacing: 0.02em; }
+
+    .empty-msg { text-align: center; padding: 14px; color: #777; font-style: italic; }
+
+    .no-print { margin-top: 24px; text-align: center; padding-bottom: 20px; }
+    .no-print button { padding: 7px 22px; font-size: 10pt; cursor: pointer;
+                       border: 1px solid #999; border-radius: 4px; background: #f0f0f0; margin: 0 4px; }
+    .no-print button:hover { background: #e0e0e0; }
+    .loading { padding: 60px; text-align: center; font-size: 12pt; color: #666; }
+
+    @@media print {
+        .no-print { display: none !important; }
+        body { font-size: 8pt; }
+        thead th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { background: #f7f7f7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tfoot td { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .preneseno td { background: #d8eaf8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+
+@if (_ucitava)
+{
+    <div class="loading">Učitavanje podataka...</div>
+}
+else
+{
+    <div class="wrap">
+
+        @* ── Zaglavlje firme ─────────────────────────────────── *@
+        <div class="firm-header">
+            <div class="naziv">@_nazivFirme</div>
+            @if (!string.IsNullOrEmpty(_adresaFirme))
+            {
+                <div class="adresa">@_adresaFirme</div>
+            }
+        </div>
+
+        @* ── Partner info ─────────────────────────────────────── *@
+        <div class="partner-box">
+            <div class="partner-naziv">@_partnerNaziv</div>
+            @if (!string.IsNullOrEmpty(_partnerPib))
+            {
+                <div class="partner-pib">PIB: @_partnerPib</div>
+            }
+        </div>
+
+        @* ── Naslov ───────────────────────────────────────────── *@
+        <div class="doc-title">@_naslov</div>
+        <div class="doc-sub">@_podnaslov</div>
+
+        @* ── Sekcije po valuti ───────────────────────────────── *@
+        @if (_sekcije.Count == 0)
+        {
+            <div class="empty-msg">Nema podataka za prikaz.</div>
+        }
+
+        @foreach (var sek in _sekcije)
+        {
+            <div class="sekcija">
+
+                @if (_sekcije.Count > 1)
+                {
+                    <div class="sekcija-naslov">Valuta: @sek.Valuta</div>
+                }
+
+                @if (!_jeIos)
+                {
+                    @* ──────────── KARTICA ──────────────────────────────── *@
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:9%">Datum</th>
+                                <th style="width:14%">Br. dokumenta</th>
+                                <th style="width:12%">Veza</th>
+                                <th>Tip dokumenta</th>
+                                <th class="right" style="width:12%">Duguje (@sek.Valuta)</th>
+                                <th class="right" style="width:12%">Potražuje (@sek.Valuta)</th>
+                                <th class="right" style="width:12%">Saldo (@sek.Valuta)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="preneseno">
+                                <td class="center">—</td>
+                                <td colspan="3">Preneseno stanje</td>
+                                <td></td>
+                                <td></td>
+                                <td class="right">@sek.Preneseno.ToString("N2")</td>
+                            </tr>
+                            @foreach (var r in sek.Redovi)
+                            {
+                                <tr>
+                                    <td class="center">@r.Datum?.ToString("dd.MM.yyyy")</td>
+                                    <td>@r.BrojDoc</td>
+                                    <td style="font-size:0.85em; color:#555;">@r.Veza</td>
+                                    <td>@r.TipOpis</td>
+                                    <td class="right">@(r.Duguje != 0 ? r.Duguje.ToString("N2") : "")</td>
+                                    <td class="right">@(r.Potrazuje != 0 ? r.Potrazuje.ToString("N2") : "")</td>
+                                    <td class="right">@r.RunningSaldo.ToString("N2")</td>
+                                </tr>
+                            }
+                            @if (sek.Redovi.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="7" class="empty-msg">Nema stavki u izabranom periodu.</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="right">UKUPNO PERIOD:</td>
+                                <td class="right">@sek.UkupnoDuguje.ToString("N2")</td>
+                                <td class="right">@sek.UkupnoPotrazuje.ToString("N2")</td>
+                                <td class="right">@sek.KonacniSaldo.ToString("N2")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                }
+                else
+                {
+                    @* ──────────── IOS ───────────────────────────────────── *@
+                    @if (sek.Redovi.Count == 0)
+                    {
+                        <div class="empty-msg">Nema otvorenih stavki za @sek.Valuta.</div>
+                    }
+                    else
+                    {
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th class="center" style="width:4%">R.br</th>
+                                    <th style="width:8%">Datum dok.</th>
+                                    <th style="width:8%">Dat. valute</th>
+                                    <th style="width:13%">Br. dokumenta</th>
+                                    <th style="width:10%">Veza</th>
+                                    <th>Tip dokumenta</th>
+                                    <th class="right" style="width:12%">Duguje (@sek.Valuta)</th>
+                                    <th class="right" style="width:12%">Preostalo (@sek.Valuta)</th>
+                                    <th class="center" style="width:8%">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{ int rb = 1; }
+                                @foreach (var r in sek.Redovi)
+                                {
+                                    <tr>
+                                        <td class="center">@rb</td>
+                                        <td class="center">@r.Datum?.ToString("dd.MM.yyyy")</td>
+                                        <td class="center" style="@(r.Dospelo ? "color:#c62828;" : "")">
+                                            @r.DatumValute?.ToString("dd.MM.yyyy")
+                                        </td>
+                                        <td>@r.BrojDoc</td>
+                                        <td style="font-size:0.85em; color:#555;">@r.Veza</td>
+                                        <td>@r.TipOpis</td>
+                                        <td class="right">@(r.Duguje != 0 ? r.Duguje.ToString("N2") : r.Potrazuje.ToString("N2"))</td>
+                                        <td class="right" style="@(r.Dospelo ? "color:#c62828; font-weight:bold;" : "")">
+                                            @r.Preostalo.ToString("N2")
+                                        </td>
+                                        <td class="center">
+                                            @if (r.Dospelo)
+                                            {
+                                                <span class="dospelo">DOSPELO</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    rb++;
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7" class="right">UKUPNO PREOSTALO:</td>
+                                    <td class="right">@sek.UkupnoPreostalo.ToString("N2")</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    }
+                }
+
+            </div>
+        }
+
+        <div class="no-print">
+            <button onclick="window.print()">Štampaj</button>
+            <button onclick="window.close()">Zatvori</button>
+        </div>
+
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "idPartnera")]   public int?    IdPartnera   { get; set; }
+    [SupplyParameterFromQuery(Name = "kljuc")]        public string? Kljuc        { get; set; }
+    [SupplyParameterFromQuery(Name = "datumOd")]      public string? DatumOd      { get; set; }
+    [SupplyParameterFromQuery(Name = "datumDo")]      public string? DatumDo      { get; set; }
+    [SupplyParameterFromQuery(Name = "valuta")]       public string? Valuta       { get; set; }
+    [SupplyParameterFromQuery(Name = "uloga")]        public string? Uloga        { get; set; }
+    [SupplyParameterFromQuery(Name = "tip")]          public string? Tip          { get; set; }
+    [SupplyParameterFromQuery(Name = "izmiren")]      public string? Izmiren      { get; set; }
+    [SupplyParameterFromQuery(Name = "samoOtvorene")] public bool    SamoOtvorene { get; set; }
+
+    private class StavkaRed
+    {
+        public DateTime? Datum        { get; set; }
+        public DateTime? DatumValute  { get; set; }
+        public string    BrojDoc      { get; set; } = "";
+        public string    Veza         { get; set; } = "";
+        public string    TipOpis      { get; set; } = "";
+        public decimal   Duguje       { get; set; }
+        public decimal   Potrazuje    { get; set; }
+        public decimal   SaldoDelta   { get; set; }
+        public decimal   RunningSaldo { get; set; }
+        public decimal   Preostalo    { get; set; }
+        public bool      Dospelo      { get; set; }
+    }
+
+    private class Sekcija
+    {
+        public string          Valuta     { get; set; } = "";
+        public decimal         Preneseno  { get; set; }
+        public List<StavkaRed> Redovi     { get; set; } = [];
+        public decimal UkupnoDuguje    => Redovi.Sum(r => r.Duguje);
+        public decimal UkupnoPotrazuje => Redovi.Sum(r => r.Potrazuje);
+        public decimal UkupnoPreostalo => Redovi.Sum(r => r.Preostalo);
+        public decimal KonacniSaldo    => Preneseno + Redovi.Sum(r => r.SaldoDelta);
+    }
+
+    private bool          _ucitava     = true;
+    private bool          _jeIos;
+    private string        _nazivFirme  = "";
+    private string        _adresaFirme = "";
+    private string        _partnerNaziv = "";
+    private string        _partnerPib   = "";
+    private string        _naslov       = "";
+    private string        _podnaslov    = "";
+    private string        _pageTitle    = "Štampa kartice";
+    private List<Sekcija> _sekcije      = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        var podaci = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+        _nazivFirme  = podaci?.NazivFirme ?? "";
+        _adresaFirme = podaci?.Adresa ?? "";
+
+        var odDate = DateTime.TryParse(DatumOd, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
+        var doDate = DateTime.TryParse(DatumDo, out var do_) ? do_ : DateTime.Today;
+        var danas  = DateTime.Today;
+        _jeIos     = SamoOtvorene;
+
+        IQueryable<KarticaNova> q = Db.KarticeNova.AsNoTracking();
+        if (IdPartnera.HasValue)
+            q = q.Where(k => k.IdPartnera == IdPartnera.Value);
+        else if (!string.IsNullOrWhiteSpace(Kljuc))
+            q = q.Where(k => k.PIB == Kljuc);
+
+        var svi = await q.ToListAsync();
+
+        // Indeks za "Veza" kolonu: Id stavke → njen BrojDokumenta
+        var vezeIndex = svi.ToDictionary(k => k.Id, k => k.BrojDokumenta ?? "");
+
+        _partnerNaziv = svi.OrderByDescending(x => x.Id).Select(x => x.NazivPartnera).FirstOrDefault() ?? "";
+        _partnerPib   = svi.OrderByDescending(x => x.Id).Select(x => x.PIB).FirstOrDefault() ?? "";
+
+        // ── Uloga filter (važi za Kartica i IOS, uključen u prenoseno račun) ───────────────
+        IEnumerable<KarticaNova> sviUloga = svi;
+        if (!string.IsNullOrWhiteSpace(Uloga) && Uloga != "SVE")
+            sviUloga = sviUloga.Where(k => k.PartnerUloga == Uloga);
+
+        // ── Identičan filter kao screen Izlistaj ─────────────────────────────────────────────
+        List<KarticaNova> periodFlatList;
+        if (!_jeIos)
+        {
+            // Kartica: datum + valuta + tip + izmiren (isti redosled kao Izlistaj na ekranu)
+            IEnumerable<KarticaNova> fq = sviUloga.Where(k =>
+                !k.DatumDokumenta.HasValue ||
+                (k.DatumDokumenta.Value.Date >= odDate.Date &&
+                 k.DatumDokumenta.Value.Date <= doDate.Date));
+            if (!string.IsNullOrWhiteSpace(Valuta) && Valuta != "SVE")
+                fq = fq.Where(k => k.Valuta == Valuta);
+            if (!string.IsNullOrWhiteSpace(Tip) && Tip != "SVI")
+                fq = fq.Where(k => k.TipDokumenta == Tip);
+            if (!string.IsNullOrWhiteSpace(Izmiren) && Izmiren != "SVE")
+                fq = fq.Where(k => k.Izmiren == (Izmiren == "DA"));
+            periodFlatList = fq.OrderBy(k => k.DatumDokumenta).ThenBy(k => k.Id).ToList();
+        }
+        else
+        {
+            // IOS: otvorene stavke, bez datumskog opsega
+            IEnumerable<KarticaNova> fq2 = sviUloga.Where(k => k.Preostalo > 0 && !k.Izmiren);
+            if (!string.IsNullOrWhiteSpace(Valuta) && Valuta != "SVE")
+                fq2 = fq2.Where(k => k.Valuta == Valuta);
+            periodFlatList = fq2.OrderBy(k => k.DatumDokumenta).ThenBy(k => k.Id).ToList();
+        }
+
+        // Valutas iz periodFlatList (isti izvor kao screen koji koristi _detaljRedovi)
+        var valute = (!string.IsNullOrWhiteSpace(Valuta) && Valuta != "SVE")
+            ? new List<string> { Valuta }
+            : periodFlatList.Select(k => k.Valuta).Distinct().OrderBy(v => v).ToList();
+        if (valute.Count == 0 && !_jeIos) valute = ["RSD"];
+
+        _sekcije = valute.Select(val =>
+        {
+            var sek = new Sekcija { Valuta = val };
+
+            if (!_jeIos)
+            {
+                // Prenoseno = net saldo pre perioda (uloga-filtrirano, sve vrste dokumenata)
+                sek.Preneseno = sviUloga
+                    .Where(k => k.Valuta == val
+                             && k.DatumDokumenta.HasValue
+                             && k.DatumDokumenta.Value.Date < odDate.Date)
+                    .Sum(k => k.Saldo);
+
+                var periodRows = periodFlatList.Where(k => k.Valuta == val).ToList();
+                decimal running = sek.Preneseno;
+                foreach (var r in periodRows)
+                {
+                    running += r.Saldo;
+                    sek.Redovi.Add(new StavkaRed
+                    {
+                        Datum        = r.DatumDokumenta,
+                        DatumValute  = r.DatumValute,
+                        BrojDoc      = r.BrojDokumenta ?? "",
+                        Veza         = r.IdStavkeVeza.HasValue && vezeIndex.TryGetValue(r.IdStavkeVeza.Value, out var kv) ? kv : "",
+                        TipOpis      = TipPrevedeno(r.TipDokumenta),
+                        Duguje       = r.Duguje,
+                        Potrazuje    = r.Potrazuje,
+                        SaldoDelta   = r.Saldo,
+                        RunningSaldo = running,
+                        Preostalo    = r.Preostalo,
+                        Dospelo      = r.DatumValute.HasValue && r.DatumValute.Value.Date < danas && r.Preostalo > 0
+                    });
+                }
+            }
+            else
+            {
+                foreach (var r in periodFlatList.Where(k => k.Valuta == val))
+                {
+                    sek.Redovi.Add(new StavkaRed
+                    {
+                        Datum       = r.DatumDokumenta,
+                        DatumValute = r.DatumValute,
+                        BrojDoc     = r.BrojDokumenta ?? "",
+                        Veza        = r.IdStavkeVeza.HasValue && vezeIndex.TryGetValue(r.IdStavkeVeza.Value, out var iv) ? iv : "",
+                        TipOpis     = TipPrevedeno(r.TipDokumenta),
+                        Duguje      = r.Duguje,
+                        Potrazuje   = r.Potrazuje,
+                        SaldoDelta  = r.Saldo,
+                        Preostalo   = r.Preostalo,
+                        Dospelo     = r.DatumValute.HasValue && r.DatumValute.Value.Date < danas
+                    });
+                }
+            }
+
+            return sek;
+        })
+        .Where(s => _jeIos ? s.Redovi.Count > 0 : (s.Redovi.Count > 0 || s.Preneseno != 0))
+        .ToList();
+
+        var partnerSafe = new string((_partnerNaziv.Length > 25 ? _partnerNaziv[..25] : _partnerNaziv)
+            .Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
+
+        if (_jeIos)
+        {
+            _naslov    = $"IZVOD OTVORENIH STAVKI (IOS) na dan {danas:dd.MM.yyyy}";
+            _podnaslov = $"Datum štampe: {danas:dd.MM.yyyy HH:mm}";
+            _pageTitle = $"IOS_{partnerSafe}_{danas:ddMMyyyy}";
+        }
+        else
+        {
+            _naslov    = "KARTICA PARTNERA";
+            _podnaslov = $"Period: {odDate:dd.MM.yyyy} — {doDate:dd.MM.yyyy}";
+            _pageTitle = $"Kartica_{partnerSafe}_{odDate:ddMMyyyy}_{doDate:ddMMyyyy}";
+        }
+
+        _ucitava = false;
+        StateHasChanged();
+
+        await Task.Delay(400);
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static string TipPrevedeno(string tip) => tip switch
+    {
+        "RACUN"             => "Račun",
+        "UPLATA"            => "Uplata",
+        "ISPLATA"           => "Isplata",
+        "KNJIZNO_ODOBRENJE" => "Knjižno odobrenje",
+        "KNJIZNO_ZADUZENJE" => "Knjižno zaduženje",
+        "POCETNO"           => "Početno stanje",
+        _                   => tip
+    };
+}
