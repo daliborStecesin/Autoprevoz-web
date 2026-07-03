@@ -114,6 +114,47 @@
         </MudNavLink>
     </MudNavGroup>
 
+    @* ── E-FAKTURE ────────────────────────────────────── *@
+    @if (TenantService.GetEFakturaAktivna())
+    {
+        <MudNavGroup Title="E-fakture"
+                     Icon="@Icons.Material.Filled.CloudUpload"
+                     Expanded="false">
+            <MudNavLink Href="/efakture/izlazne"
+                        Icon="@Icons.Material.Filled.Upload">
+                Izlazne e-fakture
+            </MudNavLink>
+            <MudNavLink Href="/efakture/ulazne"
+                        Icon="@Icons.Material.Filled.Download">
+                Ulazne e-fakture
+            </MudNavLink>
+            <MudNavLink Href="/efakture/unos"
+                        Icon="@Icons.Material.Filled.NoteAdd">
+                Unos dokumenta
+            </MudNavLink>
+            <MudNavLink Href="/efakture/pojedinacna-evidencija"
+                        Icon="@Icons.Material.Filled.FactCheck">
+                Pojedinačna evidencija
+            </MudNavLink>
+            <MudNavLink Href="/efakture/zbirna-evidencija"
+                        Icon="@Icons.Material.Filled.Summarize">
+                Zbirna evidencija
+            </MudNavLink>
+            <MudNavLink Href="/efakture/evidencija-prethodnog-poreza"
+                        Icon="@Icons.Material.Filled.RequestQuote">
+                Evidencija prethodnog poreza
+            </MudNavLink>
+            <MudNavLink Href="/efakture/statistika"
+                        Icon="@Icons.Material.Filled.BarChart">
+                Statistika e-faktura
+            </MudNavLink>
+            <MudNavLink Href="/efakture/obavestenje-prethodnog-poreza"
+                        Icon="@Icons.Material.Filled.Announcement">
+                Obaveštenje o prethodnom porezu
+            </MudNavLink>
+        </MudNavGroup>
+    }
+
     @* ── RESURSI ──────────────────────────────────────── *@
     <div class="nav-section-title">Resursi</div>
     <MudNavLink Href="/magacin/lager"

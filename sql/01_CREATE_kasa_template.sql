@@ -2736,7 +2736,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((209)),
+	[verzijaBaze] [int] NULL DEFAULT ((210)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -8276,8 +8276,10 @@ BEGIN
         [OpcijaDecimal1], [OpcijaDecimal2],
         [OpcijaDatum1], [OpcijaDatum2],
         [transportModulAktivan],
+        [OpcijaInt12],
         [OpcijaString8], [sefTipServera], [eOtpremnicaTipServera],
-        [pdvKategorija], [pdvSlovo], [pdvDatumObracuna]
+        [pdvKategorija], [pdvSlovo], [pdvDatumObracuna],
+        [OpcijaString13]
     )
     VALUES
     (
@@ -8288,8 +8290,10 @@ BEGIN
         2430.00, 50.00,
         DATEADD(DAY, 15, GETDATE()), DATEADD(DAY, -15, GETDATE()),
         1,
+        1,
         'DEMO', 'DEMO', 'DEMO',
-        NULL, NULL, NULL
+        NULL, NULL, NULL,
+        'RSD'
     );
 END
 GO

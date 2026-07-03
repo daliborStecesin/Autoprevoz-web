@@ -123,6 +123,21 @@ else if (_pod is not null && _firma is not null)
                         </div>
                     </div>
                 </MudItem>
+
+                @* Red 3b: Domaća valuta ────────────────────────────── *@
+                <MudItem xs="12" md="6">
+                    <NativniSelect Label="Domaća valuta" Value="@(_pod.OpcijaString13 ?? "RSD")"
+                                   ValueChanged="@((string v) => _pod.OpcijaString13 = v)"
+                                   HelperText="Valuta domaćeg platnog prometa (RSD za Srbiju, BAM za BiH, itd.)">
+                        <option value="RSD">RSD — Srpski dinar</option>
+                        <option value="BAM">BAM — Konvertibilna marka (BiH)</option>
+                        <option value="DEN">DEN — Makedonski denar</option>
+                        <option value="HRK">HRK — Hrvatska kuna</option>
+                        <option value="EUR">EUR — Euro</option>
+                        <option value="USD">USD — Američki dolar</option>
+                    </NativniSelect>
+                </MudItem>
+
                 <MudItem xs="12" md="6">
                     <MudNumericField T="decimal?"
                                      @bind-Value="_pod.kursEur"
@@ -394,6 +409,11 @@ else if (_pod is not null && _firma is not null)
                                  ValueChanged="@(v => _pod.koristiOdvojeneInoRacune = v ? 1 : 0)"
                                  Label="Koristi odvojene brojeve za ino račune"
                                  Class="mb-2" />
+                    <MudCheckBox T="bool"
+                                 Value="@((_pod.OpcijaInt12 ?? 1) != 0)"
+                                 ValueChanged="@(v => _pod.OpcijaInt12 = v ? 1 : 0)"
+                                 Label="Rad sa više moneta (prikazuj EUR opcije u finansijama)"
+                                 Class="mb-2" />
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudNumericField T="int?"
@@ -652,6 +672,7 @@ else if (_pod is not null && _firma is not null)
                 automatskiBrojevi       = 1,
                 rucniUnosBrojFakture    = 0,
                 koristiOdvojeneInoRacune = 0,
+                OpcijaInt12             = 1,
                 stampaLogoAktivan       = 1,
                 eFakturaAktivna         = 0,
                 eOtpremnicaAktivna      = 0,

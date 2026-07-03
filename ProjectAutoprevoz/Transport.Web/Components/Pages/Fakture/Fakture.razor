@@ -235,10 +235,15 @@
 
     private DateTime _poslednjKlik  = DateTime.MinValue;
     private Racun?   _poslednjKlikR;
+    private string   _domacaValuta  = "RSD";
 
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _domacaValuta = (await Db.Podesavanja.AsNoTracking()
+            .Select(p => p.OpcijaString13)
+            .FirstOrDefaultAsync()) ?? "RSD";
 
         // Lista faktura UVEK kreće od čistih podrazumevanih filtera (ne učitava
         // zapamćene DefaultValues) — zapamćeni filter (npr. INOSTRANI) je
@@ -431,7 +436,7 @@
             using var tx = await Db.Database.BeginTransactionAsync();
             try
             {
-                var valuta = entitet.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+                var valuta = entitet.TipProdaje == "INOSTRANI" ? "EUR" : _domacaValuta;
                 await LogServis.Zabelezi("RACUNI",
                     $"Brisan račun {entitet.BrojRacuna}, vrednost {(entitet.SumaRacuna ?? 0):N2} {valuta}");
 

@@ -272,8 +272,10 @@ else
         public decimal KonacniSaldo    => Preneseno + Redovi.Sum(r => r.SaldoDelta);
     }
 
-    private bool          _ucitava     = true;
+    private bool          _ucitava         = true;
     private bool          _jeIos;
+    private string        _domacaValuta    = "RSD";
+    private bool          _radSaViseMoneta = true;
     private string        _nazivFirme  = "";
     private string        _adresaFirme = "";
     private string        _partnerNaziv = "";
@@ -291,6 +293,12 @@ else
         var podaci = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
         _nazivFirme  = podaci?.NazivFirme ?? "";
         _adresaFirme = podaci?.Adresa ?? "";
+
+        var pod = await Db.Podesavanja.AsNoTracking()
+            .Select(p => new { p.OpcijaString13, p.OpcijaInt12 })
+            .FirstOrDefaultAsync();
+        _domacaValuta    = pod?.OpcijaString13 ?? "RSD";
+        _radSaViseMoneta = (pod?.OpcijaInt12 ?? 1) != 0;
 
         var odDate = DateTime.TryParse(DatumOd, out var od) ? od : new DateTime(DateTime.Today.Year, 1, 1);
         var doDate = DateTime.TryParse(DatumDo, out var do_) ? do_ : DateTime.Today;
@@ -342,11 +350,15 @@ else
             periodFlatList = fq2.OrderBy(k => k.DatumDokumenta).ThenBy(k => k.Id).ToList();
         }
 
+        // Kad je rad sa više moneta isključen, skrivamo EUR (kao i na ekranu)
+        if (!_radSaViseMoneta)
+            periodFlatList = periodFlatList.Where(k => k.Valuta != "EUR").ToList();
+
         // Valutas iz periodFlatList (isti izvor kao screen koji koristi _detaljRedovi)
         var valute = (!string.IsNullOrWhiteSpace(Valuta) && Valuta != "SVE")
             ? new List<string> { Valuta }
             : periodFlatList.Select(k => k.Valuta).Distinct().OrderBy(v => v).ToList();
-        if (valute.Count == 0 && !_jeIos) valute = ["RSD"];
+        if (valute.Count == 0 && !_jeIos) valute = [_domacaValuta];
 
         _sekcije = valute.Select(val =>
         {

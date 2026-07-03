@@ -10,6 +10,7 @@ public interface ITenantService
     int GetIdLicence();
     string GetImeKorisnika();
     bool GetTransportModulAktivan();
+    bool GetEFakturaAktivna();
     bool IsAuthenticated();
     void Logout();
 }

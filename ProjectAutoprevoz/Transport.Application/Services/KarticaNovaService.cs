@@ -81,15 +81,26 @@ public class KarticaNovaService : IKarticaNovaService
         k.DatumIzmene = DateTime.Now;
     }
 
+    // ── Keš domaće valute klijenta (po životu Scoped instance) ─────
+    private string? _domacaValutaCache;
+    private async Task<string> GetDomacaValuta()
+    {
+        if (_domacaValutaCache is not null) return _domacaValutaCache;
+        _domacaValutaCache = (await _db.Podesavanja.AsNoTracking()
+            .Select(p => p.OpcijaString13)
+            .FirstOrDefaultAsync()) ?? "RSD";
+        return _domacaValutaCache;
+    }
+
     // ── Pomoćna: mapiranje TipProdaje računa na ulogu/valutu ────
-    private static (string uloga, string valuta) MapirajRacun(string? tipProdaje) =>
+    private static (string uloga, string valuta) MapirajRacun(string? tipProdaje, string domacaValuta) =>
         tipProdaje switch
         {
-            "IZLAZ"     or "IZLAZ_BP" => (UlogaKupac,     "RSD"),
-            "INOSTRANI"               => (UlogaKupac,     "EUR"),
-            "ULAZ"                    => (UlogaDobavljac,  "RSD"),
-            "INO_ULAZ"                => (UlogaDobavljac,  "EUR"),
-            _                         => (UlogaKupac,     "RSD")
+            "IZLAZ"     or "IZLAZ_BP" => (UlogaKupac,    domacaValuta),
+            "INOSTRANI"               => (UlogaKupac,    "EUR"),
+            "ULAZ"                    => (UlogaDobavljac, domacaValuta),
+            "INO_ULAZ"                => (UlogaDobavljac, "EUR"),
+            _                         => (UlogaKupac,    domacaValuta)
         };
 
     // ── DodajStavku (standalone, sa SaveChangesAsync) ───────────
@@ -226,7 +237,7 @@ public class KarticaNovaService : IKarticaNovaService
     public async Task UpisiIzRacuna(Racun racun)
     {
         var iznos  = racun.SumaRacuna ?? 0;
-        var (uloga, valuta) = MapirajRacun(racun.TipProdaje);
+        var (uloga, valuta) = MapirajRacun(racun.TipProdaje, await GetDomacaValuta());
         var idRacun = racun.Broj;
 
         var (dug, pot, sal, pre) = ApplyMatrix(TipRacun, uloga, iznos);

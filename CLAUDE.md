@@ -110,7 +110,7 @@ Folder: `/sql/`
   nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
   novi seed kao `IF NOT EXISTS → INSERT`
 
-`verzijaBaze` u `tbl_Podesavanja` = 209 (Blazor migracija).
+`verzijaBaze` u `tbl_Podesavanja` = 210 (Blazor migracija).
 Svaka buduća migracija inkrementira ovaj broj.
 - 201 = `tbl_plate` dodato `idTure` + `kursEur`
 - 202 = `tbl_plate` dodato `iznosEUR`
@@ -131,7 +131,7 @@ Svaka buduća migracija inkrementira ovaj broj.
   samo brisanje. Log se nikad ne menja/briše (samo INSERT, nema soft delete).
   Stavke računa (`tbl_artikli_racuna`) takođe prešle sa soft delete na pravi
   UPDATE/DELETE (nemaju referencijalnu vrednost) — query filter uklonjen.
-  - 209 = `tbl_KarticaNova` dodato (CREATE u oba SQL fajla) — potpuno novi
+- 209 = `tbl_KarticaNova` dodato (CREATE u oba SQL fajla) — potpuno novi
   finansijski model, POTPUNO NEZAVISAN od `tbl_Kartica` (koja ostaje kao
   read-only istorija, ne dira se više nikako). Razlog: desktop računa
   Preostalo kao SUM(Saldo) uživo i filtrira fizičku kolonu Preostalo<>0,
@@ -142,6 +142,13 @@ Svaka buduća migracija inkrementira ovaj broj.
   unose), idStavkeVeza (uplata → koju stavku zatvara), 3 datuma
   (datumDokumenta/datumPrometa/datumValute). Fizičko brisanje + log (isti
   ILogBrisanjaService kao ostalo), bez soft delete kolone.
+- 210 = `OpcijaString13` (domacaValuta) + `OpcijaInt12` (radSaViseMoneta) u
+  `tbl_Podesavanja`. domacaValuta (RSD/BAM/DEN/..., default RSD) zamenjuje
+  hardkodovane "RSD" u finansijskom modulu (KarticaDetaljNova, DuzniciNovi,
+  Uplate, KarticaNovaStampa, FakturaUnos, Fakture); EUR strana nikad ne menja.
+  radSaViseMoneta (default 1) — kad je 0, skriva EUR opcije u svim finansijskim
+  ekranima (samo UI-nivo, postojeći EUR podaci u bazi ostaju netaknuti).
+  `KarticaNovaService.GetDomacaValuta()` kešira per-circuit (Scoped).
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
@@ -251,7 +258,8 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - OpcijaInt13 = eFakturaAktivna
 - OpcijaInt15 = rucniUnosBrojFakture
 - OpcijaInt16 = verzijaBaze
-- OpcijaInt12, OpcijaInt18 = SLOBODNO
+- OpcijaInt12 = radSaViseMoneta (0=samo DOM valuta, 1=RSD+EUR prikazati svuda, default 1)
+- OpcijaInt18 = SLOBODNO
 - OpcijaDecimal1 = dnevnica domaća (RSD)
 - OpcijaDecimal2 = dnevnica INO (EUR)
 - OpcijaString4 = formatBrojaRacuna
@@ -262,6 +270,7 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - OpcijaString10 = pdvSlovo
 - OpcijaString11 = pdvDatumObracuna
 - OpcijaString12 = valutaOsnova (PROMET/RAČUN, default PROMET)
+- OpcijaString13 = domacaValuta (kôd domaće valute: RSD/BAM/DEN/..., default RSD)
 - Broj_Kalkulacije = brTure (brojač tura)
 - Broj_Gotovinskog = brNalogaTransport (brojač naloga)
 - Broj_Dok_4 = brTureAgencijski / brNalogaAgencijski
@@ -313,8 +322,6 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 ---
 
 ## STATUS PROJEKTA
-
-## STATUS PROJEKTA
 - [x] Infrastruktura, Login, Multi-tenant, Dashboard
 - [x] Partneri, Zaposleni, Vozila, Podsetnici, Podaci firme + Banke
 - [x] NBS Kurs servis + Kursna lista, IKursService
@@ -338,9 +345,14 @@ Named-značenje OpcijaInt/String/Decimal kolona:
       - Ručni unos tipa "Račun" (van automatskog fakturisanja)
       - Testirano kroz softver: preplata, parcijalne uplate, van valute granica,
         brisanje/odvezivanje, blokada brisanja
-- [ ] Knjižna odobrenja/zaduženja (UI — matrica već postoji u servisu)
-- [ ] Štampa kartice + IOS (nova)
-- [ ] Podešavanje "rad sa više moneta"
+- [x] Knjižna odobrenja/zaduženja (UI) — unos u finansije/unos, oba tipa, toggle
+      "Vezano za račun", KNJIZNO_ZADUZENJE ponaša se kao puno zaduženje
+- [x] Štampa kartice + IOS (nova) — klasičan format, preneseno stanje, kolona VEZA,
+      identičan filter kao ekran (fix gubitka DOBAVLJAC redova kad uloga=SVE)
+- [x] Domaća valuta kao podešavanje po klijentu (OpcijaString13, v210) — konfiguriše
+      se u Podešavanjima, zamenjuje hardkodovani "RSD" u svim finansijskim ekranima
+- [x] Podešavanje "rad sa više moneta" (OpcijaInt12, v210) — checkbox u Podešavanjima,
+      isključivanjem se skriva EUR strana u unos/kartica/dužnici/štampa
 - [ ] Ino EUR pun test prolaz na novom modelu
 - [ ] Predračuni dom+ino
 - [ ] Statistika tura/naloga (POSTOJI, nije testirana)
@@ -348,13 +360,11 @@ Named-značenje OpcijaInt/String/Decimal kolona:
 - [ ] E-fakture
 
 ## TRENUTNI FOKUS
-Novi finansijski model (tbl_KarticaNova) — osnovni ciklus ZAVRŠEN i testiran
-kroz softver (preplata/cepanje, parcijalne uplate, van valute granica,
-odveži/briši uplatu, blokada brisanja računa). Stari model (tbl_Kartica)
-proglašen READ-ONLY arhivom, NEMA migracije podataka (svesna odluka — vidi
-migraciju 209 gore) i NE DIRA SE VIŠE NIKAKO.
-Sledeće: (1) Knjižna odobrenja/zaduženja — UI; (2) Štampa kartice + IOS;
-(3) Podešavanje rad sa više moneta; (4) Ino EUR pun test prolaz.
+Novi finansijski model (tbl_KarticaNova) — kompletan ciklus završen i testiran
+(preplata/cepanje, parcijalne uplate, van valute, brisanje/odvezivanje, blokada,
+knjižna, štampa kartice + IOS, domaća valuta i rad sa više moneta, v210).
+Stari model (tbl_Kartica) READ-ONLY arhiva, NE DIRA SE VIŠE NIKAKO.
+Sledeće: (1) Ino EUR pun test prolaz na novom modelu; (2) Predračuni dom+ino.
 ZAOSTALO ZAKONSKO: Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja),
 primeniti na sidebar dnevnica + dugmiće + modul Dnevnice.
 

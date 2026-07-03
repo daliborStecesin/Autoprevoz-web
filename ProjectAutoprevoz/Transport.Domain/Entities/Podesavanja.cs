@@ -65,6 +65,9 @@ public class Podesavanja
     // Slobodni string — OpcijaString12: osnova za valutu (PROMET/RACUN)
     [MaxLength(50)] public string? OpcijaString12 { get; set; }
 
+    // OpcijaString13: domaća valuta klijenta (npr. RSD, BAM, DEN) — default RSD
+    [MaxLength(10)] public string? OpcijaString13 { get; set; }
+
     // Modul zastavice — 0 = isključen, 1 = aktivan (default)
     public int? transportModulAktivan   { get; set; }
 
@@ -92,6 +95,7 @@ public class Podesavanja
     [MaxLength(50)]  public string? pdvKategorija        { get; set; }
     [MaxLength(10)]  public string? pdvSlovo             { get; set; }
     [MaxLength(30)]  public string? pdvDatumObracuna     { get; set; }
+    public int?      OpcijaInt12          { get; set; }  // radSaViseMoneta — 0=samo DOM, 1=RSD+EUR (default 1)
     public int?      eFakturaAktivna      { get; set; }
     public int?      OpcijaInt13          { get; set; }  // e-faktura aktivna/koristi se (uslov za prikaz taba)
 

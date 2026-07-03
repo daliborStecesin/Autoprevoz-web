@@ -1156,7 +1156,7 @@
             using var tx = await Db.Database.BeginTransactionAsync();
             try
             {
-                var valuta = dbRacun.TipProdaje == "INOSTRANI" ? "EUR" : "RSD";
+                var valuta = dbRacun.TipProdaje == "INOSTRANI" ? "EUR" : (_podesavanja?.OpcijaString13 ?? "RSD");
                 await LogServis.Zabelezi("RACUNI",
                     $"Brisan račun {dbRacun.BrojRacuna}, vrednost {(dbRacun.SumaRacuna ?? 0):N2} {valuta}");
 

@@ -85,29 +85,29 @@
                     <NativniSelect Label="Tip unosa" Value="@_tipUnosa" ValueChanged="OnTipUnosaChanged">
                         @if (_smer == "IZLAZ")
                         {
-                            <option value="UPLATA_RSD">UPLATA (RSD)</option>
-                            <option value="UPLATA_EUR">UPLATA (EUR)</option>
-                            <option value="POCETNO_RSD">POČETNO STANJE (RSD)</option>
-                            <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option>
-                            <option value="RACUN_RSD">RAČUN (RSD)</option>
-                            <option value="RACUN_EUR">RAČUN (EUR)</option>
-                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (RSD)</option>
-                            <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option>
-                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (RSD)</option>
-                            <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option>
+                            <option value="UPLATA_RSD">UPLATA (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="UPLATA_EUR">UPLATA (EUR)</option> }
+                            <option value="POCETNO_RSD">POČETNO STANJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option> }
+                            <option value="RACUN_RSD">RAČUN (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="RACUN_EUR">RAČUN (EUR)</option> }
+                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option> }
+                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option> }
                         }
                         else
                         {
-                            <option value="ISPLATA_RSD">ISPLATA (RSD)</option>
-                            <option value="ISPLATA_EUR">ISPLATA (EUR)</option>
-                            <option value="POCETNO_RSD">POČETNO STANJE (RSD)</option>
-                            <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option>
-                            <option value="RACUN_RSD">RAČUN (RSD)</option>
-                            <option value="RACUN_EUR">RAČUN (EUR)</option>
-                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (RSD)</option>
-                            <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option>
-                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (RSD)</option>
-                            <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option>
+                            <option value="ISPLATA_RSD">ISPLATA (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="ISPLATA_EUR">ISPLATA (EUR)</option> }
+                            <option value="POCETNO_RSD">POČETNO STANJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="POCETNO_EUR">POČETNO STANJE (EUR)</option> }
+                            <option value="RACUN_RSD">RAČUN (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="RACUN_EUR">RAČUN (EUR)</option> }
+                            <option value="KNJIZNO_ODOBRENJE_RSD">KNJIŽNO ODOBRENJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="KNJIZNO_ODOBRENJE_EUR">KNJIŽNO ODOBRENJE (EUR)</option> }
+                            <option value="KNJIZNO_ZADUZENJE_RSD">KNJIŽNO ZADUŽENJE (@_domacaValuta)</option>
+                            @if (_radSaViseMoneta) { <option value="KNJIZNO_ZADUZENJE_EUR">KNJIŽNO ZADUŽENJE (EUR)</option> }
                         }
                     </NativniSelect>
                 </MudItem>
@@ -253,13 +253,15 @@
             {
                 @* Saldo za oba pravca (kupac + dobavljač) u dve valute *@
                 <MudGrid Spacing="2" Class="mb-3">
-                    <MudItem xs="6">
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">KUPAC — RSD</MudText>
+                    <MudItem xs="@(_radSaViseMoneta ? 6 : 12)">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">KUPAC — @_domacaValuta</MudText>
                         <MudText Typo="Typo.h6"
                                  Style="@(_smer == "IZLAZ" && !JeEur ? "color:#1565C0; font-weight:700;" : "")">
                             @_saldoKupacRsd.ToString("N2")
                         </MudText>
                     </MudItem>
+                    @if (_radSaViseMoneta)
+                    {
                     <MudItem xs="6">
                         <MudText Typo="Typo.caption" Class="mud-text-secondary">KUPAC — EUR</MudText>
                         <MudText Typo="Typo.h6"
@@ -267,13 +269,16 @@
                             @_saldoKupacEur.ToString("N2")
                         </MudText>
                     </MudItem>
-                    <MudItem xs="6">
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">DOBAVLJAČ — RSD</MudText>
+                    }
+                    <MudItem xs="@(_radSaViseMoneta ? 6 : 12)">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">DOBAVLJAČ — @_domacaValuta</MudText>
                         <MudText Typo="Typo.h6"
                                  Style="@(_smer == "ULAZ" && !JeEur ? "color:#1565C0; font-weight:700;" : "")">
                             @_saldoDobavljacRsd.ToString("N2")
                         </MudText>
                     </MudItem>
+                    @if (_radSaViseMoneta)
+                    {
                     <MudItem xs="6">
                         <MudText Typo="Typo.caption" Class="mud-text-secondary">DOBAVLJAČ — EUR</MudText>
                         <MudText Typo="Typo.h6"
@@ -281,10 +286,11 @@
                             @_saldoDobavljacEur.ToString("N2")
                         </MudText>
                     </MudItem>
+                    }
                 </MudGrid>
 
                 <MudText Typo="Typo.subtitle2" Class="mb-1">
-                    Poslednje stavke (@Uloga — @(JeEur ? "EUR" : "RSD"))
+                    Poslednje stavke (@Uloga — @(JeEur ? "EUR" : _domacaValuta))
                 </MudText>
                 <MudDataGrid T="KarticaNova" Items="_poslednjeStavke" Dense="true" Hover="true" Striped="true">
                     <Columns>
@@ -366,7 +372,7 @@
     private bool   JeRacun    => _tipUnosa.StartsWith("RACUN");
     private bool   JeKnjizno  => _tipUnosa.StartsWith("KNJIZNO");
     private bool   JeKnjiznoZaduzenje => _tipUnosa.StartsWith("KNJIZNO_ZADUZENJE");
-    private string IznosLabel => $"Iznos ({(JeEur ? "EUR" : "RSD")})";
+    private string IznosLabel => $"Iznos ({(JeEur ? "EUR" : _domacaValuta)})";
 
     private decimal TrenutniSaldo => _smer == "IZLAZ"
         ? (JeEur ? _saldoKupacEur    : _saldoKupacRsd)
@@ -375,9 +381,18 @@
     private string TrenutniKljuc() =>
         !string.IsNullOrWhiteSpace(_partner?.PIB) ? _partner!.PIB! : $"ID:{_partner!.Broj}";
 
+    private string _domacaValuta    = "RSD";
+    private bool   _radSaViseMoneta = true;
+
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        var pod = await Db.Podesavanja.AsNoTracking()
+            .Select(p => new { p.OpcijaString13, p.OpcijaInt12 })
+            .FirstOrDefaultAsync();
+        _domacaValuta    = pod?.OpcijaString13 ?? "RSD";
+        _radSaViseMoneta = (pod?.OpcijaInt12 ?? 1) != 0;
 
         _sviPartneri = await Db.Partneri.AsNoTracking().OrderBy(p => p.Naziv).ToListAsync();
 
@@ -494,9 +509,9 @@
 
         _sviRedoviPartnera = sve;
 
-        _saldoKupacRsd     = sve.Where(k => k.PartnerUloga == "KUPAC"     && k.Valuta == "RSD").Sum(k => k.Saldo);
+        _saldoKupacRsd     = sve.Where(k => k.PartnerUloga == "KUPAC"     && k.Valuta == _domacaValuta).Sum(k => k.Saldo);
         _saldoKupacEur     = sve.Where(k => k.PartnerUloga == "KUPAC"     && k.Valuta == "EUR").Sum(k => k.Saldo);
-        _saldoDobavljacRsd = sve.Where(k => k.PartnerUloga == "DOBAVLJAC" && k.Valuta == "RSD").Sum(k => k.Saldo);
+        _saldoDobavljacRsd = sve.Where(k => k.PartnerUloga == "DOBAVLJAC" && k.Valuta == _domacaValuta).Sum(k => k.Saldo);
         _saldoDobavljacEur = sve.Where(k => k.PartnerUloga == "DOBAVLJAC" && k.Valuta == "EUR").Sum(k => k.Saldo);
 
         AzurirajPrikazValute();
@@ -507,7 +522,7 @@
         _nerasporedjenaNalaz = null;
         if (_partner is null || !QIdZaduzenja.HasValue) return;
 
-        var valuta      = JeEur ? "EUR" : "RSD";
+        var valuta      = JeEur ? "EUR" : _domacaValuta;
         var tipPlacanja = Uloga == "KUPAC" ? "UPLATA" : "ISPLATA";
 
         _nerasporedjenaNalaz = _sviRedoviPartnera
@@ -552,7 +567,7 @@
     private async Task UcitajRacunePartnera()
     {
         if (_partner is null) return;
-        var valuta = JeEur ? "EUR" : "RSD";
+        var valuta = JeEur ? "EUR" : _domacaValuta;
         _sviRacuniPartnera = await Db.KarticeNova.AsNoTracking()
             .Where(k => k.IdPartnera == _partner.Broj
                      && k.TipDokumenta == "RACUN"
@@ -575,7 +590,7 @@
         var uloga = Uloga;
 
         _poslednjeStavke = _sviRedoviPartnera
-            .Where(k => k.PartnerUloga == uloga && k.Valuta == (jeEur ? "EUR" : "RSD"))
+            .Where(k => k.PartnerUloga == uloga && k.Valuta == (jeEur ? "EUR" : _domacaValuta))
             .OrderByDescending(k => k.DatumDokumenta)
             .ThenByDescending(k => k.Id)
             .Take(10)
@@ -601,18 +616,18 @@
         string partnerUloga, tipDokumenta, valuta;
         switch (_tipUnosa)
         {
-            case "UPLATA_RSD":  partnerUloga = "KUPAC";     tipDokumenta = "UPLATA";  valuta = "RSD"; break;
-            case "UPLATA_EUR":  partnerUloga = "KUPAC";     tipDokumenta = "UPLATA";  valuta = "EUR"; break;
-            case "ISPLATA_RSD": partnerUloga = "DOBAVLJAC"; tipDokumenta = "ISPLATA"; valuta = "RSD"; break;
-            case "ISPLATA_EUR": partnerUloga = "DOBAVLJAC"; tipDokumenta = "ISPLATA"; valuta = "EUR"; break;
-            case "POCETNO_RSD": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = "RSD"; break;
-            case "POCETNO_EUR": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = "EUR"; break;
-            case "RACUN_RSD":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = "RSD"; break;
-            case "RACUN_EUR":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = "EUR"; break;
-            case "KNJIZNO_ODOBRENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = "RSD"; break;
-            case "KNJIZNO_ODOBRENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = "EUR"; break;
-            case "KNJIZNO_ZADUZENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = "RSD"; break;
-            case "KNJIZNO_ZADUZENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = "EUR"; break;
+            case "UPLATA_RSD":  partnerUloga = "KUPAC";     tipDokumenta = "UPLATA";  valuta = _domacaValuta; break;
+            case "UPLATA_EUR":  partnerUloga = "KUPAC";     tipDokumenta = "UPLATA";  valuta = "EUR";          break;
+            case "ISPLATA_RSD": partnerUloga = "DOBAVLJAC"; tipDokumenta = "ISPLATA"; valuta = _domacaValuta; break;
+            case "ISPLATA_EUR": partnerUloga = "DOBAVLJAC"; tipDokumenta = "ISPLATA"; valuta = "EUR";          break;
+            case "POCETNO_RSD": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = _domacaValuta; break;
+            case "POCETNO_EUR": partnerUloga = Uloga;       tipDokumenta = "POCETNO"; valuta = "EUR";          break;
+            case "RACUN_RSD":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = _domacaValuta; break;
+            case "RACUN_EUR":              partnerUloga = Uloga; tipDokumenta = "RACUN";             valuta = "EUR";          break;
+            case "KNJIZNO_ODOBRENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = _domacaValuta; break;
+            case "KNJIZNO_ODOBRENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ODOBRENJE"; valuta = "EUR";          break;
+            case "KNJIZNO_ZADUZENJE_RSD":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = _domacaValuta; break;
+            case "KNJIZNO_ZADUZENJE_EUR":  partnerUloga = Uloga; tipDokumenta = "KNJIZNO_ZADUZENJE"; valuta = "EUR";          break;
             default:
                 Snackbar.Add("Nepoznat tip unosa.", Severity.Warning);
                 return;
@@ -702,7 +717,7 @@
     private void NavigirajNaKarticu()
     {
         _navigirano = true;
-        var valuta = JeEur ? "EUR" : "RSD";
+        var valuta = JeEur ? "EUR" : _domacaValuta;
         var url = _partner!.Broj > 0
             ? $"/finansije/kartica-nova?idPartnera={_partner.Broj}&uloga={Uloga}&valuta={valuta}"
             : $"/finansije/kartica-nova?kljuc={Uri.EscapeDataString(TrenutniKljuc())}&uloga={Uloga}&valuta={valuta}";

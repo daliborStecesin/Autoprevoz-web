@@ -1594,13 +1594,41 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_KarticaNova_ulogaValut
           DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
 GO
 
+-- ============================================================
+-- 210 = domacaValuta (OpcijaString13) + radSaViseMoneta (OpcijaInt12)
+-- ============================================================
+
+-- OpcijaString13: domaća valuta po klijentu — kolona postoji od kreiranja šeme
+IF COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString13') IS NOT NULL
+BEGIN
+    UPDATE [dbo].[tbl_Podesavanja]
+    SET [OpcijaString13] = 'RSD'
+    WHERE [OpcijaString13] IS NULL OR [OpcijaString13] = '';
+    PRINT 'OpcijaString13 (domacaValuta) postavljena na RSD gde je bila NULL.';
+END
+ELSE
+BEGIN
+    ALTER TABLE [dbo].[tbl_Podesavanja] ADD [OpcijaString13] [varchar](50) NULL DEFAULT ('RSD');
+    UPDATE [dbo].[tbl_Podesavanja] SET [OpcijaString13] = 'RSD' WHERE [OpcijaString13] IS NULL;
+    PRINT 'Dodata kolona OpcijaString13 (domacaValuta) sa default RSD.';
+END
+GO
+
+-- OpcijaInt12: radSaViseMoneta — kolona postoji od kreiranja šeme, samo popuniti NULL
+UPDATE [dbo].[tbl_Podesavanja]
+SET [OpcijaInt12] = 1
+WHERE [OpcijaInt12] IS NULL;
+PRINT 'OpcijaInt12 (radSaViseMoneta) postavljena na 1 (ukljuceno) gde je bila NULL.';
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
+-- 210 = OpcijaString13 = domacaValuta + OpcijaInt12 = radSaViseMoneta (konfigurabilna domaca valuta, rad sa EUR)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 209;
-    PRINT 'Verzija baze postavljena na 209.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 210;
+    PRINT 'Verzija baze postavljena na 210.';
 END
 GO
 

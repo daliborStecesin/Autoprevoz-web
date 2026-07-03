@@ -1,5 +1,5 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Jul 2026 — verzija baze 209*
+*Poslednje ažuriranje: Jul 2026 — verzija baze 210*
 
 Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
 Rewrite WinForms aplikacije. Multi-tenant: master `daksoft` + klijentske baze.
@@ -102,11 +102,16 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
 - [x] Detaljni testovi kroz softver: preplata/cepanje, više parcijalnih uplata, van
       valute granica, brisanje uplate sa zatvorenog računa, blokada brisanja računa,
       štampa/IOS poklapanje sa ekranom (SVE/KUPAC/DOBAVLJAC uloge)
+- [x] Domaća valuta kao podešavanje po klijentu (OpcijaString13, v210) — RSD/BAM/DEN/...
+      konfiguriše se u Podešavanjima, zamenjuje hardkodovani "RSD" u svim finansijskim
+      ekranima; EUR strana nikad ne menja; cache per-circuit u KarticaNovaService
+- [x] Podešavanje "rad sa više moneta" (OpcijaInt12, v210) — checkbox u Podešavanjima;
+      kad je isključeno, skriva EUR opcije u unos/kartica/dužnici/štampa (čisto UI,
+      postojeći EUR podaci u bazi ostaju netaknuti)
 
 ---
 
 ## 🎯 SLEDEĆE (novi finansijski model)
-- [ ] Podešavanje "rad sa više moneta" (isključi → sakrij stranu/ino polovinu)
 - [ ] Ino EUR pun test prolaz na novom modelu (paralelan set A1-A5, EUR partner)
 
 ---
@@ -175,4 +180,4 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
   Svaka buduća print stranica mora se testirati poređenjem broj-redova + footer
   totala protiv ekrana, za sve kombinacije filtera (posebno uloga=SVE).
 - **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
-- Verzija baze: 209 (208=tbl_log_brisanja, 209=tbl_KarticaNova). Vidi CLAUDE.md.
+- Verzija baze: 210 (208=tbl_log_brisanja, 209=tbl_KarticaNova, 210=domacaValuta+radSaViseMoneta). Vidi CLAUDE.md.

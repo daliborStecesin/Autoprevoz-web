@@ -38,19 +38,19 @@ else
         <MudTabPanel Text="Dužnici (kupci)" Icon="@Icons.Material.Filled.TrendingUp">
             <MudGrid Spacing="2" Class="mt-2">
 
-                @* ── DOM (RSD) ── *@
-                <MudItem xs="12" md="6">
+                @* ── DOM ── *@
+                <MudItem xs="12" md="@(_radSaViseMoneta ? 6 : 12)">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
                         Dugovanja:
-                        <strong>@SumaKupciRsd.ToString("N2") RSD</strong>
+                        <strong>@SumaKupciRsd.ToString("N2") @_domacaValuta</strong>
                         &nbsp;|&nbsp; Van valute:
-                        <strong>@_duzniciDomVV.ToString("N2") RSD</strong>
+                        <strong>@_duzniciDomVV.ToString("N2") @_domacaValuta</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDuzniciDom is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDuzniciDom!, "KUPAC", "RSD"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDuzniciDom!, "KUPAC", _domacaValuta))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -84,6 +84,8 @@ else
                 </MudItem>
 
                 @* ── INO (EUR) ── *@
+                @if (_radSaViseMoneta)
+                {
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
                         Dugovanja INO:
@@ -127,6 +129,7 @@ else
                         <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+                }
 
             </MudGrid>
         </MudTabPanel>
@@ -135,19 +138,19 @@ else
         <MudTabPanel Text="Dugovanja (dobavljači)" Icon="@Icons.Material.Filled.TrendingDown">
             <MudGrid Spacing="2" Class="mt-2">
 
-                @* ── DOM (RSD) ── *@
-                <MudItem xs="12" md="6">
+                @* ── DOM ── *@
+                <MudItem xs="12" md="@(_radSaViseMoneta ? 6 : 12)">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
                         Obaveze:
-                        <strong>@SumaDobavljacRsd.ToString("N2") RSD</strong>
+                        <strong>@SumaDobavljacRsd.ToString("N2") @_domacaValuta</strong>
                         &nbsp;|&nbsp; Van valute:
-                        <strong>@_dugovanjaDomVV.ToString("N2") RSD</strong>
+                        <strong>@_dugovanjaDomVV.ToString("N2") @_domacaValuta</strong>
                     </MudText>
                     <div class="d-flex gap-2 mb-1">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Receipt"
                                    Disabled="@(_selDugovanjaDom is null)"
-                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaDom!, "DOBAVLJAC", "RSD"))">
+                                   OnClick="@(() => OtvoriKarticu(_selDugovanjaDom!, "DOBAVLJAC", _domacaValuta))">
                             Prikaži karticu
                         </MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined"
@@ -181,6 +184,8 @@ else
                 </MudItem>
 
                 @* ── INO (EUR) ── *@
+                @if (_radSaViseMoneta)
+                {
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-1">
                         Obaveze INO:
@@ -224,6 +229,7 @@ else
                         <PagerContent><MudDataGridPager T="PartnerSaldo" /></PagerContent>
                     </MudDataGrid>
                 </MudItem>
+                }
 
             </MudGrid>
         </MudTabPanel>
@@ -278,9 +284,17 @@ else
     private static string GrupniKljuc(KarticaNova k) =>
         !string.IsNullOrWhiteSpace(k.PIB) ? k.PIB! : $"ID:{k.IdPartnera}";
 
+    private string _domacaValuta    = "RSD";
+    private bool   _radSaViseMoneta = true;
+
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        var pod = await Db.Podesavanja.AsNoTracking()
+            .Select(p => new { p.OpcijaString13, p.OpcijaInt12 })
+            .FirstOrDefaultAsync();
+        _domacaValuta    = pod?.OpcijaString13 ?? "RSD";
+        _radSaViseMoneta = (pod?.OpcijaInt12 ?? 1) != 0;
         await Ucitaj();
     }
 
@@ -291,9 +305,9 @@ else
         {
             _sve = await Db.KarticeNova.AsNoTracking().ToListAsync();
 
-            _duzniciDomSve   = GrupisiSaldo(_sve, "KUPAC",     "RSD").OrderByDescending(p => p.Saldo).ToList();
+            _duzniciDomSve   = GrupisiSaldo(_sve, "KUPAC",     _domacaValuta).OrderByDescending(p => p.Saldo).ToList();
             _duzniciInoSve   = GrupisiSaldo(_sve, "KUPAC",     "EUR").OrderByDescending(p => p.Saldo).ToList();
-            _dugovanjaDomSve = GrupisiSaldo(_sve, "DOBAVLJAC", "RSD").OrderBy(p => p.Saldo).ToList();
+            _dugovanjaDomSve = GrupisiSaldo(_sve, "DOBAVLJAC", _domacaValuta).OrderBy(p => p.Saldo).ToList();
             _dugovanjaInoSve = GrupisiSaldo(_sve, "DOBAVLJAC", "EUR").OrderBy(p => p.Saldo).ToList();
 
             Filtriraj();

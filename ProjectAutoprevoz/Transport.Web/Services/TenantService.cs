@@ -92,6 +92,12 @@ public class TenantService : ITenantService
         return val != "0"; // default: aktivan (1); 0 = isključen
     }
 
+    public bool GetEFakturaAktivna()
+    {
+        var val = _http.HttpContext?.Request.Cookies["ap_efaktura"] ?? "0";
+        return val == "1"; // default: neaktivan (0); 1 = aktivan
+    }
+
     public bool IsAuthenticated() => !string.IsNullOrEmpty(GetConnectionString());
 
     public void Logout()

@@ -185,6 +185,30 @@ async Task<LoginRezultatInterno> PrijaviKorisnikaAsync(string email, string pass
 
     ctx.Response.Cookies.Append("ap_transport", transportAktivan.ToString(), opts);
 
+    // Učitaj zastavicu e-faktura modula (OpcijaInt13) iz tenant baze
+    // NULL u bazi = 0 (neaktivan); greška čitanja = 0 (novo polje, konzervativno)
+    int eFakturaAktivna = 0;
+    try
+    {
+        var tenantCsb = new SqlConnectionStringBuilder(licenca.ConnectionString ?? string.Empty)
+        {
+            TrustServerCertificate = true,
+            Encrypt = false
+        };
+        using var conn = new SqlConnection(tenantCsb.ConnectionString);
+        await conn.OpenAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT TOP 1 OpcijaInt13 FROM tbl_Podesavanja WHERE Broj = 1";
+        var val = await cmd.ExecuteScalarAsync();
+        eFakturaAktivna = (val is DBNull or null) ? 0 : Convert.ToInt32(val);
+    }
+    catch
+    {
+        eFakturaAktivna = 0;
+    }
+
+    ctx.Response.Cookies.Append("ap_efaktura", eFakturaAktivna.ToString(), opts);
+
     return new LoginRezultatInterno(true, null, licenca.ConnectionString ?? string.Empty, licenca.Naziv ?? string.Empty, korisnik.IdKorisnika, korisnik.Privilegija);
 }
 
@@ -232,6 +256,7 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
     ctx.Response.Cookies.Delete("ap_priv",      deleteOpts);
     ctx.Response.Cookies.Delete("ap_user",      deleteOpts);
     ctx.Response.Cookies.Delete("ap_transport", deleteOpts);
+    ctx.Response.Cookies.Delete("ap_efaktura",  deleteOpts);
     ctx.Response.Cookies.Delete("ap_licence",   deleteOpts);
     return Results.Redirect("/login");
 });

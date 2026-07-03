@@ -88,8 +88,8 @@ else
                 <NativniSelect Label="Valuta" Value="@_filterValuta"
                                ValueChanged="@((string v) => _filterValuta = v)">
                     <option value="SVE">SVE</option>
-                    <option value="RSD">RSD</option>
-                    <option value="EUR">EUR</option>
+                    <option value="@_domacaValuta">@_domacaValuta</option>
+                    @if (_radSaViseMoneta) { <option value="EUR">EUR</option> }
                 </NativniSelect>
             </div>
 
@@ -303,6 +303,9 @@ else
     private static readonly string[] ZaduzenjaTip = ["RACUN", "KNJIZNO_ZADUZENJE", "POCETNO"];
     private static readonly string[] PlacanjeUip  = ["UPLATA", "ISPLATA", "KNJIZNO_ODOBRENJE", "KNJIZNO_ZADUZENJE", "POCETNO"];
 
+    private string _domacaValuta    = "RSD";
+    private bool   _radSaViseMoneta = true;
+
     // ── Filteri ──────────────────────────────────────────────
     private string _filterUloga   = "SVE";
     private string _filterValuta  = "SVE";
@@ -341,10 +344,14 @@ else
     private string              _partnerPretraga  = "";
     private bool                _partnerOpen;
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
-        return Task.CompletedTask;
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        var pod = await Db.Podesavanja.AsNoTracking()
+            .Select(p => new { p.OpcijaString13, p.OpcijaInt12 })
+            .FirstOrDefaultAsync();
+        _domacaValuta    = pod?.OpcijaString13 ?? "RSD";
+        _radSaViseMoneta = (pod?.OpcijaInt12 ?? 1) != 0;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -479,7 +486,7 @@ else
         if (valute.Count == 0 && _filterValuta != "SVE")
             valute = [_filterValuta];
         if (valute.Count == 0)
-            valute = ["RSD", "EUR"];
+            valute = _radSaViseMoneta ? [_domacaValuta, "EUR"] : [_domacaValuta];
 
         _saldoRedovi = valute.Select(val =>
         {
