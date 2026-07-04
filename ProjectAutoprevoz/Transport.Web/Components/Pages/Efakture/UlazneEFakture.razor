@@ -1,5 +1,675 @@
 @page "/efakture/ulazne"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Application.Interfaces
+@using Transport.Application.Services.Sef
+
+@inject ITenantService         TenantService
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IEFaktureUlazService   EFaktureService
+@inject IKarticaNovaService    KarticaNovaServis
+@inject ISnackbar              Snackbar
+@inject IDialogService         Dialog
+@inject IJSRuntime             JS
 
 <PageTitle>Ulazne e-fakture — Autoprevoz</PageTitle>
 
-<h1>Ulazne e-fakture</h1>
+<div class="d-flex justify-space-between align-center flex-wrap gap-2 mb-3">
+    <MudText Typo="Typo.h5" Style="color:#2D3E50;">
+        <MudIcon Icon="@Icons.Material.Filled.Download" Class="mr-2" />
+        Ulazne e-fakture
+    </MudText>
+
+    <div class="d-flex flex-wrap gap-2">
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync"
+                   Disabled="@(_selektovan is null)" OnClick="OsveziStatus">
+            Osveži status dokumenta
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check"
+                   Disabled="@(!MozePrihvatitiOdbiti)" OnClick="Prihvati">
+            Prihvati
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Close"
+                   Disabled="@(!MozePrihvatitiOdbiti)" OnClick="Odbij">
+            Odbij
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   Disabled="@(_selektovan is null)" OnClick="PreuzmiPdf">
+            Preuzmi PDF
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Visibility"
+                   Disabled="@(_selektovan is null)" OnClick="Pregled">
+            Pregled
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                   Disabled="@(_selektovan is null)" OnClick="Placeholder">
+            Brisanje
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Code"
+                   Disabled="@(_selektovan is null)" OnClick="PreuzmiXml">
+            Preuzmi XML
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Announcement"
+                   Disabled="@(_selektovan is null)" OnClick="KreirajObavestenje">
+            Kreiraj obaveštenje
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Payment"
+                   Disabled="@(!MozeUnetiFinansije)" OnClick="UnosFinansija">
+            Unos finansija
+        </MudButton>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="IzlazIzModula">
+            Izlaz
+        </MudButton>
+    </div>
+</div>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri ─────────────────────────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Filteri</MudText>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Naziv ili PIB kupca"
+                              Value="@_nazivIliPibFilter"
+                              ValueChanged="@(v => _nazivIliPibFilter = v ?? string.Empty)"
+                              OnEnter="Izlistaj" />
+            </div>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj dokumenta"
+                              Value="@_brojDokumentaFilter"
+                              ValueChanged="@(v => _brojDokumentaFilter = v ?? string.Empty)"
+                              OnEnter="Izlistaj" />
+            </div>
+
+            <div class="mb-2">
+                <NativniSelect Label="Tip Dokumenta" Value="@_tipDokumentaFilter"
+                               ValueChanged="@(v => _tipDokumentaFilter = v ?? "SVI TIPOVI")">
+                    <option value="SVI TIPOVI">SVI TIPOVI</option>
+                    <option value="FAKTURA">FAKTURA</option>
+                    <option value="AVANS">AVANS</option>
+                    <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
+                    <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
+                </NativniSelect>
+            </div>
+
+            <div class="mb-2">
+                <NativniSelect Label="Status dokumenta" Value="@_statusFilter"
+                               ValueChanged="@(v => _statusFilter = v ?? "SVI STATUSI")">
+                    <option value="SVI STATUSI">SVI STATUSI</option>
+                    <option value="Novo">Novo</option>
+                    <option value="Odobreno">Odobreno</option>
+                    <option value="Odbijeno">Odbijeno</option>
+                    <option value="Stornirano">Stornirano</option>
+                </NativniSelect>
+            </div>
+
+            <div class="mb-2">
+                <NativniSelect Label="Tip datuma" Value="@_tipDatuma"
+                               ValueChanged="@(v => _tipDatuma = v ?? "DATUM RACUNA")">
+                    <option value="DATUM RACUNA">DATUM RACUNA</option>
+                    <option value="DATUM PROMETA">DATUM PROMETA</option>
+                </NativniSelect>
+            </div>
+
+            <div class="mb-2"><DateInput Label="Datum dokumenta OD" @bind-Value="_datumOd" /></div>
+            <div class="mb-3"><DateInput Label="Datum dokumenta DO" @bind-Value="_datumDo" /></div>
+
+            <div class="d-flex flex-column gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="Izlistaj"
+                           Disabled="_ucitava"
+                           FullWidth="true">
+                    Izlistaj
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.List"
+                           OnClick="IzlistajSve"
+                           Disabled="_ucitava"
+                           FullWidth="true">
+                    Izlistaj sve
+                </MudButton>
+            </div>
+        </MudPaper>
+
+        @* ── UČITAVANJE ZA PERIOD (povlači NOVE fakture SA SEF-a, odvojeno od filtera) ── *@
+        <MudPaper Elevation="1" Class="pa-3 mt-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Učitavanje za period</MudText>
+
+            <div class="mb-2"><DateInput Label="Datum OD" @bind-Value="_sinhOd" /></div>
+            <div class="mb-3"><DateInput Label="Datum DO" @bind-Value="_sinhDo" /></div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.CloudDownload"
+                       OnClick="UcitajNoveZaPeriod"
+                       Disabled="_sinhronizujem"
+                       FullWidth="true">
+                @if (_sinhronizujem)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Učitaj nove za period
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Grid ────────────────────────────────────────── *@
+    <MudItem xs="12" md="9">
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <MudDataGrid T="EFakturaUlaz" Items="_lista" Dense="true" Striped="false" Hover="true"
+                         RowClick="NaKlikReda"
+                         RowStyleFunc="@BojaReda">
+                <Columns>
+                    <PropertyColumn Property="x => x.brojDokumenta" Title="Broj dokumenta" HeaderStyle="width:11%;" />
+                    <PropertyColumn Property="x => x.tipDokumenta" Title="Tip dokumenta" HeaderStyle="width:14%;" />
+                    <PropertyColumn Property="x => x.naziv" Title="Dobavljač" HeaderStyle="width:20%;" />
+                    <TemplateColumn Title="Datum Dokument" SortBy="x => x.invoiceDateUtc" HeaderStyle="width:9%;">
+                        <CellTemplate>@context.Item.invoiceDateUtc?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum valute" SortBy="x => x.paymentDateUtc" HeaderStyle="width:9%;">
+                        <CellTemplate>@context.Item.paymentDateUtc?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum prometa" SortBy="x => x.accountingDateUtc" HeaderStyle="width:9%;">
+                        <CellTemplate>@context.Item.accountingDateUtc?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Osnovica" SortBy="x => x.Osnovica" HeaderStyle="width:9%; text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right;">@context.Item.Osnovica?.ToString("N2")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="PDV" SortBy="x => x.PDV" HeaderStyle="width:8%; text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right;">@context.Item.PDV?.ToString("N2")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Iznos" SortBy="x => x.Ukupno" HeaderStyle="width:9%; text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right; font-weight:600;">@context.Item.Ukupno?.ToString("N2")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.statusDokumenta" Title="Status" HeaderStyle="width:8%;" />
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="EFakturaUlaz" PageSizeOptions="@(new int[]{20,50,100,200})"
+                                      RowsPerPageString="Redova po strani:" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_lista.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema ulaznih e-faktura za izabrane filtere.
+                </MudAlert>
+            }
+        }
+
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _nazivIliPibFilter    = "";
+    private string _brojDokumentaFilter  = "";
+    private string _tipDokumentaFilter   = "SVI TIPOVI";
+    private string _statusFilter         = "SVI STATUSI";
+    private string _tipDatuma            = "DATUM RACUNA";
+    private string _datumOd              = "";
+    private string _datumDo              = "";
+
+    private List<EFakturaUlaz> _lista = [];
+    private EFakturaUlaz?      _selektovan;
+
+    private bool _ucitava;
+
+    // ── Učitavanje za period (SEF sinhronizacija, odvojeno od lokalnih filtera) ──
+    private string _sinhOd = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
+    private string _sinhDo = DateTime.Today.ToString("yyyy-MM-dd");
+    private bool   _sinhronizujem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        await Ucitaj(primeniFiltere: false);
+    }
+
+    private Task Izlistaj()    => Ucitaj(primeniFiltere: true);
+
+    private Task IzlistajSve()
+    {
+        _nazivIliPibFilter   = "";
+        _brojDokumentaFilter = "";
+        _tipDokumentaFilter  = "SVI TIPOVI";
+        _statusFilter        = "SVI STATUSI";
+        _tipDatuma           = "DATUM RACUNA";
+        _datumOd             = "";
+        _datumDo             = "";
+        return Ucitaj(primeniFiltere: false);
+    }
+
+    private async Task Ucitaj(bool primeniFiltere)
+    {
+        _ucitava = true; _selektovan = null; StateHasChanged();
+        try
+        {
+            string? nazivPib = null, broj = null, tip = null, status = null;
+            string  tipDatuma = "DATUM RACUNA";
+            DateTime? od = null, doDatum = null;
+
+            if (primeniFiltere)
+            {
+                nazivPib  = string.IsNullOrWhiteSpace(_nazivIliPibFilter)   ? null : _nazivIliPibFilter;
+                broj      = string.IsNullOrWhiteSpace(_brojDokumentaFilter) ? null : _brojDokumentaFilter;
+                tip       = _tipDokumentaFilter;
+                status    = _statusFilter;
+                tipDatuma = _tipDatuma;
+                od        = DateTime.TryParse(_datumOd, out var odD) ? odD : null;
+                doDatum   = DateTime.TryParse(_datumDo, out var doD) ? doD : null;
+            }
+
+            _lista = await EFaktureService.GetListaAsync(nazivPib, broj, tip, status, tipDatuma, od, doDatum);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NaKlikReda(DataGridRowClickEventArgs<EFakturaUlaz> args)
+    {
+        _selektovan = args.Item;
+    }
+
+    // ── Učitaj nove za period — povlači sa SEF-a (Faza B), zatim osvežava lokalnu listu ──
+    private async Task UcitajNoveZaPeriod()
+    {
+        if (!DateTime.TryParse(_sinhOd, out var od) || !DateTime.TryParse(_sinhDo, out var doDatum))
+        {
+            Snackbar.Add("Unesite ispravan period.", Severity.Warning);
+            return;
+        }
+
+        _sinhronizujem = true; StateHasChanged();
+        try
+        {
+            var (brojNovih, upozorenjaPartner) = await EFaktureService.SinhronizujAsync(od, doDatum);
+
+            var poruka = $"Uvezeno novih faktura: {brojNovih}.";
+            if (upozorenjaPartner.Count > 0)
+                poruka += " Sledeći partneri ne postoje u imeniku i preporučljivo je da ih evidentirate: "
+                          + string.Join(", ", upozorenjaPartner);
+
+            Snackbar.Add(poruka,
+                upozorenjaPartner.Count > 0 ? Severity.Warning : Severity.Success,
+                cfg => cfg.VisibleStateDuration = 8000);
+
+            // Osveži lokalnu listu sa trenutnim filterima (prazna polja = isto kao Izlistaj sve).
+            await Ucitaj(primeniFiltere: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri učitavanju sa SEF-a: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _sinhronizujem = false;
+            StateHasChanged();
+        }
+    }
+
+    // Već obrađen dokument (Odobreno/Odbijeno/Otkazano/Stornirano) se ne prihvata/odbija ponovo.
+    private bool MozePrihvatitiOdbiti =>
+        _selektovan is not null
+        && _selektovan.statusDokumenta is not ("Odobreno" or "Odbijeno" or "Otkazano" or "Stornirano");
+
+    private async Task OsveziStatus()
+    {
+        if (_selektovan?.invoiceID is null) return;
+
+        try
+        {
+            var noviStatus = await EFaktureService.OsveziStatusAsync(_selektovan.invoiceID);
+            _selektovan.statusDokumenta = noviStatus;
+            StateHasChanged();
+            Snackbar.Add("Status ažuriran", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Prihvati()
+    {
+        if (_selektovan is null) return;
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Potvrda",
+            "Da li ste sigurni da želite da prihvatite ovaj dokument?",
+            yesText: "Da, prihvati", cancelText: "Odustani");
+
+        if (potvrda != true) return;
+
+        await PrimeniPrihvatiOdbij(prihvati: true, komentar: "");
+    }
+
+    private async Task Odbij()
+    {
+        if (_selektovan is null) return;
+
+        var opts   = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await Dialog.ShowAsync<OdbijDokumentDialog>("Odbijanje dokumenta", opts);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled) return;
+
+        var komentar = (string)result.Data!;
+        await PrimeniPrihvatiOdbij(prihvati: false, komentar: komentar);
+    }
+
+    private async Task PrimeniPrihvatiOdbij(bool prihvati, string komentar)
+    {
+        if (_selektovan?.invoiceID is null) return;
+
+        try
+        {
+            var (uspesno, poruka) = await EFaktureService.PrihvatiOdbijAsync(_selektovan.invoiceID, prihvati, komentar);
+
+            if (!uspesno)
+            {
+                Snackbar.Add(poruka, Severity.Error);
+                return;
+            }
+
+            // Isto kao stari kod: updateStatusa() se zove posle aceptReject() —
+            // osvežava se samo ovaj jedan red, bez ponovnog učitavanja cele liste.
+            var noviStatus = await EFaktureService.OsveziStatusAsync(_selektovan.invoiceID);
+            _selektovan.statusDokumenta = noviStatus;
+            StateHasChanged();
+
+            Snackbar.Add(prihvati ? "Dokument je prihvaćen" : "Dokument je odbijen", Severity.Success);
+
+            // Isto kao stari insertUKartice — poziva se SAMO za tip FAKTURA, posle uspešnog Prihvati.
+            if (prihvati && _selektovan.tipDokumenta == "FAKTURA")
+                await PitajUpisUKarticu(_selektovan);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+
+    // ── Integracija sa karticom (samo FAKTURA, posle uspešnog Prihvati) ──────
+    private async Task PitajUpisUKarticu(EFakturaUlaz red)
+    {
+        var potvrda = await Dialog.ShowMessageBox(
+            "Upis u karticu",
+            "Odobrili ste E-Fakturu. Da li želite da upišete ovaj ulazni račun u karticu?",
+            yesText: "Da", cancelText: "Ne");
+
+        if (potvrda != true) return;
+
+        if (string.IsNullOrWhiteSpace(red.PIB))
+        {
+            Snackbar.Add("Dokument nema PIB partnera — ne može se upisati u karticu.", Severity.Warning);
+            return;
+        }
+
+        var partner = await Db.Partneri.AsNoTracking().FirstOrDefaultAsync(p => p.PIB == red.PIB);
+        if (partner is null)
+        {
+            Snackbar.Add(
+                $"Partner sa PIB {red.PIB} ne postoji u imeniku. Molimo evidentirajte partnera pre upisa u karticu.",
+                Severity.Warning);
+            return;
+        }
+
+        // Scoped i po PartnerUloga — idEfakture kolona je deljena između tbl_eFakturaUlaz
+        // (DOBAVLJAC) i tbl_eInvoice (KUPAC), odvojene tabele sa sopstvenim auto-increment
+        // ID prostorom, pa se vrednosti mogu poklopiti bez ikakve stvarne veze.
+        var vecUpisano = await Db.KarticeNova.AnyAsync(
+            k => k.IdEfakture == red.idEfakture && k.PartnerUloga == "DOBAVLJAC");
+        if (vecUpisano)
+        {
+            Snackbar.Add("Ovaj ulazni račun je već upisan u karticu.", Severity.Info);
+            return;
+        }
+
+        // Ulazne e-fakture preko SEF-a su UVEK domaći partneri (SEF je isključivo za srpske firme).
+        var domacaValuta = (await Db.Podesavanja.AsNoTracking()
+            .Select(p => p.OpcijaString13)
+            .FirstOrDefaultAsync()) ?? "RSD";
+
+        try
+        {
+            var stavka = new KarticaNova
+            {
+                IdPartnera     = partner.Broj,
+                PIB            = partner.PIB,
+                NazivPartnera  = partner.Naziv,
+                PartnerUloga   = "DOBAVLJAC",
+                TipDokumenta   = "RACUN",
+                BrojDokumenta  = red.brojDokumenta,
+                IdRacun        = null,
+                IdEfakture     = red.idEfakture,
+                Valuta         = domacaValuta,
+                DatumDokumenta = red.invoiceDateUtc,
+                DatumPrometa   = red.accountingDateUtc,
+                DatumValute    = red.paymentDateUtc
+            };
+
+            await KarticaNovaServis.DodajStavku(stavka, red.Ukupno ?? 0);
+            Snackbar.Add("Ulazni račun je dodat u karticu!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri upisu u karticu: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+
+    // ── Unos finansija (navigira na /finansije/unos sa predpopunjenim poljima) ──
+    // Odvojeno od "Upiši u karticu" (direktan upis bez pregleda) — ovde korisnik
+    // pregleda/menja podatke pre snimanja na postojećoj formi.
+    private bool MozeUnetiFinansije =>
+        _selektovan is not null
+        && _selektovan.tipDokumenta == "FAKTURA"
+        && _selektovan.statusDokumenta == "Odobreno";
+
+    private async Task UnosFinansija()
+    {
+        if (_selektovan is null) return;
+
+        if (string.IsNullOrWhiteSpace(_selektovan.PIB))
+        {
+            Snackbar.Add("Dokument nema PIB partnera — ne može se otvoriti unos finansija.", Severity.Warning);
+            return;
+        }
+
+        var partner = await Db.Partneri.AsNoTracking().FirstOrDefaultAsync(p => p.PIB == _selektovan.PIB);
+        if (partner is null)
+        {
+            Snackbar.Add(
+                $"Partner sa PIB {_selektovan.PIB} ne postoji u imeniku. Molimo evidentirajte partnera pre upisa u karticu.",
+                Severity.Warning);
+            return;
+        }
+
+        var red = _selektovan;
+        var url = "/finansije/unos"
+            + $"?idPartnera={partner.Broj}"
+            + "&smer=ULAZ"
+            + "&tip=RACUN_RSD"
+            + $"&iznos={(red.Ukupno ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            + $"&brojDokumenta={Uri.EscapeDataString(red.brojDokumenta ?? "")}"
+            + $"&datumDokumenta={red.invoiceDateUtc?.ToString("yyyy-MM-dd")}"
+            + $"&datumValute={red.paymentDateUtc?.ToString("yyyy-MM-dd")}"
+            + $"&datumPrometa={red.accountingDateUtc?.ToString("yyyy-MM-dd")}"
+            + $"&idEfakture={red.idEfakture}";
+
+        Nav.NavigateTo(url);
+    }
+
+    // ── Kreiraj obaveštenje (navigira na formu Obaveštenja o prethodnom porezu) ──
+    private bool MozeKreiratiObavestenje(EFakturaUlaz red) =>
+        (red.tipDokumenta is "FAKTURA" or "AVANS" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU"
+            && red.statusDokumenta == "Stornirano")
+        || (red.tipDokumenta is "KNJIZNO ODOBRENJE" or "DOKUMENT O SMANJENJU"
+            && red.statusDokumenta == "Odobreno");
+
+    private async Task KreirajObavestenje()
+    {
+        if (_selektovan is null) return;
+
+        // Osveži status SAMO za ovaj dokument, SAMO u ovom trenutku (klik dugmeta) —
+        // ne dira ostatak liste, ne postaje opšti auto-refresh mehanizam (taj ostaje
+        // isključivo dugme "Osveži status", po dizajnu iz Faze C).
+        if (_selektovan.invoiceID is not null)
+        {
+            try
+            {
+                var noviStatus = await EFaktureService.OsveziStatusAsync(_selektovan.invoiceID);
+                _selektovan.statusDokumenta = noviStatus;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Greška pri osvežavanju statusa: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+                return;
+            }
+        }
+
+        if (!MozeKreiratiObavestenje(_selektovan))
+        {
+            Snackbar.Add(
+                "Za ovaj dokument, sa ovim statusom, ne može da se kreira obaveštenje. " +
+                "Faktura, ili Avansna faktura moraju biti stornirani da bi se izdalo obaveštenje.",
+                Severity.Warning);
+            return;
+        }
+
+        var red = _selektovan;
+        var url = "/efakture/obavestenje-prethodnog-poreza/unos"
+            + "?source=ULAZNI"
+            + $"&tipDokumenta={Uri.EscapeDataString(red.tipDokumenta ?? "")}"
+            + $"&naziv={Uri.EscapeDataString(red.naziv ?? "")}"
+            + $"&pib={Uri.EscapeDataString(red.PIB ?? "")}"
+            + $"&mb={Uri.EscapeDataString(red.MB ?? "")}"
+            + $"&iznosPdv={(red.PDV ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            + $"&brojDokumenta={Uri.EscapeDataString(red.brojDokumenta ?? "")}"
+            + $"&datumIzdavanja={red.invoiceDateUtc?.ToString("yyyy-MM-dd")}";
+
+        Nav.NavigateTo(url);
+    }
+
+    // Isto kao stara desktop farbanjeKolone() — boja reda po statusDokumenta
+    // (blaže nijanse od IndianRed/DarkOliveGreen radi čitljivosti crnog teksta)
+    private string BojaReda(EFakturaUlaz item, int _)
+    {
+        var boja = item.statusDokumenta switch
+        {
+            "Odbijeno" or "Stornirano" or "Otkazano" => "#F4C7C3",
+            "Odobreno"                                => "#C5E1A5",
+            _                                          => "#FFF9C4"
+        };
+
+        var stil = $"background-color:{boja}; color:#000;";
+
+        // Vizuelna indikacija selektovanog reda — akcentna boja teme preko postojeće
+        // boje statusa (translucentni overlay) + levi border, ne zamenjuje boju statusa.
+        if (_selektovan is not null && _selektovan.idEfakture == item.idEfakture)
+            stil += "box-shadow:inset 0 0 0 9999px rgba(61,142,185,0.22); border-left:4px solid #3D8EB9;";
+
+        return stil;
+    }
+
+    private void Placeholder() => Snackbar.Add("Dostupno u sledećoj fazi.", Severity.Info);
+
+    // Isto kao stari kod — očisti / i \ iz broja dokumenta pre nego što postane naziv fajla.
+    private static string OcistiNazivFajla(string? brojDokumenta) =>
+        (brojDokumenta ?? "dokument").Replace("/", "").Replace("\\", "");
+
+    private async Task PreuzmiPdf()
+    {
+        if (_selektovan?.invoiceID is null) return;
+
+        try
+        {
+            var bytes = await EFaktureService.PreuzmiPdfAsync(_selektovan.invoiceID);
+            if (bytes is null)
+            {
+                Snackbar.Add("PDF nije dostupan za ovaj dokument", Severity.Warning);
+                return;
+            }
+
+            var naziv = $"Racun_{OcistiNazivFajla(_selektovan.brojDokumenta)}.pdf";
+            var b64   = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFilePdf", naziv, b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri preuzimanju PDF-a: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Pregled()
+    {
+        if (_selektovan?.invoiceID is null) return;
+
+        try
+        {
+            var bytes = await EFaktureService.PreuzmiPdfAsync(_selektovan.invoiceID);
+            if (bytes is null)
+            {
+                Snackbar.Add("PDF nije dostupan za ovaj dokument", Severity.Warning);
+                return;
+            }
+
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("openPdfPreview", b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri pregledu PDF-a: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task PreuzmiXml()
+    {
+        if (_selektovan?.invoiceID is null) return;
+
+        try
+        {
+            var xml = await EFaktureService.PreuzmiXmlAsync(_selektovan.invoiceID);
+            if (string.IsNullOrWhiteSpace(xml))
+            {
+                Snackbar.Add("XML nije dostupan za ovaj dokument", Severity.Warning);
+                return;
+            }
+
+            var naziv = $"Racun_{OcistiNazivFajla(_selektovan.brojDokumenta)}.xml";
+            await JS.InvokeVoidAsync("downloadTextFile", naziv, xml);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri preuzimanju XML-a: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void IzlazIzModula() => Nav.NavigateTo("/dashboard");
+}

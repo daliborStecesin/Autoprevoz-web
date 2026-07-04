@@ -102,4 +102,7 @@ public class Podesavanja
     [MaxLength(20)]  public string? eOtpremnicaTipServera { get; set; }
     public string?   eOtpremnicaApiKey    { get; set; }
     public int?      eOtpremnicaAktivna   { get; set; }
+
+    // Brojač za "Obaveštenje o prethodnom porezu" (recipients-notice-on-input-vat) — format O-{Broj_Otpis}-{godina}
+    public int?      Broj_Otpis           { get; set; }
 }

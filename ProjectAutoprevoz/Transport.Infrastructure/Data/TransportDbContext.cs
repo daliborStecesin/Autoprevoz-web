@@ -92,6 +92,10 @@ public class TransportDbContext : DbContext
     public DbSet<VatDeductionRecord> VatDeductionRecords { get; set; }
     public DbSet<ObavestenjePP> ObavestenjaPP { get; set; }
     public DbSet<AnalitikaEpp> AnalitikaEPP { get; set; }
+    public DbSet<IndividualVatRecord> IndividualVatRecords { get; set; }
+    public DbSet<GroupVatRecord> GroupVatRecords { get; set; }
+    public DbSet<EFakturaUlaz> EFaktureUlaz { get; set; }
+    public DbSet<EInvoice> EInvoices { get; set; }
 
     // Podešavanja i šifarnici
     public DbSet<DefaultValue>  DefaultValues  { get; set; }
@@ -270,10 +274,185 @@ public class TransportDbContext : DbContext
             e.Property(p => p.Opis).HasMaxLength(500);
         });
 
-        // ObavestenjePP — typo "statust" kolona
-        modelBuilder.Entity<ObavestenjePP>()
-            .Property(o => o.Status)
-            .HasColumnName("statust");
+        // ObavestenjePP — mapiranje na tbl_ObavestenjaPP (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<ObavestenjePP>(e =>
+        {
+            e.ToTable("tbl_ObavestenjaPP");
+            e.HasKey(o => o.ObavestenjeID);
+            e.Property(o => o.ObavestenjeID).HasColumnName("ObavestenjeID");
+            e.Property(o => o.noticeId).HasColumnName("noticeId");
+            e.Property(o => o.noticeNumber).HasColumnName("noticeNumber").HasMaxLength(50);
+            e.Property(o => o.NoticeDate).HasColumnName("NoticeDate");
+            e.Property(o => o.recipientPIB).HasColumnName("recipientPIB").HasMaxLength(50);
+            e.Property(o => o.recipientMB).HasColumnName("recipientMB").HasMaxLength(50);
+            e.Property(o => o.totalVatAmount).HasColumnName("totalVatAmount").HasColumnType("decimal(18,2)");
+            e.Property(o => o.Sender).HasColumnName("Sender").HasMaxLength(500);
+            e.Property(o => o.tipSender).HasColumnName("tipSender").HasMaxLength(20);
+            e.Property(o => o.statust).HasColumnName("statust").HasMaxLength(50);
+            e.Property(o => o.senderId).HasColumnName("senderId");
+            e.Property(o => o.documentNumber).HasColumnName("documentNumber").HasMaxLength(50);
+        });
+
+        // KarticaNova.IdEfakture — dodata kolona (v211), veza ka tbl_eFakturaUlaz.
+        // Ostatak KarticaNova mapiranja je attribute-based na entitetu, ne diramo ga.
+        modelBuilder.Entity<KarticaNova>()
+            .Property(k => k.IdEfakture)
+            .HasColumnName("idEfakture");
+
+        // IndividualVatRecord — mapiranje na tbl_IndividualVatRecord (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<IndividualVatRecord>(e =>
+        {
+            e.ToTable("tbl_IndividualVatRecord");
+            e.HasKey(v => v.idUnosa);
+            e.Property(v => v.idUnosa).HasColumnName("idUnosa");
+            e.Property(v => v.idIndividualVat).HasColumnName("idIndividualVat");
+            e.Property(v => v.year).HasColumnName("year");
+            e.Property(v => v.calculationNumber).HasColumnName("calculationNumber").HasMaxLength(500);
+            e.Property(v => v.documentNumber).HasColumnName("documentNumber").HasMaxLength(500);
+            e.Property(v => v.pibPartnera).HasColumnName("pibPartnera").HasMaxLength(500);
+            e.Property(v => v.vatPeriodStr).HasColumnName("vatPeriodStr").HasMaxLength(50);
+            e.Property(v => v.documentDirectionStr).HasColumnName("documentDirectionStr").HasMaxLength(50);
+            e.Property(v => v.documentType).HasColumnName("documentType").HasMaxLength(50);
+            e.Property(v => v.internalInvoiceOption).HasColumnName("internalInvoiceOption");
+            e.Property(v => v.relatedPartyIdentifier).HasColumnName("relatedPartyIdentifier").HasMaxLength(500);
+            e.Property(v => v.internalInvoiceNumber).HasColumnName("internalInvoiceNumber");
+            e.Property(v => v.basisForPrepayment).HasColumnName("basisForPrepayment").HasMaxLength(500);
+            e.Property(v => v.recordingDate).HasColumnName("recordingDate");
+            e.Property(v => v.statusChangeDate).HasColumnName("statusChangeDate");
+            e.Property(v => v.status).HasColumnName("status").HasMaxLength(50);
+            e.Property(v => v.totalCalculatedVat).HasColumnName("totalCalculatedVat").HasColumnType("decimal(18,2)");
+        });
+
+        // GroupVatRecord — mapiranje na tbl_GroupVatRecord (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<GroupVatRecord>(e =>
+        {
+            e.ToTable("tbl_GroupVatRecord");
+            e.HasKey(v => v.idZbirne);
+            e.Property(v => v.idZbirne).HasColumnName("idZbirne");
+            e.Property(v => v.idGroupVat).HasColumnName("idGroupVat");
+            e.Property(v => v.year).HasColumnName("year");
+            e.Property(v => v.calculationNumber).HasColumnName("calculationNumber").HasMaxLength(500);
+            e.Property(v => v.documentNumber).HasColumnName("documentNumber").HasMaxLength(500);
+            e.Property(v => v.vatPeriodStr).HasColumnName("vatPeriodStr").HasMaxLength(50);
+            e.Property(v => v.relatedPartyIdentifier).HasColumnName("relatedPartyIdentifier").HasMaxLength(500);
+            e.Property(v => v.recordingDate).HasColumnName("recordingDate");
+            e.Property(v => v.statusChangeDate).HasColumnName("statusChangeDate");
+            e.Property(v => v.vatRecordingStatus).HasColumnName("vatRecordingStatus").HasMaxLength(50);
+            e.Property(v => v.createdUtc).HasColumnName("createdUtc");
+        });
+
+        // EFakturaUlaz — mapiranje na tbl_eFakturaUlaz (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<EFakturaUlaz>(e =>
+        {
+            e.ToTable("tbl_eFakturaUlaz");
+            e.HasKey(x => x.idEfakture);
+            e.Property(x => x.idEfakture).HasColumnName("idEfakture");
+            e.Property(x => x.idRacuna).HasColumnName("idRacuna");
+            e.Property(x => x.idPartnera).HasColumnName("idPartnera");
+            e.Property(x => x.naziv).HasColumnName("naziv").HasMaxLength(200);
+            e.Property(x => x.PIB).HasColumnName("PIB").HasMaxLength(50);
+            e.Property(x => x.MB).HasColumnName("MB").HasMaxLength(50);
+            e.Property(x => x.tipPrimaoca).HasColumnName("tipPrimaoca").HasMaxLength(20);
+            e.Property(x => x.tipFakture).HasColumnName("tipFakture").HasMaxLength(20);
+            e.Property(x => x.tipDokumenta).HasColumnName("tipDokumenta").HasMaxLength(50);
+            e.Property(x => x.invoiceSentDateUtc).HasColumnName("invoiceSentDateUtc");
+            e.Property(x => x.accountingDateUtc).HasColumnName("accountingDateUtc");
+            e.Property(x => x.invoiceDateUtc).HasColumnName("invoiceDateUtc");
+            e.Property(x => x.paymentDateUtc).HasColumnName("paymentDateUtc");
+            e.Property(x => x.Vrednost).HasColumnName("Vrednost").HasColumnType("decimal(18,2)");
+            e.Property(x => x.Rabat).HasColumnName("Rabat").HasColumnType("decimal(18,2)");
+            e.Property(x => x.Osnovica).HasColumnName("Osnovica").HasColumnType("decimal(18,2)");
+            e.Property(x => x.PDV).HasColumnName("PDV").HasColumnType("decimal(18,2)");
+            e.Property(x => x.Ukupno).HasColumnName("Ukupno").HasColumnType("decimal(18,2)");
+            e.Property(x => x.ugovorBr).HasColumnName("ugovorBr").HasMaxLength(100);
+            e.Property(x => x.porudzbinaBr).HasColumnName("porudzbinaBr").HasMaxLength(100);
+            e.Property(x => x.tenderBr).HasColumnName("tenderBr").HasMaxLength(100);
+            e.Property(x => x.CRFidentifikator).HasColumnName("CRFidentifikator").HasMaxLength(30);
+            e.Property(x => x.CRF_Status).HasColumnName("CRF_Status").HasMaxLength(20);
+            e.Property(x => x.statusDokumenta).HasColumnName("statusDokumenta").HasMaxLength(20);
+            e.Property(x => x.statusDokumentaDobavljaca).HasColumnName("statusDokumentaDobavljaca").HasMaxLength(20);
+            e.Property(x => x.statusPlacanja).HasColumnName("statusPlacanja").HasMaxLength(20);
+            e.Property(x => x.PDV_dospece).HasColumnName("PDV_dospece").HasMaxLength(30);
+            e.Property(x => x.idPoreskoOslobodjenje).HasColumnName("idPoreskoOslobodjenje");
+            e.Property(x => x.prilog).HasColumnName("prilog").HasMaxLength(50);
+            e.Property(x => x.invoiceID).HasColumnName("invoiceID").HasMaxLength(50);
+            e.Property(x => x.salesInvoiceID).HasColumnName("salesInvoiceID").HasMaxLength(50);
+            e.Property(x => x.referenceNumber).HasColumnName("referenceNumber").HasMaxLength(50);
+            e.Property(x => x.modelNumber).HasColumnName("modelNumber").HasMaxLength(50);
+            e.Property(x => x.purchaseInvoiceId).HasColumnName("purchaseInvoiceId").HasMaxLength(50);
+            e.Property(x => x.cirID).HasColumnName("cirID").HasMaxLength(50);
+            e.Property(x => x.description).HasColumnName("description");
+            e.Property(x => x.note).HasColumnName("note");
+            e.Property(x => x.cancelInvoiceMessage).HasColumnName("cancelInvoiceMessage");
+            e.Property(x => x.acceptRejectMessage).HasColumnName("acceptRejectMessage");
+            e.Property(x => x.invoiceFilePath).HasColumnName("invoiceFilePath");
+            e.Property(x => x.brojDokumenta).HasColumnName("brojDokumenta").HasMaxLength(50);
+            e.Property(x => x.invoiceIDint).HasColumnName("invoiceIDint");
+        });
+
+        // EInvoice — mapiranje na tbl_eInvoice (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<EInvoice>(e =>
+        {
+            e.ToTable("tbl_eInvoice");
+            e.HasKey(x => x.idEfakture);
+            e.Property(x => x.idEfakture).HasColumnName("idEfakture");
+            e.Property(x => x.idRacuna).HasColumnName("idRacuna");
+            e.Property(x => x.tipPrimaoca).HasColumnName("tipPrimaoca").HasMaxLength(20);
+            e.Property(x => x.tipFakture).HasColumnName("tipFakture").HasMaxLength(20);
+            e.Property(x => x.tipDokumenta).HasColumnName("tipDokumenta").HasMaxLength(50);
+            e.Property(x => x.brojDokumenta).HasColumnName("brojDokumenta").HasMaxLength(50);
+            e.Property(x => x.idPartnera).HasColumnName("idPartnera");
+            e.Property(x => x.partner).HasColumnName("partner").HasMaxLength(200);
+            e.Property(x => x.pib).HasColumnName("pib").HasMaxLength(20);
+            e.Property(x => x.sendInvoiceToCir).HasColumnName("sendInvoiceToCir");
+            e.Property(x => x.ugovorBr).HasColumnName("ugovorBr").HasMaxLength(100);
+            e.Property(x => x.porudzbinaBr).HasColumnName("porudzbinaBr").HasMaxLength(100);
+            e.Property(x => x.tenderBr).HasColumnName("tenderBr").HasMaxLength(100);
+            e.Property(x => x.CRFidentifikator).HasColumnName("CRFidentifikator").HasMaxLength(30);
+            e.Property(x => x.CRF_Status).HasColumnName("CRF_Status").HasMaxLength(20);
+            e.Property(x => x.statusDokumenta).HasColumnName("statusDokumenta").HasMaxLength(20);
+            e.Property(x => x.statusPlacanja).HasColumnName("statusPlacanja").HasMaxLength(20);
+            e.Property(x => x.PDV_dospece).HasColumnName("PDV_dospece").HasMaxLength(30);
+            e.Property(x => x.idPoreskoOslobodjenje).HasColumnName("idPoreskoOslobodjenje");
+            e.Property(x => x.clanPoreskogOslobodjenje).HasColumnName("clanPoreskogOslobodjenje").HasMaxLength(30);
+            e.Property(x => x.prilog).HasColumnName("prilog").HasMaxLength(50);
+            e.Property(x => x.invoiceID).HasColumnName("invoiceID").HasMaxLength(50);
+            e.Property(x => x.salesInvoiceID).HasColumnName("salesInvoiceID").HasMaxLength(50);
+            e.Property(x => x.purchaseInvoiceId).HasColumnName("purchaseInvoiceId").HasMaxLength(50);
+            e.Property(x => x.cirID).HasColumnName("cirID").HasMaxLength(50);
+            e.Property(x => x.vremeSlanja).HasColumnName("vremeSlanja");
+            e.Property(x => x.kurs).HasColumnName("kurs").HasColumnType("decimal(18,4)");
+            e.Property(x => x.valuta).HasColumnName("valuta").HasMaxLength(10);
+            e.Property(x => x.avansi).HasColumnName("avansi");
+            e.Property(x => x.pratecaDokumenta).HasColumnName("pratecaDokumenta");
+            e.Property(x => x.invoiceMessage).HasColumnName("invoiceMessage").HasMaxLength(500);
+            e.Property(x => x.acceptRejectMessage).HasColumnName("acceptRejectMessage").HasMaxLength(500);
+            e.Property(x => x.cancelInvoiceMessage).HasColumnName("cancelInvoiceMessage");
+            e.Property(x => x.prepaymentInvoiceNumber).HasColumnName("prepaymentInvoiceNumber");
+            e.Property(x => x.komentar).HasColumnName("komentar").HasMaxLength(1024);
+            e.Property(x => x.vatPointDate).HasColumnName("vatPointDate");
+            e.Property(x => x.accountingDateUtc).HasColumnName("accountingDateUtc");
+            e.Property(x => x.paymentDateUtc).HasColumnName("paymentDateUtc");
+            e.Property(x => x.invoiceDateUtc).HasColumnName("invoiceDateUtc");
+            e.Property(x => x.invoiceSentDateUtc).HasColumnName("invoiceSentDateUtc");
+            e.Property(x => x.totalToPay).HasColumnName("totalToPay").HasColumnType("decimal(18,2)");
+            e.Property(x => x.discountPercentage).HasColumnName("discountPercentage").HasColumnType("decimal(18,2)");
+            e.Property(x => x.discountAmount).HasColumnName("discountAmount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.sumWithoutVat).HasColumnName("sumWithoutVat").HasColumnType("decimal(18,2)");
+            e.Property(x => x.vatRate).HasColumnName("vatRate").HasColumnType("decimal(18,2)");
+            e.Property(x => x.vatSum).HasColumnName("vatSum").HasColumnType("decimal(18,2)");
+            e.Property(x => x.sumWithVat).HasColumnName("sumWithVat").HasColumnType("decimal(18,2)");
+            e.Property(x => x.model).HasColumnName("model").HasMaxLength(20);
+            e.Property(x => x.pozivNaBroj).HasColumnName("pozivNaBroj").HasMaxLength(50);
+            e.Property(x => x.sourceInvoiceSelectionMode).HasColumnName("sourceInvoiceSelectionMode").HasMaxLength(30);
+            e.Property(x => x.indebtednessPeriodFromDate).HasColumnName("indebtednessPeriodFromDate");
+            e.Property(x => x.indebtednessPeriodToDate).HasColumnName("indebtednessPeriodToDate");
+            e.Property(x => x.nijeSaSef).HasColumnName("nijeSaSef");
+            e.Property(x => x.sourceInvoices).HasColumnName("sourceInvoices").HasMaxLength(50);
+            e.Property(x => x.korisnik).HasColumnName("korisnik").HasMaxLength(50);
+            e.Property(x => x.status).HasColumnName("status").HasMaxLength(10);
+            e.Property(x => x.invoiceIDint).HasColumnName("invoiceIDint");
+        });
 
         // kursEur zahteva 4 decimale
         modelBuilder.Entity<Podesavanja>()

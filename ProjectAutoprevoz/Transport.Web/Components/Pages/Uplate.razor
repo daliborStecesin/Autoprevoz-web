@@ -328,6 +328,22 @@
     [SupplyParameterFromQuery(Name = "kontekst")]   public string?  QKontekst   { get; set; }
     [SupplyParameterFromQuery(Name = "idZaduzenja")] public int?    QIdZaduzenja { get; set; }
 
+    // ── Kontekst iz Ulaznih e-faktura ("Unos finansija" dugme) ──────────────
+    [SupplyParameterFromQuery(Name = "brojDokumenta")]  public string? QBrojDokumenta  { get; set; }
+    [SupplyParameterFromQuery(Name = "datumDokumenta")] public string? QDatumDokumenta { get; set; }
+    [SupplyParameterFromQuery(Name = "datumValute")]    public string? QDatumValute    { get; set; }
+    [SupplyParameterFromQuery(Name = "datumPrometa")]   public string? QDatumPrometa   { get; set; }
+    [SupplyParameterFromQuery(Name = "idEfakture")]     public int?    QIdEfakture     { get; set; }
+
+    // Interna referenca (ne prikazuje se kao vidljivo polje) — koristi se za dedupe
+    // pre snimanja i za IdEfakture na upisanoj stavci.
+    private int? _idEfaktureKontekst;
+
+    // Interna referenca — forma nema posebno UI polje za "datum prometa" (deli isti
+    // "Datum" input sa datumDokumenta, isto kao za sve ostale RACUN/KNJIZNO unose);
+    // kad je prosleđen iz e-fakture konteksta, koristi se pri snimanju bez novog polja.
+    private string? _datumPrometaKontekst;
+
     // ── Partner autocomplete ────────────────────────────────
     private List<Partner> _sviPartneri     = [];
     private Partner?      _partner;
@@ -413,6 +429,20 @@
             if (partner is not null)
                 await IzaberiPartnera(partner);
         }
+
+        // ── Kontekst iz Ulaznih e-faktura — sva polja ostaju editabilna, samo
+        //    predpopunjena; idEfakture i datumPrometa nemaju vidljivo polje. ──
+        if (!string.IsNullOrWhiteSpace(QBrojDokumenta))
+            _pozivNaBroj = QBrojDokumenta;
+
+        if (!string.IsNullOrWhiteSpace(QDatumDokumenta) && DateTime.TryParse(QDatumDokumenta, out var qdd))
+            _datum = qdd.ToString("yyyy-MM-dd");
+
+        if (!string.IsNullOrWhiteSpace(QDatumValute) && DateTime.TryParse(QDatumValute, out var qdv))
+            _valuta = qdv.ToString("yyyy-MM-dd");
+
+        _datumPrometaKontekst = QDatumPrometa;
+        _idEfaktureKontekst   = QIdEfakture;
     }
 
     private async Task OnDatumChanged()
@@ -612,6 +642,28 @@
             return;
         }
 
+        // Dedupe — isti uslov kao kod "Upiši u karticu" na listama e-faktura. Generičko
+        // za oba smera (KUPAC=izlazne / DOBAVLJAC=ulazne). Mora biti scoped i po Uloga —
+        // idEfakture kolona je deljena između tbl_eFakturaUlaz i tbl_eInvoice, koje su
+        // odvojene tabele sa sopstvenim auto-increment ID prostorom (iste brojčane
+        // vrednosti se mogu poklopiti bez ikakve stvarne veze).
+        if (_idEfaktureKontekst.HasValue)
+        {
+            var vecUpisano = await Db.KarticeNova.AnyAsync(
+                k => k.IdEfakture == _idEfaktureKontekst.Value && k.PartnerUloga == Uloga);
+            if (vecUpisano)
+            {
+                var poruka = Uloga == "KUPAC"
+                    ? "Ova izlazna faktura je već upisana u karticu."
+                    : "Ovaj ulazni račun je već upisan u karticu.";
+                var povratak = Uloga == "KUPAC" ? "/efakture/izlazne" : "/efakture/ulazne";
+
+                Snackbar.Add(poruka, Severity.Info);
+                Nav.NavigateTo(povratak);
+                return;
+            }
+        }
+
         // ── Mapiranje tipUnosa -> partnerUloga + tipDokumenta + valuta ──
         string partnerUloga, tipDokumenta, valuta;
         switch (_tipUnosa)
@@ -664,6 +716,11 @@
             var datum       = DateTime.TryParse(_datum,   out var d) ? d : DateTime.Today;
             var valutaDatum = DateTime.TryParse(_valuta,  out var v) ? v : datum;
 
+            // Forma nema posebno UI polje za datum prometa (deli "Datum" sa datumDokumenta,
+            // isto kao za sve ostale unose) — kad je prosleđen iz e-fakture konteksta,
+            // koristi se ovde umesto pada nazad na datumDokumenta.
+            var datumPrometa = DateTime.TryParse(_datumPrometaKontekst, out var dp) ? dp : datum;
+
             var brojDokumenta = (JeRacun || JeKnjizno)
                 ? _pozivNaBroj!
                 : JePocetno
@@ -684,10 +741,11 @@
                 Valuta         = valuta,
                 Kurs           = valuta == "EUR" ? _kursEur : null,
                 DatumDokumenta = datum,
-                DatumPrometa   = datum,
+                DatumPrometa   = datumPrometa,
                 DatumValute    = valutaDatum,
                 Opis           = _komentar,
                 Izvod          = _izvod,
+                IdEfakture     = _idEfaktureKontekst,
             };
 
             // RACUN i KNJIZNO su uvek standalone — nikad se ne vezuju automatski

@@ -141,8 +141,75 @@ kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
 ### Privilegije (odloženo — svi Admin)
 - [ ] tbl_role + tbl_role_moduli
 
-### E-fakture (na kraju)
-- [ ] Slanje na SEF, statusi, PDV evidencija, EPP (CSV); ulazne fakture → auto upis u karticu
+### E-fakture (aktivan rad — deo modula ZAVRŠEN, deo u toku)
+
+**Napomena:** rad namerno van redosleda iz opšteg plana — E-fakture pomerene napred
+da bi klijenti imali funkcionalan softver ranije. Sesija posvećena isključivo ovom
+modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
+
+**Osnova (završeno)**
+- [x] E-FAKTURE dropdown meni (uslovljen OpcijaInt13), sve stavke povezane
+- [x] SefApiClient dopune: fix PRODUKCIJA/PRODUKCIONI mismatch, GetBytesAsync,
+      GetStringAsync, PostStringAsync
+- [x] Prevod SEF error kodova (greskeEFakture.json, 328/475 prevedeno, ostatak su
+      Baltic auth kodovi/nepoznati interni kodovi — ostavljeni namerno na engleskom),
+      IGreskaEfakturaPrevodService
+- [x] Napomena: Pojedinačna/Zbirna evidencija PDV rade na SEF **Public API v2**
+      (potvrđeno u dokumentaciji), različito od ostatka modula (v1)
+
+**Obaveštenje o prethodnom porezu** (`/efakture/obavestenje-prethodnog-poreza`) — ZAVRŠENO
+- [x] Entitet ObavestenjePP (mapiran na postojeću tbl_ObavestenjaPP), IObavestenjaPPService
+      (import primljenih/poslatih, slanje sa UI→API mapiranjem + validacija kombinacija,
+      broj preko postojeće Broj_Otpis kolone)
+- [x] Lista (toggle Primljena/Poslata, filteri, Učitaj za period) + forma za unos/slanje
+- [ ] PDF Pregled/Preuzmi — NE RADI, potvrđeno da ne radi ni direktno na SEF/Swagger
+      (problem na SEF strani, ne kod nas) — čeka se stabilizacija SEF demo servera
+
+**Pojedinačna i Zbirna evidencija PDV** — SAMO Faza A (read-only lista)
+- [x] Entiteti IndividualVatRecord/GroupVatRecord, read-only servisi, liste sa filterima
+      (`/efakture/pojedinacna-evidencija`, `/efakture/zbirna-evidencija`)
+- [x] Fix filtera: tolerancija stare/nove terminologije (KNJIZNO ODOBRENJE/ZADUŽENJE
+      ↔ DOKUMENT O SMANJENJU/POVEĆANJU)
+- [ ] Faza B (SEF sinhronizacija preko Public API v2, kreiranje, otkazivanje) — NIJE ZAPOČETO
+
+**Ulazne e-fakture** (`/efakture/ulazne`) — ZAVRŠENO (osnovni tok testiran)
+- [x] Entitet EFakturaUlaz, read-only lista + bojenje po statusu (vidljiva selekcija reda)
+- [x] SEF sinhronizacija ("Učitaj nove za period") — XML parsiranje UBL dokumenta,
+      upozorenje za partnera koji ne postoji u imeniku (bez auto-insert preko NBS-a)
+- [x] Osveži status / Prihvati / Odbij (sa proverom svežine statusa pre kritičnih akcija
+      kao "Kreiraj obaveštenje")
+- [x] Preuzmi PDF / Preuzmi XML (PDF se izvlači iz XML envelope-a, env:DocumentPdf,
+      NE poseban endpoint) + dugme "Pregled" (inline prikaz)
+- [x] Dugme "Kreiraj obaveštenje" (veza ka ObavestenjaPPService, source=ULAZNI)
+- [x] tbl_KarticaNova.idEfakture kolona (nullable, v211 migracija) — dedupe veza
+- [x] Dugme "Upiši u karticu" (direktan upis, samo tip FAKTURA + status Odobreno) +
+      dugme "Unos finansija" (predpopunjena forma na /finansije/unos, editabilna pre snimanja)
+- [ ] Napomena: postojeći redovi uvezeni PRE fix-a XML parsera imaju prazan tipDokumenta
+      (sakriva dugme "Upiši u karticu") — rešava se ručno test-po-test za sad, masovni
+      backfill/re-sync ostaje otvorena opcija ako zatreba
+
+**Izlazne e-fakture** (`/efakture/izlazne`) — U TOKU
+- [x] Faza A: entitet EInvoice, read-only lista + filteri + bojenje po statusu
+      (VAŽNO: ovde NEMA posebne boje za "Otkazano", samo Odbijeno/Stornirano=crveno,
+      Prihvaceno=zeleno — razlikuje se od Ulaznih, potvrđeno iz originalnog koda)
+      + "Komentar odbijanja" panel (lokalni prikaz, vidljiv samo kad status=Odbijeno)
+- [x] Faza B: SEF sinhronizacija (sales-invoice/ids, XML parsiranje sa
+      cac:AccountingCustomerParty, status prevod preko Class_eFakturaPrevodi.statusPrevod
+      — RAZLIČIT set statusa od Ulaznih)
+- [ ] Faza C+D (Osveži sve/Osveži status sa live komentarom, Storno, Otkaži, Preuzmi
+      PDF/XML, Brisanje) — prompt poslat, **status testiranja nije potvrđen**
+- [ ] Faza E (Upiši u karticu / Unos finansija — SAMO za fakture bez idRacun veze,
+      tipičan slučaj: onboarding novog klijenta sa fakturama poslatim na SEF pre
+      prelaska na Autoprevoz; regularne fakture kroz naš sistem već idu kroz
+      KarticaNovaService.UpisiIzRacuna, ne diraju se) — prompt poslat, **status
+      testiranja nije potvrđen**
+
+**Sledeće u modulu (nije započeto)**
+- [ ] Unos dokumenta — kompleksan, poseban veći poduhvat (procena: ceo radni dan),
+      posle toga automatizacija unosa
+- [ ] Statistika e-faktura
+- [ ] Slanje (najkompleksnije, XML generisanje) — namerno ostavljeno za kraj
+- [ ] "Prikaz pratećih dokumenata" (Izlazne) — posebna, manja faza
 
 ---
 

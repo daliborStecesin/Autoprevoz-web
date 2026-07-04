@@ -1,0 +1,50 @@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_komentar"
+                      Label="@Label"
+                      Variant="Variant.Outlined"
+                      Lines="3"
+                      FullWidth="true"
+                      AutoFocus="true" />
+
+        @if (!string.IsNullOrEmpty(_greska))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_greska</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Close"
+                   OnClick="Potvrdi">
+            @ConfirmButtonText
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => MudDialog.Cancel())">
+            Otkaži
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    // Podrazumevane vrednosti = tačno staro ponašanje (koristi ga Odbij na Ulaznim
+    // e-fakturama, bez izmena na tom pozivnom mestu). Storno/Otkaži (Izlazne) prosleđuju
+    // sopstvene vrednosti preko DialogParameters.
+    [Parameter] public string Label             { get; set; } = "Komentar (obavezno)";
+    [Parameter] public string ValidationError    { get; set; } = "Ne možete odbiti dokument bez komentara";
+    [Parameter] public string ConfirmButtonText  { get; set; } = "Potvrdi odbijanje";
+
+    private string  _komentar = "";
+    private string? _greska;
+
+    private void Potvrdi()
+    {
+        if (string.IsNullOrWhiteSpace(_komentar))
+        {
+            _greska = ValidationError;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_komentar));
+    }
+}

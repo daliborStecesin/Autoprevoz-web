@@ -30,6 +30,11 @@ public class KarticaNova
 
     public int? IdRacun { get; set; }
 
+    // Veza ka tbl_eFakturaUlaz.idEfakture — NULL za sve ostale tipove unosa
+    // (računi bez e-fakture porekla, uplate, isplate, ručni unosi). Sprečava dupli
+    // upis pri "Upiši u karticu" akciji sa ulaznih e-faktura.
+    public int? IdEfakture { get; set; }
+
     [Column(TypeName = "decimal(18,2)")]
     public decimal Duguje { get; set; }
 

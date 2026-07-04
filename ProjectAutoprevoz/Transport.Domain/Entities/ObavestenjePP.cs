@@ -1,34 +1,28 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Transport.Domain.Entities;
 
-[Table("tbl_ObavestenjaPP")]
 public class ObavestenjePP
 {
-    [Key]
-    [Column("ObavestenjeID")]
-    public int ObavestenjeId { get; set; }
+    public int ObavestenjeID { get; set; }
 
-    public DateTime Datum { get; set; }
+    public long? noticeId { get; set; }
 
-    [MaxLength(100)]
-    public string? Naslov { get; set; }
+    public string? noticeNumber { get; set; }
 
-    [MaxLength(500)]
-    public string? Opis { get; set; }
+    public DateTime? NoticeDate { get; set; }
 
-    [Column("statust")]
-    [MaxLength(20)]
-    public string Status { get; set; } = "Novo";
+    public string? recipientPIB { get; set; }
 
-    [MaxLength(100)]
-    public string? Referenca { get; set; }
+    public string? recipientMB { get; set; }
 
-    [MaxLength(500)]
-    public string? Akcija { get; set; }
+    public decimal? totalVatAmount { get; set; }
 
-    public DateTime? DatumUnosa { get; set; }
+    public string? Sender { get; set; }
 
-    public DateTime? DatumIzmene { get; set; }
+    public string? tipSender { get; set; }
+
+    public string? statust { get; set; }
+
+    public int? senderId { get; set; }
+
+    public string? documentNumber { get; set; }
 }

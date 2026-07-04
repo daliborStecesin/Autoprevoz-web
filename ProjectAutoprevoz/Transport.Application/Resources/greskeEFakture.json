@@ -1,0 +1,954 @@
+﻿[
+{
+
+"Invalid":"Xml neispravan,\n\rVerovatno nedostaje neki osnovni podatak,\n\rNa primer artikal, ili naziv artikla",
+
+"ServiceIdNotUnique":"ID servisa nije jedinstven",
+
+"InvoiceNumberTooLong":"Broj računa je predugačak",
+
+"InvoiceCurrencyInvalid":"Pogrešna valuta računa",
+
+"InvoiceNumberNotUnique":"Broj računa mora da bude jedinstven",
+
+"IbanInvalid":"Pogrešan IBAN",
+
+"PasswordMissing":"Nedostaje lozinka",
+
+"CurrencyIdInvalid":"ID valute je pogrešan",
+
+"BankIdInvalid":"Pogrešna banka",
+
+"CompanyCountryIdInvalid":"ID zemlje kompanije pogrešan",
+
+"AadressCountryIdInvalid":"Pogrešan ID države adrese",
+
+"RequiredCompanyAddressMissing":"Nedostaje adresa kompanije",
+
+"UserCountryIdInvalid":"Pogrešan ID države korisnika",
+
+"UserNotRegistered":"Neregistrovani korisnik",
+
+"UserNotActivated":"Korisnik nije aktiviran",
+
+"UserNotFound":"Korisnik nije pronađen",
+
+"SmartIdLoginCanceled":"SmartIdLoginCanceled",
+
+"SmartIdTimeout":"SmartIdTimeout",
+
+"SmartIdUserNotRegistered":"SmartIdUserNotRegistered",
+
+"MobileIdNotRegistered":"MobileIdNotRegistered",
+
+"MobileIdCertificateError":"MobileIdCertificateError",
+
+"MobileIdCanceled":"MobileIdCanceled",
+
+"MobileIdTimeout":"MobileIdTimeout",
+
+"MobileIdSimNotReady":"MobileIdSimNotReady",
+
+"MobileIdPhoneIsOff":"MobileIdPhoneIsOff",
+
+"MobileIdSendingError":"MobileIdSendingError",
+
+"MobileIdSimError":"MobileIdSimError",
+
+"LoginFailed":"Neuspeo Login",
+
+"MobileIdError":"MobileIdError",
+
+"SmartIdFailed":"SmartIdFailed",
+
+"DublicateUserPersonalId":"Dupliran lični broj korisnika",
+
+"DublicateUsername":"Duplirano korisničko ime",
+
+"UsernameTooShort":"Korisničko ime previše kratko",
+
+"ExtensionInvalid":"Pogrešna ekstenzija",
+
+"CodeInvalid":"Pogrešan kod",
+
+"CodeDuplicate":"Dupliran kod",
+
+"DifferentPersonalId":"Različit JMBG/lični broj",
+
+"UserConfirmed":"Korisnik potvrđen",
+
+"ContractEmailMissing":"Nedostaje e-mail ugovora",
+
+"CompanyEmailMissing":"Nedostaje E-mail kompanije",
+
+"XmlInvalid":"Xml neispravan",
+
+"EInvoiceMissing":"Nedostaje E-Račun",
+
+"EInvoiceGlobalIdMissing":"Nedostaje globalni ID E-računa",
+
+"EInvoiceGlobalIdDublicate":"Dupliran globalni ID E-računa",
+
+"EInvoiceNumberMissing":"Nedostaje broj E-Računa",
+
+"EInvoiceNumberDublicate":"Dupliran broj E-Računa",
+
+"EInvoiceBuyerPartyMissing":"Nedostaje kupac E-Računa",
+
+"EInvoiceBuyerNameMissing":"Nedostaje naziv kupca E-Računa",
+
+"EInvoiceBuyerRegNumberMissing":"Nedostaje registarski broj kupca",
+
+"EInvoiceSellerPartyMissing":"Nedostaje Prodavac E-Računa",
+
+"EInvoiceSellerNameMissing":"Nedostaje naziv prodavca E-Računa",
+
+"EInvoiceSellerRegNumberMissing":"Nedostaje registarski broj prodavca",
+
+"EInvoiceInvoiceItemMissing":"Nedostaje stavka na E-Računu",
+
+"EInvoiceInvoiceItemGroupMissing":"Nedostaje grupa stavki na E-Računu",
+
+"EInvoiceInvoiceItemDescriptionMissing":"Nedostaje opis stavke",
+
+"EInvoiceInvoiceItemDetailInfoMissing":"Nedostaje detaljan opis stavke",
+
+"EInvoiceInvoiceSumGroupMissing":"Nedostaje grupa suma na E-računu",
+
+"EInvoiceInvoiceCurrencyMissing":"Nedostaje valuta E-računa",
+
+"EInvoiceInvoiceItemDetailInfoItemUnitMissing":"Nedostaje jedinica mere stavke E-računa",
+
+"EInvoiceInvoiceItemsCountTooBig":"Prevelik broj stavki na E-računu",
+
+"EInvoiceInvoiceItemsPriceTooBig":"Prevelika cena stavke na E-računu",
+
+"EInvoiceInvoiceItemsPriceTooSmall":"Premala cena stavke na računu",
+
+"EInvoiceInvoiceItemsPriceNegative":"Cena stavke ne sme biti negativna",
+
+"EInvoiceInvoiceItemsAmountTooBig":"Prevelika cena stavke na računu",
+
+"EInvoiceChannelIdMissing":"Nedostaje ID kanala E-računa",
+
+"EInvoiceChannelAddressMissing":"Nedostaje adresa kanala E-računa",
+
+"EInvoiceChannelAddressInvalid":"Pogrešna adresa kanala E-računa",
+
+"EInvoiceChannelAddressWithSpace":"Adresa kanala E-računa sadrži razmak",
+
+"EInvoiceContractCurrencyConflict":"Konflikt valute ugovora na E-računu",
+
+"LogoTypeIsInvalid":"Pogrešan tip loga",
+
+"LogoSizeIsInvalid":"Pogrešna veličina loga",
+
+"LogoDimensionsAreInvalid":"Pogrešne dimenzije loga",
+
+"FileNameOrExtensionIsInvalid":"Pogrešno ime fajla ili ekstenzija",
+
+"UserRegistered":"Korisnik je registrovan",
+
+"TokenExpired":"Token je istekao",
+
+"TokenInvalidOrExpired":"Token je pogrešan ili je istekao",
+
+"DublicateEmail":"Dupliran e-mail",
+
+"SerializationError":"Greška pri serijalizaciji podataka",
+
+"InvalidCategory":"Pogrešna kategorija",
+
+"InvalidGroup":"Pogrešna grupa",
+
+"PasswordResetTokenAlreadyUsed":"Token za reset lozinke je već iskorišćen",
+
+"PasswordResetTokenIncorrect":"Pogrešan token za reset lozinke",
+
+"PasswordAtLeastOneDigitRequired":"Lozinka mora sadržati bar jednu cifru",
+
+"PasswordShouldBeEightCharsLong":"Lozinka mora imati bar osam karaktera",
+
+"PasswordShouldBeWithUpperCase":"Lozinka mora sadržati veliko slovo",
+
+"CompanyIdMissing":"Nedostaje ID firme",
+
+"IdCardInvalid":"Pogrešan broj lične karte",
+
+"CompanyRegcodeInvalid":"Pogrešan matični broj firme",
+
+"CompanyStatusInvalid":"Pogrešan status firme",
+
+"NoPasswordSetForThisAccount":"Za ovaj nalog nije postavljena lozinka",
+
+"NoTokenProvided":"Token nije prosleđen",
+
+"SmartIdRunning":"SmartIdRunning",
+
+"MobileIdRunning":"MobileIdRunning",
+
+"InvoicesSendingLimitReached":"Dostignut je limit slanja računa",
+
+"ExternalInvoicesSendingLimitReached":"Dostignut je limit slanja eksternih računa",
+
+"InvoiceRowsMissing":"Nedostaje bar jedna stavka na računu",
+
+"InvoiceRowDescriptionMissing":"Nedostaje opis stavke na računu",
+
+"InvoiceRowUnitMissing":"Nedostaje jedinica mere na stavci računa",
+
+"InvoiceRowVatRateNotAllowedForVatCategory":"Poreska stopa nije dozvoljena za ovu poresku kategoriju stavke",
+
+"InvoiceRowForDiscountPerVatCategoryNotDefined":"Stavka popusta po poreskoj kategoriji nije definisana",
+
+"InvoiceRowForPrepaymentValuePerVatCategoryNotDefined":"Stavka avansa po poreskoj kategoriji nije definisana",
+
+"InvoiceRowDiscountAmountMustBeInAccordanceWithDiscountPercentage":"Iznos popusta na stavci mora odgovarati procentu popusta",
+
+"ReferenceNumberInvalid":"Pogrešan referentni broj",
+
+"InvoiceAlreadySent":"Račun je već poslat",
+
+"MissingIban":"Nedostaje IBAN",
+
+"CannotRejectInvoiceWithoutComment":"Ne možete odbiti račun bez komentara",
+
+"CirMaximumSizeOfCommentCrossed":"Prekoračena maksimalna dužina komentara za CRF",
+
+"CirSpecialCharactersNotAllowed":"Specijalni znakovi nisu dozvoljeni u CRF komentaru",
+
+"BankAccountIncorrect":"Pogrešan broj računa banke",
+
+"FileTooBig":"Prevelik fajl",
+
+"InvalidCompanyId":"Pogrešan matični broj firme",
+
+"EInvoiceSellerNameNotTheSame":"Naziv prodavca na E-računu se ne poklapa",
+
+"EInvoiceSellerRegNumberNotTheSame":"Matični broj prodavca na E-računu se ne poklapa",
+
+"EmailMissing":"Nedostaje e-mail adresa",
+
+"CompanyNameInvalid":"Pogrešno ime firme",
+
+"ChannelInvalid":"Pogrešan kanal slanja",
+
+"BudgetCompanyDataInvalid":"Pogrešni podaci budžetske firme",
+
+"CurrencyInvalid":"Pogrešna valuta",
+
+"ProformaCannotBeCreditInvoice":"Predračun ne može biti dokument o smanjenju",
+
+"InvoiceNumberInvalid":"Pogrešan broj E-računa",
+
+"PackageIdInvalid":"Pogrešan ID paketa",
+
+"PayablePackageMissingFields":"Nedostaju polja u paketu za plaćanje",
+
+"CompanyInfoMissing":"Nedostaju podaci o firmi",
+
+"PackageDowngradingOnlyByServiceDesk":"Snižavanje paketa moguće je samo preko korisničke podrške",
+
+"OneClickOrderInsufficientRole":"Nedovoljna uloga za porudžbinu jednim klikom",
+
+"Be51":"Be51",
+
+"Be62":"Be62",
+
+"Be59":"Be59",
+
+"Be85":"Be85",
+
+"Be64":"Be64",
+
+"Be65":"Be65",
+
+"Be56":"Be56",
+
+"Be61":"Be61",
+
+"Be81":"Be81",
+
+"Be66":"Be66",
+
+"Be63":"Be63",
+
+"Be82":"Be82",
+
+"Be3":"Be3",
+
+"Be10":"Be10",
+
+"Be22":"Be22",
+
+"Be32":"Be32",
+
+"Be33":"Be33",
+
+"Be86":"Be86",
+
+"Be20":"Be20",
+
+"Be21":"Be21",
+
+"Be76":"Be76",
+
+"Be78":"Be78",
+
+"Be87":"Be87",
+
+"Be80":"Be80",
+
+"Be18":"Be18",
+
+"Be14":"Be14",
+
+"Be79":"Be79",
+
+"Be11":"Be11",
+
+"Be35":"Be35",
+
+"Be57":"Be57",
+
+"Be70":"Be70",
+
+"Be6":"Be6",
+
+"Be50":"Be50",
+
+"Be9":"Be9",
+
+"Be7":"Be7",
+
+"Be49":"Be49",
+
+"Be12":"Be12",
+
+"Be48":"Be48",
+
+"Be54":"Be54",
+
+"Be55":"Be55",
+
+"Be88":"Be88",
+
+"Be90":"Be90",
+
+"Bw91":"Bw91",
+
+"Be92":"Be92",
+
+"Be93":"Be93",
+
+"Be94":"Be94",
+
+"Be95":"Be95",
+
+"Be96":"Be96",
+
+"Be97":"Be97",
+
+"Be98":"Be98",
+
+"Be25":"Be25",
+
+"Bw102":"Bw102",
+
+"Bw103":"Bw103",
+
+"Bw104":"Bw104",
+
+"Bw105":"Bw105",
+
+"Be106":"Be106",
+
+"ServiceIdMissing":"Nedostaje ID servisa",
+
+"RegCodeMissing":"Nedostaje registracioni kod",
+
+"PersonalIdMissing":"Nedostaje lični broj (JMBG)",
+
+"LursoftError":"LursoftError",
+
+"GetCompanyVatNumberNotDefined":"PIB firme nije definisan",
+
+"GetCompanyRegistrationCodeNotDefined":"Matični broj firme nije definisan",
+
+"GetCompanyAdditionalCodeNotDefined":"Dodatni kod firme nije definisan",
+
+"TooManyAttachments":"Previše Atačmenta fajlova",
+
+"StornoCommentNotDefined":"Storno komentar nije definisan",
+
+"CancelCommentNotDefined":"Komentar otkazivanja nije definisan",
+
+"InvoiceDeliveryDateMissing":"Nedostaje datum isporke",
+
+"InvoiceDueDateMissing":"Nedostaje datum Valute",
+
+"SearchDateBiggerThanYesterday":"Datum pretrage ne može biti veći od jučerašnjeg dana",
+
+"InvoiceDateLaterThanToday":"Datum E-Računa ne može biti veći od današnjeg datuma",
+
+"PaymentDateMoreThan90DaysInFuture":"Datum valute preko 90 dana u buducnosti",
+
+"IssueDateCannotBeDifferentFromTodays":"Datum izdavanja mora biti današnji datum",
+
+"CreateCirTicketFailed":"CreateCirTicketFailed",
+
+"CannotSendPrepaymentInvoiceToCir":"Avansni račun ne može biti poslat u CRF",
+
+"CannotSendDebitNoteToCir":"Dokument o povećanju ne može biti poslat u CRF",
+
+"SendingPrepaymentInvoiceToCir":"Slanje avansnog računa u CRF",
+
+"SelectedPrepaymenInvoiceNotApproved":"Izabrani avansni račun nije odobren",
+
+"ThereAreMoreThanOnePrepaymentInvoiceWithSameInvoiceNumbeInStatusApproved":"Postoji više odobrenih avansnih računa sa istim brojem računa",
+
+"SendingCreditInvoiceToCir":"Slanje dokumenta o smanjenju u CRF",
+
+"SendingDebitNoteToCir":"Slanje dokumenta o povećanju u CRF",
+
+"ContractNumberBetweenSenderAndReceiverIsMandatoryForBudgetUsers":"Broj ugovora između pošiljaoca i primaoca je obavezan za budžetske korisnike",
+
+"ContractNumberBetweenSenderAndReceiverIsMandatoryForCirInvoice":"Broj ugovora između pošiljaoca i primaoca je obavezan za CRF račun",
+
+"EfakturaInvoiceForCIRInvoiceIdNotFound":"E-faktura za dati CRF ID računa nije pronađena",
+
+"CannotSendCreditInvoiceToCir":"Dokument o smanjenju ne može biti poslat u CRF",
+
+"NegativeTotalSumCirInvoice":"Negativan ukupan iznos računa za CRF",
+
+"InvalidCaptcha":"Pogrešan captcha kod",
+
+"AprDataIncomplete":"Podaci sa APR-a su nekompletni",
+
+"AprCompanyNotFound":"Firma nije pronađena na APR-u",
+
+"AprMultipleCompaniesFound":"Pronađeno je više firmi na APR-u",
+
+"SsoTokenValidationFaild":"SsoTokenValidationFaild",
+
+"UserHasNoActiveCompanies":"Korisnik nema aktivnih firmi",
+
+"RequiresAALLevel2":"RequiresAALLevel2",
+
+"RequiresAALLevel3":"RequiresAALLevel3",
+
+"RequiresIALLevel1":"RequiresIALLevel1",
+
+"RequiresIALLevel2":"RequiresIALLevel2",
+
+"RequiresIALLevel3":"RequiresIALLevel3",
+
+"EpaySignUpInsufficientData":"Nedovoljno podataka za ePay registraciju",
+
+"UserNotLegalRepresentative":"Korisnik nije zakonski zastupnik",
+
+"SignUpFailed":"Registracija nije uspela",
+
+"AprCallFailed":"Poziv ka APR-u nije uspeo",
+
+"UserInvitationInvalid":"Pogrešan pozivnica za korisnika",
+
+"KjsRegisterMultipleBudgetCompaniesFound":"Pronađeno je više budžetskih firmi u KJS registru",
+
+"KjsRegisterCompanyNotFound":"Firma nije pronađena u KJS registru",
+
+"BankIsNotSupported":"Banka nije podržana",
+
+"ErrorCallingTaxAuthority":"Greška pri komunikaciji sa Poreskom upravom",
+
+"ErrorCallingTaxAuthorityCompanyDataEmpty":"Poreska uprava nije vratila podatke o firmi",
+
+"CompanyOneClickOrderDisabled":"Porudžbina jednim klikom je onemogućena za ovu firmu",
+
+"TaxAuthorityCompanyDataNotFound":"Poreska uprava nije pronašla podatke o firmi",
+
+"CannotBeCreditAndDebitInvoiceAtTheSameTime":"Dokument ne može biti istovremeno o smanjenju i o povećanju",
+
+"CreditInvoiceMustHaveSource":"Dokument o smanjenju mora imati izvorni račun",
+
+"DebitInvoiceMustHaveSource":"Dokument o povećanju mora imati izvorni račun",
+
+"SourceInvoiceNotFound":"Izvorni račun nije pronađen",
+
+"SourceInvoiceSelectionModeNotDefined":"Nije definisan način izbora izvornog računa",
+
+"SourceInvoicesNotDefined":"Izvorni računi nisu definisani",
+
+"SourceInvoicePeriodNotDefinedCorrectly":"Period izvornog računa nije ispravno definisan",
+
+"MoreThanOneSourceInvoiceDefined":"Definisano je više od jednog izvornog računa",
+
+"UnknownSourceInvoiceSelectionMode":"Nepoznat način izbora izvornog računa",
+
+"RequiredSourceInvoiceNumbersNotChosen":"Nisu izabrani obavezni brojevi izvornih računa",
+
+"ValueOfExchangeRateCannotBeEmptyOrZero":"Vrednost kursa ne sme biti prazna ili nula",
+
+"CannotSendToCirDocumentWithForeignCurrency":"CannotSendToCirDocumentWithForeignCurrency",
+
+"SenderCompanyEndpointIdentifierMissing":"Pošiljaoca firme endpoint identifikator nedostaje",
+
+"SenderEndpointSchemeIDInvalid":"Pošiljaoca endpoint šema ID nije ispravan",
+
+"SenderEndpointValueEmpty":"Pošiljaoca endpoint vrednost prazan",
+
+"CompanyNumberLengthInvalid":"Pogrešna dužina matičnog broja firme",
+
+"SenderJBKJSLengthInvalid":"Pogresna duzina JBKJS-a",
+
+"SenderMissedAddingJBKJSPrefix":"SenderMissedAddingJBKJSPrefix",
+
+"SenderCompanyNotFound":"Firma pošiljaoca nije pronađena",
+
+"CompanyNotFound":"Firma nije pronađena",
+
+"InvalidSenderCompany":"Pogrešna firma izdavalac",
+
+"InvalidSenderEmail":"Pogrešan e-mail pošiljaoca",
+
+"InvalidSenderContactEmail":"Pogrešan kontakt e-mail pošiljaoca",
+
+"InvalidSendToCirMode":"InvalidSendToCirMode",
+
+"ReceiverCompanyEndpointIdentifierMissing":"Primaoca firme endpoint identifikator nedostaje",
+
+"ReceiverEndpointSchemeIDInvalid":"Primaoca endpoint šema ID nije ispravan",
+
+"ReceiverEndpointValueEmpty":"Primaoca endpoint vrednost prazan",
+
+"ReceiverCompanyNotFound":"Firma primalac nije pronađena",
+
+"ReceiverJBKJSLengthInvalid":"Pogrešna dužina polja JBKJS primaoca",
+
+"ReceiverMissedAddingJBKJSPrefix":"Nedostaje prefix na JBKJS primaoca",
+
+"InvoiceReceiverMissing":"Firma primalac nije pronađena",
+
+"InvoiceReceiverChannelMissing":"Nedostaje kanal primaoca računa",
+
+"InvoiceReceiverChannelInvalid":"Pogrešan kanal primaoca računa",
+
+"InvalidReceiverEmail":"Pogrešan e-mail primaoca",
+
+"InvoiceNotApprovedByReceiver":"Račun nije prihvaćen od strane primaoca",
+
+"InvoiceNotApprovedOrRejectedByReceiver":"Račun nije prihvaćen ni odbijen od strane primaoca",
+
+"UBLUnsupportedDocumentType":"UBL Nepodržan tip dokumenta ",
+
+"UBLSourceInvoiceNotFound":"UBL nedostaje izvorni račun",
+
+"UBLSourceInvoiceNumberNotExist":"UBL nepostojeći broj  izvornog računa",
+
+"UBLSourceInvoiceNumberNotFound":"UBL  broj  izvornog računa nije pronađen",
+
+"UBLSourceInvoiceNotApproved":"UBL izvorni račun nije odobren od strane kupca",
+
+"UBLCannotBeDefinedInvoiceDocumentReferenceIDWithInvoicePeriodStartDateAndInvoicePeriodEndDateParameters":"UBLCannotBeDefinedInvoiceDocumentReferenceIDWithInvoicePeriodStartDateAndInvoicePeriodEndDateParameters",
+
+"UBLNotRegularTypeOfSourceInvoice":"UBLNotRegularTypeOfSourceInvoice",
+
+"UBLPrepaymentInvoiceNotDefined":"UBL-Avansni račun nije definisan",
+
+"UBLPrepaymentInvoiceNotFound":"UBL-Avansni račun nije pronađen",
+
+"UBLPrepaymenInvoiceNotApproved":"UBL-Avansni račun nije prihvaćen",
+
+"UBLNotRegularTypeOfSelectedPrepaymentInvoice":"UBLNotRegularTypeOfSelectedPrepaymentInvoice",
+
+"UBLMandatoryInvoiceDocumentReference":"UBLMandatoryInvoiceDocumentReference",
+
+"UBLUndefinedPayableAmount":"UBL nije definisana suma za plaćanje",
+
+"UBLNotAllowedTaxAmountForRecipientCalculatesVAT":"UBLNotAllowedTaxAmountForRecipientCalculatesVAT",
+
+"UBLNotAllowedSubtotalTaxAmountForRecipientCalculatesVAT":"UBLNotAllowedSubtotalTaxAmountForRecipientCalculatesVAT",
+
+"UBLNotAllowedPercentOfTaxableAmountForRecipientCalculatesVAT":"UBLNotAllowedPercentOfTaxableAmountForRecipientCalculatesVAT",
+
+"UBLNotAllowedTaxAmountForExemptionFromVAT":"UBLNotAllowedTaxAmountForExemptionFromVAT",
+
+"UBLNotAllowedSubtotalTaxAmountForExemptionFromVAT":"UBLNotAllowedSubtotalTaxAmountForExemptionFromVAT",
+
+"UBLNotAllowedPercentOfTaxableAmountForExemptionFromVAT":"UBLNotAllowedPercentOfTaxableAmountForExemptionFromVAT",
+
+"UBLTaxTotalNotDefined":"UBL TaxTotal nije definisan",
+
+"UBLTaxAmountNotDefined":"UBL TaxAmount nije definisan",
+
+"UBLTaxCategoryNotDefined":"UBL TaxCategory nije definisan",
+
+"UBLTaxCategoryIdNotDefined":"UBL TaxCategoryId nije definisan",
+
+"UBLClassifiedTaxCategoryNotDefined":"UBL ClassifiedTaxCategory nije definisan",
+
+"UBLPercentOfTaxableAmountNotDefined":"UBL PercentOfTaxableAmount nije definisan",
+
+"UBLTaxSubtotalNotDefined":"UBL TaxSubtotal nije definisan",
+
+"UBLTaxSubtotalAmountlNotDefined":"UBL TaxSubtotalAmountl nije definisan",
+
+"UBLTotalTaxAmountAndSubtotalTaxAmountDiffer":"UBL Ukupan porez, i suma poreza po stopama se razlikuju",
+
+"UBLTaxExemptionReasonNotInAppropriateFormat":"UBLTaxExemptionReasonNotInAppropriateFormat",
+
+"UBLTaxExemptionReasonKeyNotDefined":"UBLTaxExemptionReasonKeyNotDefined",
+
+"UBLTaxExemptionReasonCategoryNotDefined":"UBL porez oslobađanje razlog kategorija nije definisan",
+
+"UBLTaxExemptionReasonCategoryNotAllowed":"UBL porez oslobađanje razlog kategorija nije dozvoljen",
+
+"UBLTaxExemptionReasonCategoryNotCorrect":"UBL porez oslobađanje razlog kategorija nije tačan",
+
+"UBLTaxExemptionReasonLineCategoryNotCorrect":"UBL porez oslobađanje razlog stavke kategorija nije tačan",
+
+"UBLErrorOccurredDuringReadingTaxTotalDetails":"UBLErrorOccurredDuringReadingTaxTotalDetails",
+
+"UBLErrorOccurredDuringReadingInvoiceLineTaxTotalDetails":"UBLErrorOccurredDuringReadingInvoiceLineTaxTotalDetails",
+
+"UBLTaxCategoryIdUnknown":"UBLTaxCategoryIdUnknown",
+
+"UBLJBKJSNotDefined":"UBL-JBKJS-Nije definisan",
+
+"UBLPartyIdentificationIdIsNotInCorrectFormat":"UBLPartyIdentificationIdIsNotInCorrectFormat",
+
+"UBLJBKJSIdentificationIdMustBeDefinedOnlyOnce":"UBLJBKJSIdentificationIdMustBeDefinedOnlyOnce",
+
+"UBLSenderCompanyAndSenderCompanyIdentiferDoNotMatch":"UBLSenderCompanyAndSenderCompanyIdentiferDoNotMatch",
+
+"UBLReceiverCompanyIdentifierMissing":"UBL primaoca firme identifikator nedostaje",
+
+"UBLCannotBeDefinedPartyIdentificationIdForNonBudgetCompany":"UBLCannotBeDefinedPartyIdentificationIdForNonBudgetCompany",
+
+"UBLFileNotFound":"UBL Fajl nije pronađen",
+
+"UBLCompanyIsNonBudgetUser":"UBL-Partner nije budžetski korisnik,\n\rPokušajte slanje bez opcije SALJI U CRF",
+
+"UBLCompanyIsBudgetUser":"UBL Firma je budžetski korisnik",
+
+"UBLCompanyWithVATRegistrationCodeIsBudgetUser":"UBL Firma je budžetski korisnik",
+
+"UBLVATRegistrationCodeDoesNotMatchTheRegistrationCodeOfTheCompanyWithJBKJS":"PIB ili Maticni broj ove kompanije se ne poklapaju sa brojem JBLJS koji ste uneli",
+
+"UBLRegistrationCodeNotInCorrectFormat":"UBL registracije kod nije u tačan format",
+
+"UBLAttachmentObjectIsNotDefined":"UBL Nije definisan atachovani objekat",
+
+"UBLPublicContractSignerJBKJSNotInCorrectFormat":"UBL javni ugovora potpisnika JBKJS nije u tačan format",
+
+"UBLPaymentMeansNotDefined":"UBL PaymentMeans nije definisan",
+
+"UBLPaymentMeansCodeNotDefined":"UBL PaymentMeansCode nije definisan",
+
+"UBLPayeeFinancialAccountIdNotDefined":"UBL PayeeFinancialAccountId nije definisan",
+
+"UBLReferenceAndModelNumberFormatNotValid":"UBLReferenceAndModelNumberFormatNotValid",
+
+"UBLDeliveryDateNotAllowedForThisInvoiceType":"UBL isporuke datum nije dozvoljen za ovaj računa tip",
+
+"UBLTaxAmountMoreDecimalsThanPermitted":"UBL porez iznos više decimala od dozvoljeno",
+
+"UBLTaxSubtotalTaxableAmountMoreDecimalsThanPermitted":"UBLTaxSubtotalTaxableAmountMoreDecimalsThanPermitted",
+
+"UBLTaxSubtotalTaxAmountMoreDecimalsThanPermitted":"UBLTaxSubtotalTaxAmountMoreDecimalsThanPermitted",
+
+"UBLInvoiceLineExtensionAmountMoreDecimalsThanPermitted":"UBL računa stavke ekstenzija iznos više decimala od dozvoljeno",
+
+"UBLInvoiceLinePriceAmountMoreDecimalsThanPermitted":"UBL računa stavke cena iznos više decimala od dozvoljeno",
+
+"UBLLineExtensionAmountMoreDecimalsThanPermitted":"UBL stavke ekstenzija iznos više decimala od dozvoljeno",
+
+"UBLTaxExclusiveAmountMoreDecimalsThanPermitted":"UBL porez bez poreza iznos više decimala od dozvoljeno",
+
+"UBLTaxInclusiveAmountMoreDecimalsThanPermitted":"UBL porez sa porezom iznos više decimala od dozvoljeno",
+
+"UBLAllowanceTotalAmountMoreDecimalsThanPermitted":"UBL popust ukupno iznos više decimala od dozvoljeno",
+
+"UBLPrepayedAmountMoreDecimalsThanPermitted":"UBLPrepayedAmountMoreDecimalsThanPermitted",
+
+"UBLPayableAmountMoreDecimalsThanPermitted":"UBL za plaćanje iznos više decimala od dozvoljeno",
+
+"UBLPrepaymentInvoiceLineUnitCodeNotValid":"UBLPrepaymentInvoiceLineUnitCodeNotValid",
+
+"UBLPrepaymentInvoiceLineQuanitityNotValid":"UBLPrepaymentInvoiceLineQuanitityNotValid",
+
+"UBLInvoiceExtensionNotDefined":"UBL računa ekstenzija nije definisan",
+
+"UBLInvoiceExtensionSrbDtExtNotValid":"UBLInvoiceExtensionSrbDtExtNotValid",
+
+"UBLInvoiceExtensionReducedTotalsTaxTotalNotValid":"UBLInvoiceExtensionReducedTotalsTaxTotalNotValid",
+
+"UBLTaxCategoryNotAllowed":"UBL polje  TaxCategory nije dozvoljeno",
+
+"UBLMoreThanOneSourceInvoiceDefined":"UBL više od jedan izvorni računa definisan",
+
+"UBLOrderNumberLotNumberOrContractNumberIsRequired":"Nedostaje obavezan parametar( Broj ugovora,Broj porudžbine, itd..)\nKod fakture za javna preduzeća, polje Broj Ugovora je obavezno!",
+
+"UBLVatRegistrationCodesDoesNotMatch":"UBLVatRegistrationCodesDoesNotMatch",
+
+"UBLPartyTaxSchemeCompanyIdWithoutPrefix":"UBL nedostaje prefix u polju PartyTaxSchemeCompanyId",
+
+"UBLVatRegistrationCodeDoesNotHaveGoodLength":"UBL PIB nema dobru dužinu",
+
+"UBLRegistrationCodeDoesNotHaveGoodLength":"UBL Matični broj nema dobru dužinu",
+
+"UBLVatTaxSchemeIdNotValid":"UBLVatTaxSchemeIdNotValid",
+
+"UBLInvoiceNumberInvalid":"UBL Pogrešan broj računa",
+
+"UBLDocumentCurrencyNotValid":"UBL valuta(RSD) dokumenta , nije ispravna",
+
+"UBLForeignCurrencyShouldHaveTwoTaxTotals":"UBLForeignCurrencyShouldHaveTwoTaxTotals",
+
+"UBLCannotSendToCirDocumentWithForeignCurrency":"UBLCannotSendToCirDocumentWithForeignCurrency",
+
+"UBLMissingDocumentCurrency":"UBL nedostaje dokument valuta",
+
+"UBLIncorrectVatRateForStandardVatRate":"UBLIncorrectVatRateForStandardVatRate",
+
+"UBLInvoiceExtensionNotContainPrepaymentData":"UBLInvoiceExtensionNotContainPrepaymentData",
+
+"VATNumberNotActive":"PIB nije aktivan",
+
+"VATRegistrationCodeLengthInvalid":"Pogrešna dužina PIB-a kupca",
+
+"VATRegistrationCodeDoesNotMatchTheRegistrationCodeOfTheCompanyWithJBKJS":" PIB Firme se ne podudara sa JBKJS firmom",
+
+"VatPointDateTypeNotAllowedForChosenDocumentType":"VatPointDateTypeNotAllowedForChosenDocumentType",
+
+"VATCategoryNotAllowed":" Nedozvoljena poreska kategorija",
+
+"VatExemptionReasonNotExists":"Nepostojeći stav o oslobađanju od poreza",
+
+"VatExemptionFreeFormNoteNotDefined":"VatExemptionFreeFormNoteNotDefined",
+
+"VatExemptionReasonIdNotDefined":"VatExemptionReasonIdNotDefined",
+
+"VatExemptionReasonKeyNotDefined":"Nepostojeći oznaka stava o oslobađanju od poreza ",
+
+"VatExemptionReasonPointOfLawNotActive":"VatExemptionReasonPointOfLawNotActive",
+
+"VatExemptionCategoryIsNotInUse":"VatExemptionCategoryIsNotInUse",
+
+"VatExemptionReasonNotDefinedForDecisionNumber":"VatExemptionReasonNotDefinedForDecisionNumber",
+
+"VATExemptionCategoryNotDeffined":"Član o oslobađanju od poreza nije definisan",
+
+"VATReasonCodeForVATExemptionCategoryNotDeffined":"Član o oslobađanju od poreza nije definisan",
+
+"SelectedPrepaymentInvoiceNotCorrectInvoiceId":"SelectedPrepaymentInvoiceNotCorrectInvoiceId",
+
+"SelectedPrepaymentInvoiceNotCorrectInvoiceNumber":"SelectedPrepaymentInvoiceNotCorrectInvoiceNumber",
+
+"SelectedPrepaymentInvoiceNotCorrectPrepayedAmount":"SelectedPrepaymentInvoiceNotCorrectPrepayedAmount",
+
+"SelectedPrepaymentInvoiceNotCorrectPrepayedVAT":"SelectedPrepaymentInvoiceNotCorrectPrepayedVAT",
+
+"SelectedPrepaymentInvoiceNotCorrectCurrency":"SelectedPrepaymentInvoiceNotCorrectCurrency",
+
+"SelectedPrepaymentInvoiceNotCorrectPaymentDate":"SelectedPrepaymentInvoiceNotCorrectPaymentDate",
+
+"SelectedPrepaymentInvoiceNotCorrectContractId":"SelectedPrepaymentInvoiceNotCorrectContractId",
+
+"PrepaymentInvoicesDetailsNotDefined":"Avans računa detalji nije definisan",
+
+"PrepaymentTotalAmountCalculationNotDefined":"Avans ukupno iznos obračun nije definisan",
+
+"InvoiceTypeCodeMissing":"Nedostaje InvoiceTypeCode na računu",
+
+"DocumentTypeCodeInvalid":"Pograšan InvoiceTypeCode na računu",
+
+"CreditNoteTypeCodeNotCorrent":"Pogrešan tip koda dokumenta o smanjenju",
+
+"SourceInvoiceCannotBePrepaymentInvoiceType":"Izvorni račun ne može biti tipa avansni račun",
+
+"SalesInvoiceNotFound":"Izdati račun nije pronađen",
+
+"PurchaseInvoiceNotFound":"Primljeni račun nije pronađen",
+
+"InvoiceStornoCancellationDataNotDefined":"Podaci o storno otkazivanju računa nisu definisani",
+
+"InvoiceCancellationDataNotDefined":"Podaci o otkazivanju računa nisu definisani",
+
+"GetAprDataFromEsbFailed":"Preuzimanje podataka sa APR-a nije uspelo",
+
+"NoneOfInputParametersIsDefined":"Nijedan od ulaznih parametara nije definisan",
+
+"SomeOfInputParametarsNotDefined":"Neki od ulaznih parametara nisu definisani",
+
+"CompanyWithRegistrationNumberIsBudgetUser":"Firma sa ovim matičnim brojem je budzetski korisnik",
+
+"CompanyWithVATRegistrationCodeIsBudgetUser":"Firma sa ovim PIB-om je budzetski korisnik",
+
+"CannotGetCompanyByPassingCompanyNumberAsRegistrationNumber":"CannotGetCompanyByPassingCompanyNumberAsRegistrationNumber",
+
+"AssignatorCompanyNotFound":"Firma nalogodavca nije pronađena",
+
+"AssignatorCompanyIsNotBudgetUser":"Firma nalogodavca nije budžetski korisnik",
+
+"CompanyWithJBKJSNotFound":"Firma sa JBKJS nije pronađena",
+
+"CompanyDoesNotHaveDefinedRegistrationCodeAndAdditionalCode":"Firma nema definisan matični broj i dodatni kod",
+
+"CompanyWithRegistrationCodeNotFound":"Firma sa ovim matičnim brojem nije pronađena",
+
+"CompanyWithVATRegistrationCodeNotFound":"Firma sa ovim PIB-om  nije pronađena",
+
+"InvoicePeriodNotDefined":"InvoicePeriod Nije definisan",
+
+"InvoicePeriodDescriptionCodeNotDefined":"Računa period opis kod nije definisan",
+
+"InvoicePeriodDescriptionCodeNotProperlyDefined":"InvoicePeriodDescriptionCodeNotProperlyDefined",
+
+"UserAlreadyRegisteredToAnotherAccount":"Korisnik je već registrovan na drugom nalogu",
+
+"AllAttachedInvoicesToThisInvoiceMustBeCancelledFirst":"Svi prilozi ovog računa moraju prvo biti otkazani",
+
+"InvoiceForCancellationNotFound":"Račun za otkazivanje nije pronađen",
+
+"InvoiceForCancellationNotInSpecificStatus":"Račun za otkazivanje nije u odgovarajućem statusu",
+
+"InvoiceForCancellationNotLongEnoughInSendingStatus":"Račun nije dovoljno dugo u statusu slanja da bi mogao biti otkazan",
+
+"InvoiceForApproveRejectNotFound":"Račun za prihvatanje/odbijanje nije pronađen",
+
+"InvoiceStatusChangeNotSynchronized":"Promena statusa računa nije sinhronizovana",
+
+"InvoiceForFactoringNotFound":"Račun za faktoring nije pronađen",
+
+"WrongInvoiceTypeForStorno":"Pogrešan tip računa za storno",
+
+"InvoiceCannotBeStornoCancelled":"Račun ne može biti storniran ili otkazan",
+
+"ReceiverBudgetCompanyNotActive":"Primalac nije aktivan",
+
+"SenderBudgetCompanyNotActive":"Budžetska firma pošiljaoca nije aktivna",
+
+"CompanySetAsISP":"Firma je postavljena kao pružalac informacionih usluga (ISP)",
+
+"ErrorCheckingIfCompanyIsRepresentedByISP":"ErrorCheckingIfCompanyIsRepresentedByISP",
+
+"ISPCannotRepresentCompany":"ISP ne može predstavljati ovu firmu",
+
+"InvoiceIdNotDefined":"InvoiceId nije definisan",
+
+"InvalidPurchaseStatus":"Pogrešan status ulaznog računa",
+
+"InvalidSalesStatus":"Pogrešan status izlaznog računa",
+
+"ISPNotFound":"ISP nije pronađen",
+
+"ISPMustBeChosen":"Mora biti izabran ISP",
+
+"CannotDownloadLinkAttachment":"Attachment ne može biti skinut",
+
+"DifferentSerbiaCompanyType":"Različit tip firme za Srbiju",
+
+"CompanyMissingCompanyType":"Firmi nedostaje tip firme",
+
+"InvalidCompanyNumber":"Pogrešan matični broj firme",
+
+"InvalidVatNumber":"Pogrešan PIB",
+
+"GroupVatRecordingNotFound":"Zbirna evidencija PDV nije pronađena",
+
+"ISPIsNotActive":"ISP nije aktivan",
+
+"VatRecordingPublished":"Evidencija PDV je objavljena",
+
+"GroupVatRecordingAlreadySent":"Zbirna evidencija PDV je već poslata",
+
+"PublicContractSignerNotBudgetUser":"Potpisnik javnog ugovora nije budžetski korisnik",
+
+"PublicContractSignerNotFound":"Potpisnik javnog ugovora nije pronađen",
+
+"PublicContractSignerNotActive":"Potpisnik javnog ugovora nije aktivan",
+
+"IndividualVatRecordingNotFound":"Pojedinačna evidencija PDV nije pronađena",
+
+"GroupIndividualVatRecordingAlreadySent":"Pojedinačna evidencija PDV je već poslata",
+
+"ISPIsSetForCompanyAnyOperationIsForbidden":"ISP je postavljen za firmu, sve operacije su zabranjene",
+
+"ClientConfirmedISPWillStoreInvoiceDetails":"ClientConfirmedISPWillStoreInvoiceDetails",
+
+"DocumentPeriodAndSourceInvoicesCannotBeSetAtSameTime":"Period dokumenta i izvorni računi ne mogu biti definisani istovremeno",
+
+"InvoiceItemsAmountTooBig":"Iznos stavki na računu je prevelik",
+
+"OrderNumberLotNumberOrContractNumberIsRequired":"Obavezan je broj porudžbine, partije ili ugovora",
+
+"TotalToPayMoreDecimalsThanPermitted":"Ukupan iznos za plaćanje ima previše decimala",
+
+"SumWithVatMoreDecimalsThanPermitted":"Iznos sa PDV-om ima previše decimala",
+
+"SumWithoutVatMoreDecimalsThanPermitted":"Iznos bez PDV-a ima previše decimala",
+
+"VatSumMoreDecimalsThanPermitted":"Iznos PDV-a ima previše decimala",
+
+"UnitPriceMoreDecimalsThanPermitted":"Jedinična cena ima previše decimala",
+
+"NetAmountMoreDecimalsThanPermitted":"Neto iznos ima previše decimala",
+
+"GrossAmountMoreDecimalsThanPermitted":"Bruto iznos ima previše decimala",
+
+"InvoiceSigningFail":"Potpisivanje računa nije uspelo",
+
+"WrongCompanyTypeShouldUseBudgetUser":"WrongCompanyTypeShouldUseBudgetUser",
+
+"TreasuryRegistrationNotBudgetUser":"Registracija trezora nije za budžetske korisnike",
+
+"EFiscalizationDateNotComplete":"Datum e-fiskalizacije nije kompletan",
+
+"DocumentCurrencyNotValid":"Valuta dokumenta nije ispravna",
+
+"CannotUpdateDocumentInSendingMistakeStatus":"Dokument u statusu greške pri slanju ne može biti izmenjen",
+
+"CannotDeleteInvoiceInThisStatus":"Račun u ovom statusu ne može biti obrisan",
+
+"CIRCompanyByJBKJSNotFound":"CIRCompanyByJBKJSNotFound",
+
+"CirCompanyNotFound":"Firma nije pronađena u CRF-u",
+
+"CIRMatchBUByCompanyNumber":"CIRMatchBUByCompanyNumber",
+
+"CirInvoiceNotFound":"CRF račun nije pronađen",
+
+"CirInvoiceIdNotDefined":"CRF ID računa nije definisan",
+
+"CirInvoiceNotInAssignedStatus":"CirInvoiceNotInAssignedStatus",
+
+"CirCompanyRegistrationResponseNotFound":"CirCompanyRegistrationResponseNotFound",
+
+"CirUndefinedCompanyStatus":"CirUndefinedCompanyStatus",
+
+"CirError":"Greška u komunikaciji sa CRF-om",
+
+"CirUnsucessfulInvoiceRejection":"Neuspešno odbijanje računa u CRF-u",
+
+"CirUnsuccessfulCompanyRegistration":"CirUnsuccessfulCompanyRegistration",
+
+"CirUnsuccessfulApprovementOfCompanyRegistration":"CirUnsuccessfulApprovementOfCompanyRegistration",
+
+"CirUnsuccessfulCancellationOfCompanyRegistration":"CirUnsuccessfulCancellationOfCompanyRegistration",
+
+"CirIdNotFound":"CirIdNotFound",
+
+"CirInvoiceIsAlreadyCancelled":"CRF račun je već otkazan",
+
+"CirAlreadySubmitedRegistrationRequestForThisEntity":"CirAlreadySubmitedRegistrationRequestForThisEntity",
+
+"CirFailedToRetrieveValidAccountRegistrationRequests":"CirFailedToRetrieveValidAccountRegistrationRequests",
+
+"CirErrorAmountDeltaExceedAmountTolerance":"CirErrorAmountDeltaExceedAmountTolerance",
+
+"CirAttemptingToAddLiabilityAmoundDeltaForInvalidCreditor":"CirAttemptingToAddLiabilityAmoundDeltaForInvalidCreditor",
+
+"CRFAssignationNotAllowedOnSEF":"CRFAssignationNotAllowedOnSEF"
+
+}]

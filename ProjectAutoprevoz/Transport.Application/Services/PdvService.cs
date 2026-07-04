@@ -41,17 +41,15 @@ public class PdvService : IPdvService
     public async Task<List<ObavestenjePP>> GetSvaObavestenjaAsync()
     {
         return await _context.ObavestenjaPP
-            .OrderByDescending(o => o.Datum)
+            .OrderByDescending(o => o.NoticeDate)
             .ToListAsync();
     }
 
     public async Task<ObavestenjePP> CreateObavestenjeAsync(ObavestenjePP obavestenje)
     {
-        obavestenje.DatumUnosa = DateTime.Now;
-        
         _context.ObavestenjaPP.Add(obavestenje);
         await _context.SaveChangesAsync();
-        
+
         return obavestenje;
     }
 

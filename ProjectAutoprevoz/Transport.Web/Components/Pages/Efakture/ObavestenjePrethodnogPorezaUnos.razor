@@ -1,0 +1,441 @@
+@page "/efakture/obavestenje-prethodnog-poreza/unos"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Application.Services.Sef
+@using Transport.Application.Services.Sef.Models
+
+@inject ITenantService         TenantService
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IObavestenjaPPService  ObavestenjaPPService
+@inject ISnackbar              Snackbar
+
+<PageTitle>Obaveštenje o prethodnom porezu — unos — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3" Style="color:#2D3E50;">
+    <MudIcon Icon="@Icons.Material.Filled.Announcement" Class="mr-2" />
+    Kreiraj obaveštenje o prethodnom porezu
+</MudText>
+
+@if (_ucitava)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudGrid Spacing="3">
+
+        @* ── OPŠTI PODACI ─────────────────────────────────────────── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                    Opšti podaci
+                </MudText>
+
+                <div class="mb-2">
+                    <NativniInput TValue="string" Label="Broj obaveštenja (predlog)" Value="@_brojPredlog" Disabled="true" />
+                </div>
+                <div class="mb-2">
+                    <NativniInput TValue="string" Label="Datum obaveštenja" Value="@_datumObavestenja" Disabled="true" />
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        @* ── DAVALAC OBAVEŠTENJA (readonly, iz Podaci firme) ─────────── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                    Davalac obaveštenja
+                </MudText>
+
+                <div class="mb-2"><NativniInput TValue="string" Label="Naziv" Value="@(_firma?.NazivFirme ?? "")" Disabled="true" /></div>
+                <div class="mb-2"><NativniInput TValue="string" Label="Adresa" Value="@(_firma?.Adresa ?? "")" Disabled="true" /></div>
+                <div class="mb-2"><NativniInput TValue="string" Label="PIB" Value="@(_firma?.PIB ?? "")" Disabled="true" /></div>
+                <div class="mb-2"><NativniInput TValue="string" Label="Matični broj" Value="@(_firma?.MaticniBroj ?? "")" Disabled="true" /></div>
+            </MudPaper>
+        </MudItem>
+
+        @* ── PRIMALAC OBAVEŠTENJA ────────────────────────────────────── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                    Primalac obaveštenja
+                </MudText>
+
+                @if (_partner is null)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Pretraga partnera:</MudText>
+                    <div style="position:relative; margin-bottom:8px; margin-top:4px;"
+                         @onfocusin="OnPartnerFocusin"
+                         @onfocusout="OnPartnerFocusout">
+                        <MudTextField Value="_partnerPretraga"
+                                      ValueChanged="@((string v) => { _partnerPretraga = v; AzurirajPartnerPredloge(); })"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="Pretraži partnera..."
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Business"
+                                      Immediate="true"
+                                      Margin="Margin.Dense"
+                                      T="string" />
+                        @if (_partnerOpen && _partneriPredlozi.Count > 0)
+                        {
+                            <div style="position:absolute; z-index:9999; left:0; right:0;
+                                        background:white; border:1px solid #ccc; border-radius:4px;
+                                        box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                        max-height:220px; overflow-y:auto;">
+                                @foreach (var p in _partneriPredlozi)
+                                {
+                                    var pp = p;
+                                    <div @onclick="@(() => IzaberiPartnera(pp))"
+                                         style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                        @pp.Naziv <span style="color:#999;">— @pp.PIB</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-2"><NativniInput TValue="string" Label="Naziv" Value="@(_partner.Naziv ?? "")" Disabled="true" /></div>
+                    <div class="mb-2"><NativniInput TValue="string" Label="PIB" Value="@(_partner.PIB ?? "")" Disabled="true" /></div>
+                    <div class="mb-2">
+                        <NativniInput TValue="string" Label="Matični broj"
+                                      Value="@_partnerMb"
+                                      ValueChanged="@(v => _partnerMb = v ?? string.Empty)" />
+                    </div>
+                    <MudButton Variant="Variant.Text" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="PromeniPartnera">
+                        Promeni partnera
+                    </MudButton>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* ── PODACI O POVEZANOM DOKUMENTU ────────────────────────────── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                    Podaci o povezanom dokumentu
+                </MudText>
+
+                <div class="mb-2">
+                    <NativniSelect Label="Dokument izdat" Value="@_poreklo"
+                                   ValueChanged="@(v => _poreklo = v ?? "Dokument izdat preko SEF-a")">
+                        <option value="Dokument izdat preko SEF-a">Dokument izdat preko SEF-a</option>
+                        <option value="Dokument izdat van SEF-a">Dokument izdat van SEF-a</option>
+                    </NativniSelect>
+                </div>
+
+                <div class="mb-2">
+                    <NativniSelect Label="Osnov obaveštenja" Value="@_osnov" ValueChanged="OnOsnovChanged">
+                        <option value="Dokument o smanjenju">Dokument o smanjenju</option>
+                        <option value="Storno">Storno</option>
+                    </NativniSelect>
+                </div>
+
+                <div class="mb-2">
+                    <NativniSelect Label="Tip dokumenta/reference" Value="@_tipReference"
+                                   ValueChanged="@(v => _tipReference = v ?? TipReferenceOpcije[0])">
+                        @foreach (var opcija in TipReferenceOpcije)
+                        {
+                            <option value="@opcija">@opcija</option>
+                        }
+                    </NativniSelect>
+                </div>
+
+                <div class="mb-2">
+                    <NativniInput TValue="string" Label="Broj dokumenta"
+                                  Value="@_brojDokumenta"
+                                  ValueChanged="@(v => _brojDokumenta = v ?? string.Empty)" />
+                </div>
+
+                <div class="mb-2"><DateInput Label="Datum izdavanja dokumenta" @bind-Value="_datumIzdavanja" /></div>
+
+                @if (JeStorno)
+                {
+                    <div class="mb-2"><DateInput Label="Datum storniranja dokumenta" @bind-Value="_datumStorniranja" /></div>
+                }
+
+                @if (JeVremenskiPeriod)
+                {
+                    <div class="mb-2"><DateInput Label="Datum početka perioda" @bind-Value="_periodOd" /></div>
+                    <div class="mb-2"><DateInput Label="Datum završetka perioda" @bind-Value="_periodDo" /></div>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* ── PDV / NAPOMENA ───────────────────────────────────────────── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                    PDV koji je ispravljen / nije korišćen kao prethodni porez
+                </MudText>
+
+                <div class="mb-2">
+                    <NativniInput TValue="decimal" Label="Iznos PDV" Format="0.00" @bind-Value="_iznosPdv" />
+                </div>
+
+                <MudTextField @bind-Value="_napomena" Label="Napomena" Variant="Variant.Outlined"
+                              Margin="Margin.Dense" Lines="4" />
+            </MudPaper>
+        </MudItem>
+
+        @* ── AKCIJE ────────────────────────────────────────────────────── *@
+        <MudItem xs="12">
+            <div class="d-flex flex-wrap gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           OnClick="Posalji"
+                           Disabled="_salje">
+                    @if (_salje)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                    }
+                    Pošalji
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="@(() => Nav.NavigateTo("/efakture/obavestenje-prethodnog-poreza"))">
+                    Izlaz
+                </MudButton>
+            </div>
+        </MudItem>
+
+    </MudGrid>
+}
+
+@code {
+    private bool _ucitava = true;
+    private bool _salje;
+
+    private string _brojPredlog       = "";
+    private string _datumObavestenja  = DateTime.Today.ToString("dd.MM.yyyy");
+
+    private PodaciFirme? _firma;
+
+    // ── Partner (primalac) ──────────────────────────────────────────────
+    private List<Partner> _sviPartneri     = [];
+    private Partner?      _partner;
+    private string        _partnerPretraga = "";
+    private List<Partner> _partneriPredlozi = [];
+    private bool          _partnerOpen;
+    private string        _partnerMb       = "";
+
+    // ── Povezani dokument ────────────────────────────────────────────────
+    private string _poreklo         = "Dokument izdat preko SEF-a";
+    private string _osnov           = "Dokument o smanjenju";
+    private string _tipReference    = "Dokument o smanjenju koji se odnosi na fakturu za promet";
+    private string _brojDokumenta   = "";
+    private string _datumIzdavanja  = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _datumStorniranja = "";
+    private string _periodOd        = "";
+    private string _periodDo        = "";
+
+    // ── PDV ───────────────────────────────────────────────────────────────
+    private decimal _iznosPdv = 0;
+    private string? _napomena;
+
+    private static readonly string[] TipReferenceSmanjenje =
+    [
+        "Dokument o smanjenju koji se odnosi na fakturu za promet",
+        "Dokument o smanjenju koji se odnosi na avansnu fakturu",
+        "Dokument o smanjenju koji se odnosi na vremenski period"
+    ];
+
+    private static readonly string[] TipReferenceStorno =
+    [
+        "Storno fakture za promet",
+        "Storno avansne fakture",
+        "Storno dokumenta o povecanju"
+    ];
+
+    private string[] TipReferenceOpcije => _osnov == "Storno" ? TipReferenceStorno : TipReferenceSmanjenje;
+
+    private bool JeStorno           => _osnov == "Storno";
+    private bool JeVremenskiPeriod  => _tipReference == "Dokument o smanjenju koji se odnosi na vremenski period";
+
+    // ── Kontekst prosleđen sa liste Ulaznih e-faktura (Faza E) ──────────────
+    [SupplyParameterFromQuery(Name = "source")]         public string? QSource         { get; set; }
+    [SupplyParameterFromQuery(Name = "tipDokumenta")]   public string? QTipDokumenta   { get; set; }
+    [SupplyParameterFromQuery(Name = "naziv")]          public string? QNaziv          { get; set; }
+    [SupplyParameterFromQuery(Name = "pib")]            public string? QPib            { get; set; }
+    [SupplyParameterFromQuery(Name = "mb")]             public string? QMb             { get; set; }
+    [SupplyParameterFromQuery(Name = "iznosPdv")]       public decimal? QIznosPdv      { get; set; }
+    [SupplyParameterFromQuery(Name = "brojDokumenta")]  public string? QBrojDokumenta  { get; set; }
+    [SupplyParameterFromQuery(Name = "datumIzdavanja")] public string? QDatumIzdavanja { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _ucitava = true;
+        try
+        {
+            _firma       = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+            _sviPartneri = await Db.Partneri.AsNoTracking().OrderBy(p => p.Naziv).ToListAsync();
+            _brojPredlog = await ObavestenjaPPService.GeneriseBrojAsync();
+
+            if (QSource == "ULAZNI")
+                PopuniIzUlazneFakture();
+        }
+        finally
+        {
+            _ucitava = false;
+        }
+    }
+
+    // 1:1 prevod stare frm_ObavestenjaPP_Unos_Load logike za source=="ULAZNI"
+    private void PopuniIzUlazneFakture()
+    {
+        _poreklo = "Dokument izdat preko SEF-a";
+
+        if (QTipDokumenta is "FAKTURA" or "AVANS" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU")
+        {
+            _osnov = "Storno";
+            _tipReference = QTipDokumenta switch
+            {
+                "FAKTURA" => "Storno fakture za promet",
+                "AVANS"   => "Storno avansne fakture",
+                _         => "Storno dokumenta o povecanju" // KNJIZNO ZADUZENJE / DOKUMENT O POVECANJU
+            };
+        }
+        else
+        {
+            _osnov        = "Dokument o smanjenju";
+            _tipReference = TipReferenceSmanjenje[0];
+        }
+
+        var pib = QPib ?? "";
+        var lokalniPartner = _sviPartneri.FirstOrDefault(p => p.PIB == pib);
+        _partner   = lokalniPartner ?? new Partner { Naziv = QNaziv ?? "", PIB = pib };
+        _partnerMb = QMb ?? "";
+
+        _iznosPdv       = QIznosPdv ?? 0;
+        _brojDokumenta  = QBrojDokumenta ?? "";
+
+        if (DateTime.TryParse(QDatumIzdavanja, out var di))
+            _datumIzdavanja = di.ToString("yyyy-MM-dd");
+    }
+
+    private void OnOsnovChanged(string? v)
+    {
+        _osnov = v ?? "Dokument o smanjenju";
+        _tipReference = TipReferenceOpcije[0];
+    }
+
+    // ── Partner autocomplete — isti pattern kao Fakture/FakturaUnos.razor ──
+    private void AzurirajPartnerPredloge()
+    {
+        _partneriPredlozi = string.IsNullOrWhiteSpace(_partnerPretraga)
+            ? [.. _sviPartneri]
+            : [.. _sviPartneri.Where(p => (p.Naziv ?? "").Contains(_partnerPretraga, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    private void OnPartnerFocusin()
+    {
+        _partnerOpen = true;
+        AzurirajPartnerPredloge();
+    }
+
+    private async Task OnPartnerFocusout()
+    {
+        await Task.Delay(150);
+        _partnerOpen = false;
+        StateHasChanged();
+    }
+
+    private void IzaberiPartnera(Partner? p)
+    {
+        _partner          = p;
+        _partnerPretraga  = "";
+        _partneriPredlozi = [];
+        _partnerOpen      = false;
+        _partnerMb        = "";
+    }
+
+    private void PromeniPartnera()
+    {
+        _partner   = null;
+        _partnerMb = "";
+    }
+
+    // ── Validacija + slanje ──────────────────────────────────────────────
+    private bool Validiraj()
+    {
+        if (_partner is null)
+        {
+            Snackbar.Add("Izaberite primaoca (partnera).", Severity.Warning);
+            return false;
+        }
+        if (_iznosPdv <= 0)
+        {
+            Snackbar.Add("Unesite iznos PDV veći od 0.", Severity.Warning);
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(_brojDokumenta))
+        {
+            Snackbar.Add("Unesite broj dokumenta.", Severity.Warning);
+            return false;
+        }
+        if (!DateTime.TryParse(_datumIzdavanja, out _))
+        {
+            Snackbar.Add("Unesite datum izdavanja dokumenta.", Severity.Warning);
+            return false;
+        }
+        return true;
+    }
+
+    private async Task Posalji()
+    {
+        if (!Validiraj()) return;
+
+        _salje = true; StateHasChanged();
+        try
+        {
+            var dto = new ObavestenjePPSendDto
+            {
+                TotalVatAmount           = _iznosPdv,
+                RelatedDocumentNumber    = _brojDokumenta,
+                Notes                    = _napomena ?? "",
+                RelatedDocumentIssueDate = DateTime.TryParse(_datumIzdavanja, out var di) ? di : null,
+                Recipient = new ObavestenjePPRecipientDto
+                {
+                    VatRegistrationCode = _partner?.PIB,
+                    RegistrationCode    = string.IsNullOrWhiteSpace(_partnerMb) ? null : _partnerMb
+                }
+            };
+
+            if (JeStorno && DateTime.TryParse(_datumStorniranja, out var ds))
+                dto.RelatedDocumentStornoDate = ds;
+
+            if (JeVremenskiPeriod)
+            {
+                dto.RelatedInvoicePeriodStartDate = DateTime.TryParse(_periodOd, out var po) ? po : null;
+                dto.RelatedInvoicePeriodEndDate   = DateTime.TryParse(_periodDo, out var pd) ? pd : null;
+            }
+
+            await ObavestenjaPPService.PosaljiAsync(dto, _osnov, _tipReference, _poreklo);
+
+            Snackbar.Add("Obaveštenje uspešno poslato.", Severity.Success);
+            Nav.NavigateTo("/efakture/obavestenje-prethodnog-poreza");
+        }
+        catch (ArgumentException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri slanju: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _salje = false;
+            StateHasChanged();
+        }
+    }
+}

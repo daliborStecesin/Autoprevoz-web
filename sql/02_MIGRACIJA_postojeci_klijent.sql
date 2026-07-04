@@ -1548,6 +1548,7 @@ BEGIN
         [tipDokumenta]    [varchar](25) NOT NULL,
         [brojDokumenta]   [varchar](50) NULL,
         [idRacun]         [int] NULL,
+        [idEfakture]      [int] NULL,
         [duguje]          [decimal](18,2) NOT NULL DEFAULT ((0)),
         [potrazuje]       [decimal](18,2) NOT NULL DEFAULT ((0)),
         [saldo]           [decimal](18,2) NOT NULL DEFAULT ((0)),
@@ -1621,14 +1622,26 @@ WHERE [OpcijaInt12] IS NULL;
 PRINT 'OpcijaInt12 (radSaViseMoneta) postavljena na 1 (ukljuceno) gde je bila NULL.';
 GO
 
+-- ================================================================
+-- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz, za sprečavanje
+--       duplog upisa pri "Upiši u karticu" akciji iz ulaznih e-faktura)
+-- ================================================================
+IF COL_LENGTH('dbo.tbl_KarticaNova', 'idEfakture') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_KarticaNova] ADD [idEfakture] [int] NULL;
+    PRINT 'Dodata kolona idEfakture u tbl_KarticaNova.';
+END
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
 -- 210 = OpcijaString13 = domacaValuta + OpcijaInt12 = radSaViseMoneta (konfigurabilna domaca valuta, rad sa EUR)
+-- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 210;
-    PRINT 'Verzija baze postavljena na 210.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 211;
+    PRINT 'Verzija baze postavljena na 211.';
 END
 GO
 

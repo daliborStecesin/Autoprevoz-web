@@ -1,4 +1,6 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
@@ -26,7 +28,7 @@ public class SefApiClient
     }
 
     private string ResolveBaseUrl(string tipServera) =>
-        tipServera.Equals("PRODUKCIJA", StringComparison.OrdinalIgnoreCase)
+        tipServera.Equals("PRODUKCIONI", StringComparison.OrdinalIgnoreCase)
             ? _config["ApiKeys:SEF:ProdUrl"] ?? "https://efaktura.mfin.gov.rs/api/publicApi"
             : _config["ApiKeys:SEF:DemoUrl"] ?? "https://demoefaktura.mfin.gov.rs/api/publicApi";
 
@@ -43,7 +45,7 @@ public class SefApiClient
         var client   = BuildClient(apiKey);
         var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
         var response = await client.GetAsync(url);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccess(response);
         return await response.Content.ReadFromJsonAsync<T>(_jsonOpts);
     }
 
@@ -53,7 +55,67 @@ public class SefApiClient
         var client   = BuildClient(apiKey);
         var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
         var response = await client.PostAsJsonAsync(url, body);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccess(response);
         return await response.Content.ReadFromJsonAsync<TResult>(_jsonOpts);
+    }
+
+    /// POST sa praznim telom (isto kao stari PurchaseInvoiceIDs — neki SEF endpoint-i
+    /// koji izgledaju kao "GET po opsegu datuma" u query stringu zapravo zahtevaju POST
+    /// metod sa praznim/irelevantnim telom; GET na njih vraća 405 MethodNotAllowed).
+    public async Task<T?> PostEmptyAsync<T>(string apiKey, string tipServera, string endpoint)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var content  = new StringContent("", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync(url, content);
+        await EnsureSuccess(response);
+        return await response.Content.ReadFromJsonAsync<T>(_jsonOpts);
+    }
+
+    public async Task<byte[]> GetBytesAsync(string apiKey, string tipServera, string endpoint)
+    {
+        var client = BuildClient(apiKey);
+
+        // Isto kao stari GET_NoticePdf (desktop) — bez ovog Accept header-a SEF
+        // odbija zahtev za binarni sadržaj (PDF) sa 400 DownloadRecipientsNoticePdfFileFailed.
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
+
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.GetAsync(url);
+        await EnsureSuccess(response);
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
+    /// Vraća sirov tekst odgovora (npr. XML endpoint koji nije JSON).
+    public async Task<string> GetStringAsync(string apiKey, string tipServera, string endpoint)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.GetAsync(url);
+        await EnsureSuccess(response);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    /// POST koji vraća sirov string odgovora bez EnsureSuccessStatusCode — uspešan
+    /// odgovor kod ovog endpointa nije uvek JSON, a greška JESTE JSON (4xx/5xx), pa
+    /// pozivalac (servis) sam parsira telo bez obzira na status kod.
+    public async Task<string> PostStringAsync(string apiKey, string tipServera, string endpoint, object body)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.PostAsJsonAsync(url, body);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    // EnsureSuccessStatusCode() baca grešku bez tela odgovora — SEF u telu vraća
+    // konkretan razlog odbijanja (validacija, pogrešan PIB, itd.), pa ga ovde čitamo
+    // i uključujemo u poruku pre nego što se izgubi.
+    private static async Task EnsureSuccess(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode) return;
+
+        var telo = await response.Content.ReadAsStringAsync();
+        throw new HttpRequestException(
+            $"SEF API greška {(int)response.StatusCode} ({response.StatusCode}): {telo}");
     }
 }

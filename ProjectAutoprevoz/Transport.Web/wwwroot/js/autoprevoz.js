@@ -7,6 +7,38 @@ window.downloadFile = function (filename, base64) {
     document.body.removeChild(a);
 };
 
+window.downloadFilePdf = function (filename, base64) {
+    const a = document.createElement('a');
+    a.href = 'data:application/pdf;base64,' + base64;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
+
+window.openPdfPreview = function (base64) {
+    const binarni = atob(base64);
+    const bajtovi = new Uint8Array(binarni.length);
+    for (let i = 0; i < binarni.length; i++) bajtovi[i] = binarni.charCodeAt(i);
+
+    const blob = new Blob([bajtovi], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+window.downloadTextFile = function (fileName, content) {
+    const blob = new Blob([content], { type: 'text/xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 window.autoprevoz = {
     showPicker: function (id) {
         try { document.getElementById(id)?.showPicker(); } catch (_) { }

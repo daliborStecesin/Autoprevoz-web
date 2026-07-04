@@ -127,8 +127,7 @@ else if (_pod is not null && _firma is not null)
                 @* Red 3b: Domaća valuta ────────────────────────────── *@
                 <MudItem xs="12" md="6">
                     <NativniSelect Label="Domaća valuta" Value="@(_pod.OpcijaString13 ?? "RSD")"
-                                   ValueChanged="@((string v) => _pod.OpcijaString13 = v)"
-                                   HelperText="Valuta domaćeg platnog prometa (RSD za Srbiju, BAM za BiH, itd.)">
+                                   ValueChanged="@((string v) => _pod.OpcijaString13 = v)">
                         <option value="RSD">RSD — Srpski dinar</option>
                         <option value="BAM">BAM — Konvertibilna marka (BiH)</option>
                         <option value="DEN">DEN — Makedonski denar</option>
@@ -136,6 +135,9 @@ else if (_pod is not null && _firma is not null)
                         <option value="EUR">EUR — Euro</option>
                         <option value="USD">USD — Američki dolar</option>
                     </NativniSelect>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary ml-1">
+                        Valuta domaćeg platnog prometa (RSD za Srbiju, BAM za BiH, itd.)
+                    </MudText>
                 </MudItem>
 
                 <MudItem xs="12" md="6">

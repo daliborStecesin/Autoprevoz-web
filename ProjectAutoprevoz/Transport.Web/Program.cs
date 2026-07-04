@@ -72,6 +72,12 @@ builder.Services.AddScoped<IKarticaNovaService, KarticaNovaService>();
 builder.Services.AddScoped<ILogBrisanjaService, LogBrisanjaService>();
 builder.Services.AddScoped<SefApiClient>();
 builder.Services.AddScoped<ISefService, SefService>();
+builder.Services.AddScoped<IObavestenjaPPService, ObavestenjaPPService>();
+builder.Services.AddScoped<IPojedinacnaEvidencijaPDVService, PojedinacnaEvidencijaPDVService>();
+builder.Services.AddScoped<IZbirnaEvidencijaPDVService, ZbirnaEvidencijaPDVService>();
+builder.Services.AddScoped<IEFaktureUlazService, EFaktureUlazService>();
+builder.Services.AddScoped<IEFaktureIzlazService, EFaktureIzlazService>();
+builder.Services.AddSingleton<IGreskaEfakturaPrevodService, GreskaEfakturaPrevodService>();
 
 // ============================================================================
 // INFRASTRUCTURE

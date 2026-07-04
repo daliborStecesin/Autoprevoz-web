@@ -1,5 +1,311 @@
 @page "/efakture/obavestenje-prethodnog-poreza"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Application.Services.Sef
+
+@inject ITenantService         TenantService
+@inject NavigationManager      Nav
+@inject IObavestenjaPPService  ObavestenjaPPService
+@inject ISnackbar              Snackbar
+@inject IJSRuntime             JS
 
 <PageTitle>Obaveštenje o prethodnom porezu — Autoprevoz</PageTitle>
 
-<h1>Obaveštenje o prethodnom porezu</h1>
+@* ── HEADER — toggle PRIMLJENA / POSLATA ──────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-3 mb-3" Style="@HeaderStyle">
+    <div class="d-flex justify-space-between align-center flex-wrap gap-2">
+        <MudText Typo="Typo.h5" Style="color:#fff; font-weight:600;">
+            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" Style="color:#fff;" />
+            @(_tipSender == "POSLATA" ? "POSLATA OBAVEŠTENJA" : "PRIMLJENA OBAVEŠTENJA")
+        </MudText>
+
+        <div class="d-flex flex-wrap gap-2">
+            <MudButton Variant="@(_tipSender == "PRIMLJENA" ? Variant.Filled : Variant.Outlined)"
+                       Style="@(_tipSender == "PRIMLJENA" ? "background:#fff; color:#6D4C41;" : "color:#fff; border-color:#fff;")"
+                       Disabled="_ucitava || _uvozi"
+                       OnClick="@(() => PromeniTip("PRIMLJENA"))">
+                Primljena
+            </MudButton>
+            <MudButton Variant="@(_tipSender == "POSLATA" ? Variant.Filled : Variant.Outlined)"
+                       Style="@(_tipSender == "POSLATA" ? "background:#fff; color:#2E7D32;" : "color:#fff; border-color:#fff;")"
+                       Disabled="_ucitava || _uvozi"
+                       OnClick="@(() => PromeniTip("POSLATA"))">
+                Poslata
+            </MudButton>
+            @if (_tipSender == "POSLATA")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="KreirajObavestenje">
+                    Kreiraj obaveštenje
+                </MudButton>
+            }
+        </div>
+    </div>
+</MudPaper>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri + Učitaj za period ─────────────────── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-3 mb-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Filteri</MudText>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="@(_tipSender == "POSLATA" ? "Primalac" : "Pošiljalac")"
+                              Value="@_nazivFilter"
+                              ValueChanged="@(v => _nazivFilter = v ?? string.Empty)"
+                              OnEnter="Izlistaj" />
+            </div>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj obaveštenja"
+                              Value="@_brojFilter"
+                              ValueChanged="@(v => _brojFilter = v ?? string.Empty)"
+                              OnEnter="Izlistaj" />
+            </div>
+
+            <div class="mb-2"><DateInput Label="Datum dokumenta OD" @bind-Value="_datumOd" /></div>
+            <div class="mb-3"><DateInput Label="Datum dokumenta DO" @bind-Value="_datumDo" /></div>
+
+            <div class="d-flex flex-column gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="Izlistaj"
+                           Disabled="_ucitava"
+                           FullWidth="true">
+                    Izlistaj
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.List"
+                           OnClick="IzlistajSve"
+                           Disabled="_ucitava"
+                           FullWidth="true">
+                    Izlistaj sve
+                </MudButton>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Učitaj za period</MudText>
+
+            <div class="mb-2"><DateInput Label="Datum OD" @bind-Value="_importOd" /></div>
+            <div class="mb-3"><DateInput Label="Datum DO" @bind-Value="_importDo" /></div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.CloudDownload"
+                       OnClick="UcitajZaPeriod"
+                       Disabled="_uvozi"
+                       FullWidth="true">
+                @if (_uvozi)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                }
+                Učitaj za period
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Grid ────────────────────────────────────────── *@
+    <MudItem xs="12" md="9">
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <MudDataGrid T="ObavestenjePP" Items="_lista" Dense="true" Striped="true" Hover="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.noticeNumber" Title="Broj obaveštenja" HeaderStyle="width:12%;" />
+                    <PropertyColumn Property="x => x.documentNumber" Title="Broj dokumenta" HeaderStyle="width:12%;" />
+                    <TemplateColumn Title="Datum obaveštenja" SortBy="x => x.NoticeDate" HeaderStyle="width:11%;">
+                        <CellTemplate>@context.Item.NoticeDate?.ToString("dd.MM.yyyy")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Sender" Title="@NazivHeader" HeaderStyle="width:24%;" />
+                    <PropertyColumn Property="x => x.recipientPIB" Title="@PibHeader" HeaderStyle="width:12%;" />
+                    <TemplateColumn Title="Iznos PDV" SortBy="x => x.totalVatAmount" HeaderStyle="width:11%; text-align:right;">
+                        <CellTemplate>
+                            <span style="display:block; text-align:right;">
+                                @context.Item.totalVatAmount?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.statust" Title="Status" HeaderStyle="width:10%;"
+                                    Hidden="@(_tipSender != "POSLATA")" />
+                    <TemplateColumn Title="" Sortable="false" HeaderStyle="width:10%; text-align:center;">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                           Color="Color.Primary" Title="Pregled"
+                                           OnClick="@(() => PregledPdf(context.Item))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                           Color="Color.Error" Title="Preuzmi"
+                                           OnClick="@(() => PreuzmiPdf(context.Item))" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="ObavestenjePP" PageSizeOptions="@(new int[]{20,50,100,200})"
+                                      RowsPerPageString="Redova po strani:" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_lista.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema obaveštenja za izabrane filtere.
+                </MudAlert>
+            }
+        }
+
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _tipSender = "PRIMLJENA"; // PRIMLJENA / POSLATA
+
+    private string _nazivFilter = "";
+    private string _brojFilter  = "";
+    private string _datumOd     = "";
+    private string _datumDo     = "";
+
+    private string _importOd = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
+    private string _importDo = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private List<ObavestenjePP> _lista = [];
+
+    private bool _ucitava;
+    private bool _uvozi;
+
+    private string HeaderStyle => _tipSender == "POSLATA"
+        ? "background:#2E7D32;"
+        : "background:#6D4C41;";
+
+    private string NazivHeader => _tipSender == "POSLATA" ? "Naziv primaoca" : "Naziv pošiljaoca";
+    private string PibHeader   => _tipSender == "POSLATA" ? "PIB primaoca"   : "PIB pošiljaoca";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+        await Ucitaj(primeniFiltere: false);
+    }
+
+    private async Task PromeniTip(string tip)
+    {
+        if (_tipSender == tip) return;
+        _tipSender    = tip;
+        _nazivFilter  = "";
+        _brojFilter   = "";
+        _datumOd      = "";
+        _datumDo      = "";
+        await Ucitaj(primeniFiltere: false);
+    }
+
+    private Task Izlistaj()    => Ucitaj(primeniFiltere: true);
+
+    private Task IzlistajSve()
+    {
+        _nazivFilter = "";
+        _brojFilter  = "";
+        _datumOd     = "";
+        _datumDo     = "";
+        return Ucitaj(primeniFiltere: false);
+    }
+
+    private async Task Ucitaj(bool primeniFiltere)
+    {
+        _ucitava = true; StateHasChanged();
+        try
+        {
+            string? naziv = null, broj = null;
+            DateTime? od = null, doDatum = null;
+
+            if (primeniFiltere)
+            {
+                naziv   = string.IsNullOrWhiteSpace(_nazivFilter) ? null : _nazivFilter;
+                broj    = string.IsNullOrWhiteSpace(_brojFilter)  ? null : _brojFilter;
+                od      = DateTime.TryParse(_datumOd, out var odD) ? odD : null;
+                doDatum = DateTime.TryParse(_datumDo, out var doD) ? doD : null;
+            }
+
+            _lista = await ObavestenjaPPService.GetListaAsync(_tipSender, naziv, broj, od, doDatum);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UcitajZaPeriod()
+    {
+        if (!DateTime.TryParse(_importOd, out var od) || !DateTime.TryParse(_importDo, out var doDatum))
+        {
+            Snackbar.Add("Unesite ispravan period.", Severity.Warning);
+            return;
+        }
+
+        _uvozi = true; StateHasChanged();
+        try
+        {
+            var broj = _tipSender == "POSLATA"
+                ? await ObavestenjaPPService.ImportPoslataAsync(od, doDatum)
+                : await ObavestenjaPPService.ImportPrimljenaAsync(od, doDatum);
+
+            Snackbar.Add($"Uvezeno novih obaveštenja: {broj}", Severity.Success);
+            await Ucitaj(primeniFiltere: false);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri uvozu: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uvozi = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<string?> UcitajPdfBase64(ObavestenjePP stavka)
+    {
+        if (stavka.noticeId is null)
+        {
+            Snackbar.Add("Nema ID obaveštenja za preuzimanje PDF-a.", Severity.Warning);
+            return null;
+        }
+
+        try
+        {
+            var isSender = _tipSender == "POSLATA";
+            var bytes    = await ObavestenjaPPService.PreuzmiPdfAsync(stavka.noticeId.Value, isSender);
+            return Convert.ToBase64String(bytes);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri preuzimanju PDF-a: {ex.Message}", Severity.Error);
+            return null;
+        }
+    }
+
+    private async Task PregledPdf(ObavestenjePP stavka)
+    {
+        var b64 = await UcitajPdfBase64(stavka);
+        if (b64 is not null)
+            await JS.InvokeVoidAsync("openPdfPreview", b64);
+    }
+
+    private async Task PreuzmiPdf(ObavestenjePP stavka)
+    {
+        var b64 = await UcitajPdfBase64(stavka);
+        if (b64 is not null)
+            await JS.InvokeVoidAsync("downloadFilePdf", $"Obavestenje_{stavka.noticeNumber}.pdf", b64);
+    }
+
+    private void KreirajObavestenje() => Nav.NavigateTo("/efakture/obavestenje-prethodnog-poreza/unos");
+}
