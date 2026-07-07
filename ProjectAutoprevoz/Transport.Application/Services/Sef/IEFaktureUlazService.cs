@@ -1,3 +1,4 @@
+using Transport.Application.Services.Sef.Models;
 using Transport.Domain.Entities;
 
 namespace Transport.Application.Services.Sef;
@@ -33,4 +34,9 @@ public interface IEFaktureUlazService
 
     /// Ceo envelope XML sa SEF-a, bez izdvajanja (isto kao stari btnPreuzmiXML_Click).
     Task<string?> PreuzmiXmlAsync(string invoiceId);
+
+    /// Učitava prateće dokumente (priloge) iz envelope XML-a (cac:AdditionalDocumentReference).
+    /// Preskače reference bez ugrađenog Base64 sadržaja (npr. samo broj narudžbenice).
+    /// Vraća praznu listu ako dokument nema priloga.
+    Task<List<PrateciDokument>> UcitajPrateceDokumenteAsync(string invoiceId);
 }

@@ -16,15 +16,19 @@ namespace Transport.Application.Services.Sef;
 /// </summary>
 public class EFaktureIzlazService : IEFaktureIzlazService
 {
-    private readonly TransportDbContext _db;
-    private readonly SefApiClient       _api;
-    private readonly IPartnerService    _partnerService;
+    private readonly TransportDbContext           _db;
+    private readonly SefApiClient                 _api;
+    private readonly IPartnerService              _partnerService;
+    private readonly IGreskaEfakturaPrevodService _greskaPrevod;
 
-    public EFaktureIzlazService(TransportDbContext db, SefApiClient api, IPartnerService partnerService)
+    public EFaktureIzlazService(
+        TransportDbContext db, SefApiClient api, IPartnerService partnerService,
+        IGreskaEfakturaPrevodService greskaPrevod)
     {
         _db             = db;
         _api            = api;
         _partnerService = partnerService;
+        _greskaPrevod   = greskaPrevod;
     }
 
     private async Task<(string apiKey, string tipServera)> GetSettings()
@@ -110,9 +114,12 @@ public class EFaktureIzlazService : IEFaktureIzlazService
         // Dedupe u memoriji (ne preko .Contains() nad parametrizovanom listom u EF upitu) —
         // EF Core 8 prevodi takav .Contains() u OPENJSON(...) WITH (...), što ovaj SQL Server
         // (niži compatibility level) ne podržava ("Incorrect syntax near 'WITH'").
+        // Dedup po salesInvoiceID — to je vrednost koju vraća sales-invoice/ids, isti ključ
+        // kojim se sada upisuje i slanje (PosaljiUblAsync), i po kome desktop proverava
+        // (COUNT_salesInvoiceID). invoiceID nije pouzdan ključ za ovo poređenje.
         var postojeciIds = (await _db.EInvoices
-                .Where(x => x.invoiceID != null)
-                .Select(x => x.invoiceID!)
+                .Where(x => x.salesInvoiceID != null)
+                .Select(x => x.salesInvoiceID!)
                 .ToListAsync())
             .ToHashSet();
 
@@ -233,6 +240,11 @@ public class EFaktureIzlazService : IEFaktureIzlazService
     private static XElement? Podelement(XElement? scope, string localName)
         => scope?.Descendants().FirstOrDefault(e => e.Name.LocalName == localName);
 
+    // Svi elementi sa datim lokalnim imenom bilo gde unutar scope-a (rekurzivno) —
+    // za AdditionalDocumentReference može ih biti do 3.
+    private static IEnumerable<XElement> Elementi(XElement? scope, string localName)
+        => scope?.Descendants().Where(e => e.Name.LocalName == localName) ?? [];
+
     private static decimal? ParsirajDecimal(string? raw)
         => decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : null;
 
@@ -271,13 +283,18 @@ public class EFaktureIzlazService : IEFaktureIzlazService
     };
 
     // ── Osveži status ─────────────────────────────────────────────────────────
+    // NAPOMENA: invoiceId ovde MORA biti salesInvoiceID (isti ID vraćen iz
+    // sales-invoice/ids, koji SEF očekuje za SVE sales-invoice endpoint-e — potvrđeno
+    // iz desktop koda). Za sveže sinhronizovane redove je invoiceID == salesInvoiceID,
+    // ali se mogu razlikovati kod starijih/ručno diranutih redova, zato je lokalna
+    // pretraga ispod takođe po salesInvoiceID, ne invoiceID.
     public async Task<string?> OsveziStatusAsync(string invoiceId)
     {
         var (apiKey, tipServera) = await GetSettings();
         var statusDto = await _api.GetAsync<SalesInvoiceStatusDto>(
             apiKey, tipServera, $"sales-invoice?invoiceId={invoiceId}");
 
-        var red = await _db.EInvoices.FirstOrDefaultAsync(x => x.invoiceID == invoiceId);
+        var red = await _db.EInvoices.FirstOrDefaultAsync(x => x.salesInvoiceID == invoiceId);
         if (red is null) return null;
 
         red.statusDokumenta = PrevediStatus(statusDto?.Status);
@@ -404,5 +421,211 @@ public class EFaktureIzlazService : IEFaktureIzlazService
     {
         var (apiKey, tipServera) = await GetSettings();
         return await _api.GetStringAsync(apiKey, tipServera, $"sales-invoice/xml?invoiceId={invoiceId}");
+    }
+
+    // ── Prateći dokumenti (prilozi) — cac:AdditionalDocumentReference, do 3 po fakturi ──
+    public async Task<List<PrateciDokument>> UcitajPrateceDokumenteAsync(string invoiceId)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+        var xml  = await _api.GetStringAsync(apiKey, tipServera, $"sales-invoice/xml?invoiceId={invoiceId}");
+        var root = XDocument.Parse(xml).Root;
+
+        var rezultat = new List<PrateciDokument>();
+
+        foreach (var docRef in Elementi(root, "AdditionalDocumentReference"))
+        {
+            // Neke reference nemaju ugrađen sadržaj (npr. samo broj narudžbenice) —
+            // uzimamo samo one koje stvarno nose Base64 PDF prilog.
+            var attachment = Podelement(docRef, "Attachment");
+            var base64     = Vrednost(attachment, "EmbeddedDocumentBinaryObject");
+            if (string.IsNullOrWhiteSpace(base64)) continue;
+
+            rezultat.Add(new PrateciDokument
+            {
+                Naziv         = Vrednost(docRef, "ID") ?? "Prilog",
+                Base64Sadrzaj = base64
+            });
+        }
+
+        return rezultat;
+    }
+
+    // ── Slanje UBL fakture na SEF. Na uspeh, upisuje glavu (tbl_eInvoice) + stavke
+    // (tbl_lineItem) u transakciji — na grešku se NIŠTA ne upisuje. ──────────────
+    public async Task<(bool uspesno, string poruka, string? salesInvoiceId, int? idEfakture, string? statusDokumenta)>
+        PosaljiUblAsync(string xml, bool sendToCir, EFakturaUblInput input, EFakturaSlanjeKontekst kontekst)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+
+        var requestId = Guid.NewGuid().ToString("N");
+        var endpoint  = $"sales-invoice/ubl?requestId={requestId}&sendToCir={(sendToCir ? "Yes" : "No")}";
+
+        var odgovor = await _api.PostXmlAsync(apiKey, tipServera, endpoint, xml);
+
+        MiniInvoiceDto? dto;
+
+        // Isti duh kao Storno/Otkaži/PrihvatiOdbij — uspešan odgovor JESTE JSON
+        // (MiniInvoiceDto), greška TAKOĐE JSON (ErrorCode/Message).
+        try
+        {
+            var node = JsonNode.Parse(odgovor);
+            if (node?["ErrorCode"] is not null)
+            {
+                var errorCode = node["ErrorCode"]?.GetValue<string>();
+                var message   = node["Message"]?.GetValue<string>();
+                var poruka    = _greskaPrevod.Prevedi(errorCode, message);
+                return (false, poruka, null, null, null);
+            }
+
+            dto = System.Text.Json.JsonSerializer.Deserialize<MiniInvoiceDto>(odgovor,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Odgovor nije JSON — sirova poruka servera, ne gubimo je.
+            return (false, odgovor, null, null, null);
+        }
+
+        // Dodatna brana (kao u desktopu) — ako je ovaj SalesInvoiceId već upisan lokalno
+        // (npr. ponovni klik posle uspešnog slanja), ne pravi drugi red, samo vrati postojeći.
+        var salesInvoiceIdStr = dto?.SalesInvoiceId?.ToString();
+        if (!string.IsNullOrWhiteSpace(salesInvoiceIdStr))
+        {
+            var postojeci = await _db.EInvoices.FirstOrDefaultAsync(x => x.salesInvoiceID == salesInvoiceIdStr);
+            if (postojeci is not null)
+                return (true, "", postojeci.salesInvoiceID, postojeci.idEfakture, postojeci.statusDokumenta);
+        }
+
+        // Dokument je uspešno poslat na SEF — od ovde nadalje upisujemo lokalno.
+        var partner = string.IsNullOrWhiteSpace(input.KupacPib)
+            ? null
+            : await _db.Partneri.AsNoTracking().FirstOrDefaultAsync(p => p.PIB == input.KupacPib);
+
+        var glava = new EInvoice
+        {
+            idRacuna                = kontekst.IdRacuna,
+            tipDokumenta             = "FAKTURA",
+            brojDokumenta            = input.BrojDokumenta,
+            idPartnera               = partner?.Broj,
+            partner                  = input.KupacNaziv,
+            pib                      = input.KupacPib,
+            idPoreskoOslobodjenje    = kontekst.IdClanOslobodjenja,
+            clanPoreskogOslobodjenje = kontekst.KeyClanOslobodjenja,
+            komentar                 = input.Komentar,
+            accountingDateUtc        = input.DatumPrometa,
+            paymentDateUtc           = input.DatumValute,
+            invoiceDateUtc           = DateTime.Today,
+            pozivNaBroj              = input.PozivNaBroj,
+            model                    = kontekst.Model,
+            ugovorBr                 = input.BrojUgovora,
+            porudzbinaBr             = input.BrojNarudzbenice,
+            tenderBr                 = input.BrojTendera,
+            PDV_dospece              = input.NastanakPdvObaveze,
+            sendInvoiceToCir         = sendToCir ? 1 : 0,
+            sumWithoutVat            = input.Stavke.Sum(s => s.Osnovica),
+            vatSum                   = input.Stavke.Sum(s => s.Pdv),
+            sumWithVat               = input.Stavke.Sum(s => s.Ukupno),
+            totalToPay               = input.Stavke.Sum(s => s.Ukupno),
+            discountAmount           = input.Stavke.Sum(s => s.Umanjenje),
+            valuta                   = "RSD",
+            kurs                     = 1m,
+            korisnik                 = kontekst.Korisnik,
+            vremeSlanja              = DateTime.Now,
+            invoiceID                = dto?.InvoiceId?.ToString(),
+            salesInvoiceID           = dto?.SalesInvoiceId?.ToString(),
+            purchaseInvoiceId        = dto?.PurchaseInvoiceId?.ToString(),
+            status                   = "POSLATO",
+            statusDokumenta          = "Poslato"
+        };
+
+        using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            _db.EInvoices.Add(glava);
+            await _db.SaveChangesAsync();
+
+            var redniBroj = 0;
+            foreach (var s in input.Stavke)
+            {
+                redniBroj++;
+                _db.LineItems.Add(new LineItem
+                {
+                    idRacuna        = kontekst.IdRacuna,
+                    invoiceId       = dto?.InvoiceId,
+                    orderNo         = redniBroj,
+                    code            = s.Sifra,
+                    description     = s.Naziv,
+                    unit            = s.Jm,
+                    unitPrice       = s.Cena,
+                    quantity        = s.Kolicina,
+                    discountAmount  = s.Umanjenje,
+                    sumWithoutVat   = s.Osnovica,
+                    vatRate         = s.PdvProcenat,
+                    vatSum          = s.Pdv,
+                    sumWithVat      = s.Ukupno,
+                    vatCategoryCode = s.PdvKategorija,
+                    idTaxExemption  = s.PdvKategorija.Length == 0 ? kontekst.IdClanOslobodjenja : null
+                });
+            }
+
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw; // dokument JE poslat na SEF — pozivalac mora da vidi da lokalni upis nije uspeo
+        }
+
+        return (true, "", glava.salesInvoiceID, glava.idEfakture, glava.statusDokumenta);
+    }
+
+    // ── Tiho brisanje dokumenata u pripremi (Draft/New) — 1:1 prevod starog
+    // btnBrisiPripremu_Click (SalesInvoiceIDs po statusu + DELETE_SalesInvoices po ID-ju),
+    // bez MessageBox-a, pozvano automatski pri otvaranju stranice. ─────────────
+    public async Task<int> ObrisiDokumenteUPripremiAsync(DateTime datumOd, DateTime datumDo)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+        var ukupnoObrisano = 0;
+
+        foreach (var status in new[] { "Draft", "New" })
+        {
+            List<long>? ids = null;
+            try
+            {
+                var endpointIds = $"sales-invoice/ids?dateFrom={datumOd:yyyy-MM-dd}&dateTo={datumDo:yyyy-MM-dd}&status={status}";
+                var idsDto = await _api.PostEmptyAsync<SalesInvoiceIdsDto>(apiKey, tipServera, endpointIds);
+                ids = idsDto?.SalesInvoiceIds;
+            }
+            catch
+            {
+                // SEF nedostupan ili greška pri dobavljanju ID-jeva za ovaj status — preskoči status.
+            }
+
+            if (ids is null or { Count: 0 }) continue;
+
+            foreach (var id in ids)
+            {
+                try
+                {
+                    var (uspesno, _) = await _api.DeleteAsync(apiKey, tipServera, $"sales-invoice/{id}");
+                    if (!uspesno) continue;
+
+                    ukupnoObrisano++;
+
+                    // Ako je red već sinhronizovan lokalno (tbl_eInvoice), ukloni ga i odatle —
+                    // SEF dokument više ne postoji, nema svrhe da ostane "duh" red u listi.
+                    var lokalni = await _db.EInvoices.FirstOrDefaultAsync(x => x.invoiceID == id.ToString());
+                    if (lokalni is not null) _db.EInvoices.Remove(lokalni);
+                }
+                catch
+                {
+                    // Pojedinačan neuspeh ne prekida ostatak (isti duh kao OsveziSve).
+                }
+            }
+        }
+
+        if (ukupnoObrisano > 0) await _db.SaveChangesAsync();
+        return ukupnoObrisano;
     }
 }

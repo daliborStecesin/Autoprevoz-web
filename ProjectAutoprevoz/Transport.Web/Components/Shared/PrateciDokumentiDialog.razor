@@ -1,0 +1,82 @@
+@using Transport.Application.Services.Sef.Models
+@inject IJSRuntime JS
+
+<MudDialog>
+    <DialogContent>
+        @if (Prilozi is null || Prilozi.Count == 0)
+        {
+            <MudText>Nema priloga.</MudText>
+        }
+        else
+        {
+            @foreach (var prilog in Prilozi)
+            {
+                <MudPaper Elevation="0" Class="d-flex align-center justify-space-between pa-2 mb-2"
+                          Style="border:1px solid rgba(0,0,0,0.12); border-radius:4px;">
+                    <div class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Error" />
+                        <MudText>@prilog.Naziv</MudText>
+                    </div>
+
+                    @if (_nevalidni.Contains(prilog))
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Error">Prilog nije moguće učitati</MudText>
+                    }
+                    else
+                    {
+                        <div class="d-flex gap-2">
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Visibility"
+                                       OnClick="@(() => Pregled(prilog))">
+                                Pregled
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       OnClick="@(() => Preuzmi(prilog))">
+                                Preuzmi
+                            </MudButton>
+                        </div>
+                    }
+                </MudPaper>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Close())">Zatvori</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<PrateciDokument> Prilozi { get; set; } = [];
+
+    private readonly HashSet<PrateciDokument> _nevalidni = [];
+
+    protected override void OnInitialized()
+    {
+        // Validacija unapred — red sa nevalidnim Base64 odmah prikazuje poruku
+        // umesto dugmadi, ne čeka klik.
+        foreach (var prilog in Prilozi)
+        {
+            try
+            {
+                Convert.FromBase64String(prilog.Base64Sadrzaj);
+            }
+            catch (FormatException)
+            {
+                _nevalidni.Add(prilog);
+            }
+        }
+    }
+
+    private async Task Pregled(PrateciDokument prilog) =>
+        await JS.InvokeVoidAsync("openPdfPreview", prilog.Base64Sadrzaj);
+
+    private async Task Preuzmi(PrateciDokument prilog)
+    {
+        var naziv = $"{OcistiNaziv(prilog.Naziv)}.pdf";
+        await JS.InvokeVoidAsync("downloadFilePdf", naziv, prilog.Base64Sadrzaj);
+    }
+
+    private static string OcistiNaziv(string naziv) => naziv.Replace("/", "").Replace("\\", "");
+}

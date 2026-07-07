@@ -286,6 +286,15 @@
                            OnClick="Stampaj">
                     Štampa
                 </MudButton>
+                @if (TenantService.GetEFakturaAktivna())
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Disabled="@(Id is null || _tipRacuna == "INOSTRANI")"
+                               OnClick="OtvoriEFakturu">
+                        E-faktura
+                    </MudButton>
+                }
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.ArrowBack"
                            OnClick="@(() => Nav.NavigateTo("/fakture"))">
@@ -1117,6 +1126,12 @@
     {
         if (Id is null) return;
         await JS.InvokeVoidAsync("open", $"/fakture/stampa?id={Id}", "_blank");
+    }
+
+    private void OtvoriEFakturu()
+    {
+        if (Id is null) return;
+        Nav.NavigateTo($"/efakture/unos?izvor=racun&id={Id}&tip=FAKTURA");
     }
 
     // Posle prvog Save — ostani na formi, prebaci u EDIT mod za upravo sačuvani račun

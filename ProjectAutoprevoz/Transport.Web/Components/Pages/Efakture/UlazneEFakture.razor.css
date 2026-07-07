@@ -1,0 +1,19 @@
+/* Lokalno, izolovano samo za /efakture/ulazne — gušća tabela + kompaktni
+   dvolinijski naslovi kolona za datume. ::deep jer MudDataGrid renderuje
+   sopstveni interni markup (thead/tbody/td) van naših template-a. */
+
+.ulazne-grid ::deep td,
+.ulazne-grid ::deep th {
+    padding: 4px 8px !important;
+    font-size: 0.82rem;
+}
+
+.ulazne-grid ::deep .mud-table-toolbar {
+    min-height: 0;
+}
+
+.ulazne-datum-naslov {
+    line-height: 1.1;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}

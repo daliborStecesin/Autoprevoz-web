@@ -77,6 +77,7 @@ builder.Services.AddScoped<IPojedinacnaEvidencijaPDVService, PojedinacnaEvidenci
 builder.Services.AddScoped<IZbirnaEvidencijaPDVService, ZbirnaEvidencijaPDVService>();
 builder.Services.AddScoped<IEFaktureUlazService, EFaktureUlazService>();
 builder.Services.AddScoped<IEFaktureIzlazService, EFaktureIzlazService>();
+builder.Services.AddSingleton<IEFakturaUblBuilder, EFakturaUblBuilder>();
 builder.Services.AddSingleton<IGreskaEfakturaPrevodService, GreskaEfakturaPrevodService>();
 
 // ============================================================================

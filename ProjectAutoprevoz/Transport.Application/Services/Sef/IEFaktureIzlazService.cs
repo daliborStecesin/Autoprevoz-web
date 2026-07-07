@@ -1,3 +1,4 @@
+using Transport.Application.Services.Sef.Models;
 using Transport.Domain.Entities;
 
 namespace Transport.Application.Services.Sef;
@@ -39,4 +40,22 @@ public interface IEFaktureIzlazService
 
     /// Ceo envelope XML sa SEF-a, bez izdvajanja (isto kao Ulazne e-fakture).
     Task<string?> PreuzmiXmlAsync(string invoiceId);
+
+    /// Tiho briše sa SEF-a dokumente u statusu Draft i New za dati period (1:1 prevod
+    /// starog btnBrisiPripremu_Click, bez MessageBox-a — poziva se automatski pri
+    /// otvaranju stranice). Vraća ukupan broj obrisanih dokumenata. Ne baca izuzetak —
+    /// SEF nedostupnost ili greška po statusu se tiho gutaju (lista se svejedno prikaže).
+    Task<int> ObrisiDokumenteUPripremiAsync(DateTime datumOd, DateTime datumDo);
+
+    /// Učitava prateće dokumente (priloge) iz envelope XML-a (cac:AdditionalDocumentReference).
+    /// Preskače reference bez ugrađenog Base64 sadržaja (npr. samo broj narudžbenice).
+    /// Vraća praznu listu ako dokument nema priloga.
+    Task<List<PrateciDokument>> UcitajPrateceDokumenteAsync(string invoiceId);
+
+    /// Šalje gotov UBL XML na SEF (POST sales-invoice/ubl, requestId generiše servis).
+    /// TEK NA USPEH upisuje glavu (tbl_eInvoice) + stavke (tbl_lineItem) u transakciji —
+    /// na grešku se ništa ne upisuje. Vraća SalesInvoiceId, idEfakture (PK novog reda)
+    /// i statusDokumenta na uspeh; prevedenu (ili sirovu) SEF grešku na neuspeh.
+    Task<(bool uspesno, string poruka, string? salesInvoiceId, int? idEfakture, string? statusDokumenta)>
+        PosaljiUblAsync(string xml, bool sendToCir, EFakturaUblInput input, EFakturaSlanjeKontekst kontekst);
 }

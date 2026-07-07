@@ -1,0 +1,13 @@
+/* Lokalno, izolovano samo za /efakture/zbirna-evidencija — gušća tabela.
+   ::deep jer MudDataGrid renderuje sopstveni interni markup (thead/tbody/td)
+   van naših template-a. */
+
+.evidencija-grid ::deep td,
+.evidencija-grid ::deep th {
+    padding: 4px 8px !important;
+    font-size: 0.82rem;
+}
+
+.evidencija-grid ::deep .mud-table-toolbar {
+    min-height: 0;
+}

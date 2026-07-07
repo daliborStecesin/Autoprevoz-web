@@ -3,11 +3,13 @@
 
 @using Microsoft.EntityFrameworkCore
 @using Transport.Domain.Entities
+@using Transport.Application.Interfaces
 @using Transport.Application.Services.Sef
 
 @inject ITenantService                     TenantService
 @inject NavigationManager                  Nav
 @inject IPojedinacnaEvidencijaPDVService   EvidencijaService
+@inject IDefaultValuesService              DefaultValues
 @inject ISnackbar                          Snackbar
 
 <PageTitle>Pojedinačna evidencija PDV — Autoprevoz</PageTitle>
@@ -18,27 +20,29 @@
         Pojedinačna evidencija PDV
     </MudText>
 
-    <div class="d-flex flex-wrap gap-2">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+    <div class="d-flex align-center flex-wrap gap-2">
+        @* ── Primarne akcije ─────────────────────────────────────────── *@
+        <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
                    OnClick="NovaEvidencija">
             Nova pojedinačna evidencija
         </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Visibility"
-                   Disabled="@(_selektovan is null)"
-                   OnClick="Pregled">
-            Pregled
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
                    StartIcon="@Icons.Material.Filled.Cancel"
                    Disabled="@(_selektovan is null)"
                    OnClick="Otkazi">
             Otkaži
         </MudButton>
-        <MudButton Variant="Variant.Text"
-                   StartIcon="@Icons.Material.Filled.ArrowBack"
-                   OnClick="IzlazIzModula">
+
+        @* ── Sekundarne akcije — ikonice ──────────────────────────────── *@
+        <MudTooltip Text="Pregled" ShowOnHover="true" Placement="Placement.Top">
+            <span>
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                               Disabled="@(_selektovan is null)" OnClick="Pregled" />
+            </span>
+        </MudTooltip>
+
+        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="IzlazIzModula">
             Izlaz
         </MudButton>
     </div>
@@ -46,67 +50,84 @@
 
 <MudGrid Spacing="3">
 
-    @* ── LEVA STRANA — Filteri ─────────────────────────────────────── *@
+    @* ── LEVA STRANA — Filteri (ručni accordion, isti obrazac kao
+       IzlazneEFakture.razor) ── *@
     <MudItem xs="12" md="3">
-        <MudPaper Elevation="1" Class="pa-3">
-            <MudText Typo="Typo.subtitle2" Class="mb-2">Filteri</MudText>
+        <MudPaper Elevation="1" Class="pa-2">
+            <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px;">
+                <div @onclick="OnFilteriPanelToggle"
+                     style="display:flex; align-items:center; justify-content:space-between;
+                            padding:8px 12px; cursor:pointer; user-select:none;
+                            background:#fafafa; border-radius:4px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
+                        Filteri
+                    </div>
+                    <MudIcon Icon="@(_filteriOtvoreni ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                             Size="Size.Small" Style="color:#888;" />
+                </div>
+                @if (_filteriOtvoreni)
+                {
+                    <div style="padding:8px 12px 10px;">
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="PIB partnera"
+                                          Value="@_pibFilter"
+                                          ValueChanged="@(v => _pibFilter = v ?? string.Empty)"
+                                          OnEnter="Izlistaj" />
+                        </div>
 
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="PIB partnera"
-                              Value="@_pibFilter"
-                              ValueChanged="@(v => _pibFilter = v ?? string.Empty)"
-                              OnEnter="Izlistaj" />
-            </div>
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Broj dokumenta"
+                                          Value="@_brojDokumentaFilter"
+                                          ValueChanged="@(v => _brojDokumentaFilter = v ?? string.Empty)"
+                                          OnEnter="Izlistaj" />
+                        </div>
 
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj dokumenta"
-                              Value="@_brojDokumentaFilter"
-                              ValueChanged="@(v => _brojDokumentaFilter = v ?? string.Empty)"
-                              OnEnter="Izlistaj" />
-            </div>
+                        <div class="mb-2">
+                            <NativniSelect Label="Tip Dokumenta" Value="@_tipDokumentaFilter"
+                                           ValueChanged="@(v => _tipDokumentaFilter = v ?? "SVI TIPOVI")">
+                                <option value="SVI TIPOVI">SVI TIPOVI</option>
+                                <option value="FAKTURA">FAKTURA</option>
+                                <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
+                                <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
+                                <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
+                                <option value="INTERNI RACUN-OBVEZNIK PDV">INTERNI RACUN-OBVEZNIK PDV</option>
+                                <option value="INTERNI RACUN-STRANO LICE">INTERNI RACUN-STRANO LICE</option>
+                            </NativniSelect>
+                        </div>
 
-            <div class="mb-2">
-                <NativniSelect Label="Tip Dokumenta" Value="@_tipDokumentaFilter"
-                               ValueChanged="@(v => _tipDokumentaFilter = v ?? "SVI TIPOVI")">
-                    <option value="SVI TIPOVI">SVI TIPOVI</option>
-                    <option value="FAKTURA">FAKTURA</option>
-                    <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
-                    <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
-                    <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
-                    <option value="INTERNI RACUN-OBVEZNIK PDV">INTERNI RACUN-OBVEZNIK PDV</option>
-                    <option value="INTERNI RACUN-STRANO LICE">INTERNI RACUN-STRANO LICE</option>
-                </NativniSelect>
-            </div>
+                        <div class="mb-2">
+                            <NativniSelect Label="Status dokumenta" Value="@_statusFilter"
+                                           ValueChanged="@(v => _statusFilter = v ?? "SVI STATUSI")">
+                                <option value="SVI STATUSI">SVI STATUSI</option>
+                                <option value="U pripremi">U pripremi</option>
+                                <option value="Evidentirano">Evidentirano</option>
+                                <option value="Korigovano">Korigovano</option>
+                                <option value="Ponisteno">Ponisteno</option>
+                            </NativniSelect>
+                        </div>
 
-            <div class="mb-2">
-                <NativniSelect Label="Status dokumenta" Value="@_statusFilter"
-                               ValueChanged="@(v => _statusFilter = v ?? "SVI STATUSI")">
-                    <option value="SVI STATUSI">SVI STATUSI</option>
-                    <option value="U pripremi">U pripremi</option>
-                    <option value="Evidentirano">Evidentirano</option>
-                    <option value="Korigovano">Korigovano</option>
-                    <option value="Ponisteno">Ponisteno</option>
-                </NativniSelect>
-            </div>
+                        <div class="mb-2"><DateInput Label="Datum promene statusa OD" @bind-Value="_datumOd" /></div>
+                        <div class="mb-3"><DateInput Label="Datum promene statusa DO" @bind-Value="_datumDo" /></div>
 
-            <div class="mb-2"><DateInput Label="Datum promene statusa OD" @bind-Value="_datumOd" /></div>
-            <div class="mb-3"><DateInput Label="Datum promene statusa DO" @bind-Value="_datumDo" /></div>
-
-            <div class="d-flex flex-column gap-2">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Search"
-                           OnClick="Izlistaj"
-                           Disabled="_ucitava"
-                           FullWidth="true">
-                    Izlistaj
-                </MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           StartIcon="@Icons.Material.Filled.List"
-                           OnClick="IzlistajSve"
-                           Disabled="_ucitava"
-                           FullWidth="true">
-                    Izlistaj sve
-                </MudButton>
+                        <div class="d-flex flex-column gap-2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Search"
+                                       OnClick="Izlistaj"
+                                       Disabled="_ucitava"
+                                       FullWidth="true">
+                                Izlistaj
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.List"
+                                       OnClick="IzlistajSve"
+                                       Disabled="_ucitava"
+                                       FullWidth="true">
+                                Izlistaj sve
+                            </MudButton>
+                        </div>
+                    </div>
+                }
             </div>
         </MudPaper>
     </MudItem>
@@ -120,30 +141,55 @@
         }
         else
         {
-            <MudDataGrid T="IndividualVatRecord" Items="_lista" Dense="true" Striped="true" Hover="true"
+            <MudDataGrid T="IndividualVatRecord" Items="_lista" Dense="true" Hover="true"
+                         FixedHeader="true" Height="calc(100vh - 340px)"
                          RowClick="NaKlikReda"
-                         RowStyleFunc="@((item, _) => item.idUnosa == _selektovan?.idUnosa
-                             ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
-                             : string.Empty)">
+                         RowStyleFunc="@BojaReda"
+                         Class="evidencija-grid">
                 <Columns>
-                    <PropertyColumn Property="x => x.calculationNumber" Title="Broj Evidencije" HeaderStyle="width:11%;" />
-                    <PropertyColumn Property="x => x.vatPeriodStr" Title="Period" HeaderStyle="width:8%;" />
-                    <PropertyColumn Property="x => x.status" Title="Status" HeaderStyle="width:10%;" />
-                    <PropertyColumn Property="x => x.documentNumber" Title="Broj dokumenta" HeaderStyle="width:11%;" />
-                    <PropertyColumn Property="x => x.internalInvoiceNumber" Title="Broj internog računa" HeaderStyle="width:11%;" />
-                    <TemplateColumn Title="Datum promene statusa" SortBy="x => x.statusChangeDate" HeaderStyle="width:10%;">
-                        <CellTemplate>@context.Item.statusChangeDate?.ToString("dd.MM.yyyy")</CellTemplate>
+                    <PropertyColumn Property="x => x.calculationNumber" Title="Broj Evidencije" HeaderStyle="width:14%;" />
+                    <PropertyColumn Property="x => x.vatPeriodStr" Title="Period" HeaderStyle="width:9%;" />
+                    <TemplateColumn Title="Status" SortBy="x => x.status" HeaderStyle="width:6%; max-width:70px;">
+                        <CellTemplate Context="red">
+                            <MudChip T="string" Size="Size.Small" Color="@BojaStatusa(red.Item.status)"
+                                     Style="font-weight:600;">
+                                @red.Item.status
+                            </MudChip>
+                        </CellTemplate>
                     </TemplateColumn>
-                    <PropertyColumn Property="x => x.documentType" Title="Tip dokumenta" HeaderStyle="width:12%;" />
+                    <TemplateColumn Title="Broj dokumenta" SortBy="x => x.documentNumber" HeaderStyle="width:10%; max-width:110px;">
+                        <CellTemplate Context="red">
+                            @{ var broj = red.Item.documentNumber; }
+                            <MudTooltip Text="@(broj ?? "")">
+                                <span style="white-space:nowrap;">@(string.IsNullOrEmpty(broj) || broj.Length <= 12 ? broj : broj[..12] + "…")</span>
+                            </MudTooltip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Broj internog računa" SortBy="x => x.internalInvoiceNumber" HeaderStyle="width:9%; max-width:100px;">
+                        <CellTemplate Context="red">
+                            @{ var brojInt = red.Item.internalInvoiceNumber; }
+                            <MudTooltip Text="@(brojInt ?? "")">
+                                <span style="white-space:nowrap;">@(string.IsNullOrEmpty(brojInt) || brojInt.Length <= 11 ? brojInt : brojInt[..11] + "…")</span>
+                            </MudTooltip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum promene statusa" SortBy="x => x.statusChangeDate" HeaderStyle="width:12%;">
+                        <CellTemplate Context="red">
+                            <span style="white-space:nowrap;">@red.Item.statusChangeDate?.ToString("dd.MM.yyyy")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Tip dokumenta" SortBy="x => x.documentType" HeaderStyle="width:16%;">
+                        <CellTemplate Context="red">
+                            @{ var tip = red.Item.documentType; }
+                            <MudTooltip Text="@(tip ?? "")">
+                                <span style="white-space:nowrap;">@(string.IsNullOrEmpty(tip) || tip.Length <= 18 ? tip : tip[..18] + "…")</span>
+                            </MudTooltip>
+                        </CellTemplate>
+                    </TemplateColumn>
                     <PropertyColumn Property="x => x.pibPartnera" Title="PIB partnera" HeaderStyle="width:9%;" />
-                    <TemplateColumn Title="Datum evidentiranja" SortBy="x => x.recordingDate" HeaderStyle="width:9%;">
-                        <CellTemplate>@context.Item.recordingDate?.ToString("dd.MM.yyyy")</CellTemplate>
-                    </TemplateColumn>
-                    <TemplateColumn Title="Ukupno PDV" SortBy="x => x.totalCalculatedVat" HeaderStyle="width:9%; text-align:right;">
-                        <CellTemplate>
-                            <span style="display:block; text-align:right;">
-                                @context.Item.totalCalculatedVat?.ToString("N2")
-                            </span>
+                    <TemplateColumn Title="Ukupno PDV" SortBy="x => x.totalCalculatedVat" HeaderStyle="width:15%; text-align:right;">
+                        <CellTemplate Context="red">
+                            <span style="display:block; text-align:right; font-weight:600; padding-right:6px;">@red.Item.totalCalculatedVat?.ToString("N2")</span>
                         </CellTemplate>
                     </TemplateColumn>
                 </Columns>
@@ -176,11 +222,23 @@
     private IndividualVatRecord?      _selektovan;
 
     private bool _ucitava;
+    private bool _filteriOtvoreni = true;
 
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        var uid      = TenantService.GetIdKorisnika();
+        var pFilteri = await DefaultValues.GetDefault("PojedinacnaEvidencija", "panel_filteri", uid);
+        if (pFilteri is not null) _filteriOtvoreni = pFilteri == "True";
+
         await Ucitaj(primeniFiltere: false);
+    }
+
+    private async Task OnFilteriPanelToggle()
+    {
+        _filteriOtvoreni = !_filteriOtvoreni;
+        await DefaultValues.SaveDefault("PojedinacnaEvidencija", "panel_filteri", _filteriOtvoreni.ToString(), TenantService.GetIdKorisnika());
     }
 
     private Task Izlistaj()    => Ucitaj(primeniFiltere: true);
@@ -231,6 +289,21 @@
     {
         _selektovan = args.Item;
     }
+
+    // Boja statusnog čipa: Evidentirano=zeleno, Ponisteno/Stornirano=crveno,
+    // sve ostalo (U pripremi/Korigovano)=žuto.
+    private static Color BojaStatusa(string? status) => status switch
+    {
+        "Evidentirano"                => Color.Success,
+        "Ponisteno" or "Stornirano"   => Color.Error,
+        _                             => Color.Warning
+    };
+
+    // Vizuelno isticanje selektovanog reda (isti stil kao Ulazne/Izlazne).
+    private string BojaReda(IndividualVatRecord item, int _) =>
+        _selektovan is not null && _selektovan.idUnosa == item.idUnosa
+            ? "background-color:rgba(61,142,185,0.18); border-left:4px solid #3D8EB9;"
+            : string.Empty;
 
     private void NovaEvidencija() => Nav.NavigateTo("/efakture/pojedinacna-evidencija/unos");
 

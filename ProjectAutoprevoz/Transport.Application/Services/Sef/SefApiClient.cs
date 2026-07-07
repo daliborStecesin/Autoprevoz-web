@@ -107,6 +107,30 @@ public class SefApiClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    /// POST sirovog XML tela (UBL faktura) — Content-Type application/xml, ne JSON.
+    /// Vraća sirov string odgovora bez EnsureSuccessStatusCode (isti duh kao
+    /// PostStringAsync) — uspeh JESTE JSON (MiniInvoiceDto), greška TAKOĐE JSON
+    /// (ErrorCode/Message), pa pozivalac parsira oba slučaja iz istog tela.
+    public async Task<string> PostXmlAsync(string apiKey, string tipServera, string endpoint, string xml)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        using var content = new StringContent(xml, Encoding.UTF8, "application/xml");
+        var response = await client.PostAsync(url, content);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    /// DELETE (npr. brisanje draft/new izlazne fakture na SEF-u). Vraća uspeh + sirovo
+    /// telo odgovora — pozivalac odlučuje da li dalje parsira grešku iz tela.
+    public async Task<(bool uspesno, string telo)> DeleteAsync(string apiKey, string tipServera, string endpoint)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.DeleteAsync(url);
+        var telo     = await response.Content.ReadAsStringAsync();
+        return (response.IsSuccessStatusCode, telo);
+    }
+
     // EnsureSuccessStatusCode() baca grešku bez tela odgovora — SEF u telu vraća
     // konkretan razlog odbijanja (validacija, pogrešan PIB, itd.), pa ga ovde čitamo
     // i uključujemo u poruku pre nego što se izgubi.

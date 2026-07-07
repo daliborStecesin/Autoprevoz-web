@@ -1,5 +1,957 @@
 @page "/efakture/unos"
+@rendermode InteractiveServer
 
-<PageTitle>Unos dokumenta — Autoprevoz</PageTitle>
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Application.Interfaces
+@using Transport.Application.Services.Sef
+@using Transport.Application.Services.Sef.Models
 
-<h1>Unos dokumenta</h1>
+@inject ITenantService       TenantService
+@inject NavigationManager    Nav
+@inject TransportDbContext   Db
+@inject ISnackbar            Snackbar
+@inject IDialogService       Dialog
+@inject IJSRuntime           JS
+@inject IEFakturaUblBuilder  UblBuilder
+@inject IEFaktureIzlazService EFaktureService
+
+<PageTitle>Unos e-dokumenta — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3" Style="color:#2D3E50;">
+    <MudIcon Icon="@Icons.Material.Filled.NoteAdd" Class="mr-2" />
+    Unos e-dokumenta
+</MudText>
+
+@if (FormaZakljucana)
+{
+    <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle" Class="mb-3">
+        POSLATO — SalesInvoiceId: @_poslatSalesInvoiceId
+    </MudChip>
+}
+
+@* ── TOOLBAR — primarne akcije (tekst) + sekundarne (ikone), sve inertno ── *@
+<div class="d-flex align-center flex-wrap gap-2 mb-3">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Send"
+               OnClick="Posalji" Disabled="@(_saljem || FormaZakljucana)">
+        @if (_saljem)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+        }
+        Pošalji
+    </MudButton>
+
+    <MudTooltip Text="Izvoz XML" ShowOnHover="true" Placement="Placement.Top">
+        <span>
+            <MudIconButton Icon="@Icons.Material.Filled.Code" Size="Size.Small" OnClick="IzvozXml" />
+        </span>
+    </MudTooltip>
+
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.NoteAdd" Disabled="@FormaZakljucana">
+        Dodaj dokument
+    </MudButton>
+
+    <MudTooltip Text="Prikaz - štampa" ShowOnHover="true" Placement="Placement.Top">
+        <span>
+            <MudIconButton Icon="@Icons.Material.Filled.Print" Size="Size.Small"
+                           OnClick="PrikazStampa" Disabled="@(_poslatSalesInvoiceId is null)" />
+        </span>
+    </MudTooltip>
+
+    <MudTooltip Text="Preuzmi PDF" ShowOnHover="true" Placement="Placement.Top">
+        <span>
+            <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
+                           OnClick="PreuzmiPdf" Disabled="@(_poslatSalesInvoiceId is null)" />
+        </span>
+    </MudTooltip>
+
+    <MudCheckBox @bind-Value="_model.DodajAvans" T="bool" Label="DodajAvans" Size="Size.Small" Color="Color.Primary" Disabled="@FormaZakljucana" />
+
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.FactCheck" Disabled="@FormaZakljucana">
+        U pojedinačnu
+    </MudButton>
+</div>
+
+@* ── GORNJI BLOK — tri grupe u jednom redu ────────────────────────────── *@
+<MudGrid Spacing="3">
+
+    @* A) Primalac dokumenta *@
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                Primalac dokumenta
+            </MudText>
+
+            @* Partner — autocomplete direktno na polju Naziv (reuse pattern iz /fakture/unos) *@
+            <div class="mb-2" style="position:relative;"
+                 @onfocusin="OnPartnerFocusin" @onfocusout="OnPartnerFocusout">
+                <MudTextField Value="@_model.Naziv"
+                              ValueChanged="@((string v) => { _model.Naziv = v ?? string.Empty; AzurirajPartnerPredloge(); })"
+                              Label="Naziv" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Business"
+                              Immediate="true" T="string" Disabled="@(_izvorRacunLocked || FormaZakljucana)" />
+                @if (_partnerOpen && _partneriPredlozi.Count > 0)
+                {
+                    <div style="position:absolute; z-index:9999; left:0; right:0;
+                                background:white; border:1px solid #ccc; border-radius:4px;
+                                box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                max-height:220px; overflow-y:auto;">
+                        @foreach (var p in _partneriPredlozi)
+                        {
+                            var pp = p;
+                            <div @onclick="@(() => IzaberiPartnera(pp))"
+                                 style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                @pp.Naziv <span style="color:#999;">— @pp.PIB</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="PIB" Value="@_model.Pib"
+                              ValueChanged="@(v => _model.Pib = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Matični broj" Value="@_model.MaticniBroj"
+                              ValueChanged="@(v => _model.MaticniBroj = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="JBKJS" Value="@_model.Jbkjs"
+                              ValueChanged="@(v => _model.Jbkjs = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+
+            <MudCheckBox @bind-Value="_model.SaljiUCrf" T="bool" Label="Šalji u CRF" Size="Size.Small" Color="Color.Primary" Disabled="@FormaZakljucana" />
+        </MudPaper>
+    </MudItem>
+
+    @* B) Podaci dokumenta *@
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                Podaci dokumenta
+            </MudText>
+
+            <div class="mb-2">
+                <NativniSelect Label="Tip dokumenta" Value="@_model.TipDokumenta"
+                               ValueChanged="@(v => _model.TipDokumenta = v ?? "FAKTURA")"
+                               Disabled="@(_izvorRacunLocked || FormaZakljucana)">
+                    <option value="FAKTURA">FAKTURA</option>
+                    <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
+                    <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
+                    <option value="DOKUMENT O POVEĆANJU">DOKUMENT O POVEĆANJU</option>
+                </NativniSelect>
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj dokumenta" Value="@_model.BrojDokumenta"
+                              ValueChanged="@(v => _model.BrojDokumenta = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj ugovora" Value="@_model.BrojUgovora"
+                              ValueChanged="@(v => _model.BrojUgovora = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj narudžbenice/fakture/ponude" Value="@_model.BrojNarudzbenice"
+                              ValueChanged="@(v => _model.BrojNarudzbenice = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Interni broj za rutiranje" Value="@_model.InterniBrojZaRutiranje"
+                              ValueChanged="@(v => _model.InterniBrojZaRutiranje = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2"><DateInput Label="Datum prometa" @bind-Value="_model.DatumPrometa" Disabled="@FormaZakljucana" /></div>
+            <div class="mb-2"><DateInput Label="Datum valute" @bind-Value="_model.DatumValute" Disabled="@FormaZakljucana" /></div>
+        </MudPaper>
+    </MudItem>
+
+    @* C) Plaćanje + sume *@
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                Plaćanje
+            </MudText>
+
+            <div class="d-flex gap-2 mb-2">
+                <div style="flex:1;">
+                    <NativniInput TValue="string" Label="Model" Value="@_model.Model"
+                                  ValueChanged="@(v => _model.Model = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+                </div>
+                <div style="flex:1;">
+                    <NativniInput TValue="string" Label="Poziv na broj" Value="@_model.PozivNaBroj"
+                                  ValueChanged="@(v => _model.PozivNaBroj = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <NativniSelect Label="Nastanak PDV obaveze izdavaoca" Value="@_model.NastanakPdvObaveze"
+                               ValueChanged="@(v => _model.NastanakPdvObaveze = v ?? "Datum prometa")"
+                               Disabled="@FormaZakljucana">
+                    <option value="Datum izdavanja">Datum izdavanja</option>
+                    <option value="Datum prometa">Datum prometa</option>
+                    <option value="Datum plaćanja">Datum plaćanja</option>
+                    <option value="Ne nastaje PDV obaveza">Ne nastaje PDV obaveza</option>
+                </NativniSelect>
+            </div>
+
+            @* ── Osnov oslobođenja od PDV — samo kad bar jedna stavka nema PDV ── *@
+            @if (PrikaziPanelOslobodjenja)
+            {
+                <div class="mb-3">
+                    <NativniSelect Label="Član zakona" Value="@(_idClanOslobodjenja?.ToString() ?? "")"
+                                   ValueChanged="@(v => _idClanOslobodjenja = int.TryParse(v, out var cid) ? cid : null)"
+                                   Disabled="@FormaZakljucana">
+                        <option value="">—</option>
+                        @foreach (var c in _clanoviOslobodjenja)
+                        {
+                            <option value="@c.ReasonId">@c.KeyClan</option>
+                        }
+                    </NativniSelect>
+                </div>
+            }
+
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+                Sume
+            </MudText>
+
+            <div class="mb-2">
+                <NativniInput TValue="decimal" Label="Osnovica" Value="@SumaOsnovica" Format="0.00" Disabled="true" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="decimal" Label="Suma Rabat" Value="@SumaRabat" Format="0.00" Disabled="true" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="decimal" Label="Suma PDV" Value="@SumaPdv" Format="0.00" Disabled="true" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="decimal" Label="Suma Računa" Value="@SumaRacuna" Format="0.00" Disabled="true" />
+            </div>
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@* ── STAVKE — tabela, puna širina, aritmetika uživo ────────────────────── *@
+<MudPaper Elevation="1" Class="pa-3 mt-3">
+    <div class="d-flex justify-space-between align-center mb-2">
+        <MudText Typo="Typo.subtitle1" Style="color:#2D3E50; font-weight:600;">Stavke</MudText>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead>
+                <tr style="background:#2D3E50; color:white;">
+                    <th style="padding:4px 6px; text-align:left;">Rb</th>
+                    <th style="padding:4px 6px; text-align:left; min-width:90px;">Šifra</th>
+                    <th style="padding:4px 6px; text-align:left; min-width:160px;">Naziv</th>
+                    <th style="padding:4px 6px; text-align:left; min-width:80px;">JM</th>
+                    <th style="padding:4px 6px; text-align:right; min-width:90px;">Količina</th>
+                    <th style="padding:4px 6px; text-align:right; min-width:100px;">Cena</th>
+                    <th style="padding:4px 6px; text-align:right; min-width:100px;">Umanjenje</th>
+                    <th style="padding:4px 6px; text-align:right;">Osnovica</th>
+                    <th style="padding:4px 6px; text-align:left; min-width:90px;">PDV kategorija</th>
+                    <th style="padding:4px 6px; text-align:right;">PDV %</th>
+                    <th style="padding:4px 6px; text-align:right;">PDV</th>
+                    <th style="padding:4px 6px; text-align:right;">Ukupno</th>
+                    <th style="padding:4px 6px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Stavke.Count == 0)
+                {
+                    <tr><td colspan="13" style="text-align:center; padding:18px; color:#999;">Nema stavki.</td></tr>
+                }
+                else
+                {
+                    @for (int i = 0; i < Stavke.Count; i++)
+                    {
+                        var idx = i;
+                        var stavka = Stavke[idx];
+                        <tr>
+                            <td style="padding:4px 6px;">@(idx + 1)</td>
+                            <td style="padding:4px 6px;">
+                                <NativniInput TValue="string" Value="@stavka.Sifra"
+                                              ValueChanged="@(v => stavka.Sifra = v ?? string.Empty)"
+                                              Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <NativniInput TValue="string" Value="@stavka.Naziv"
+                                              ValueChanged="@(v => stavka.Naziv = v ?? string.Empty)"
+                                              Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <NativniSelect Value="@stavka.Jm" ValueChanged="@(v => stavka.Jm = v ?? "kom")"
+                                               Style="margin-top:0;" Disabled="@FormaZakljucana">
+                                    <option value="kom">kom</option>
+                                    <option value="kg">kg</option>
+                                    <option value="l">l</option>
+                                    <option value="h">h</option>
+                                    <option value="dan">dan</option>
+                                    <option value="m">m</option>
+                                    <option value="t">t</option>
+                                </NativniSelect>
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <NativniInput TValue="decimal" @bind-Value="stavka.Kolicina" @bind-Value:after="AzurirajNastanakPdvObaveze" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <NativniInput TValue="decimal" @bind-Value="stavka.Cena" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <NativniInput TValue="decimal" @bind-Value="stavka.Umanjenje" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td style="padding:4px 6px; text-align:right;">@stavka.Osnovica.ToString("N2")</td>
+                            <td style="padding:4px 6px;">
+                                <NativniSelect Value="@stavka.PdvKategorija"
+                                               ValueChanged="@(v => { stavka.PdvKategorija = v ?? "S20"; AzurirajNastanakPdvObaveze(); })"
+                                               Style="margin-top:0;" Disabled="@FormaZakljucana">
+                                    <option value="" title="Bira se u panelu poreskog oslobođenja">—</option>
+                                    <option value="S10" title="Standardno obračunavanje PDV">S10</option>
+                                    <option value="S20" title="Standardno obračunavanje PDV">S20</option>
+                                    <option value="AE10" title="Promet po poreskoj stopi od 10% za koji je poreski dužnik primalac">AE10</option>
+                                    <option value="AE20" title="Promet po poreskoj stopi od 20% za koji je poreski dužnik primalac">AE20</option>
+                                    <option value="O" title="Nije predmet oporezivanja">O</option>
+                                    <option value="E" title="Poresko oslobođenje bez prava na odbitak prethodnog poreza">E</option>
+                                    <option value="R" title="Izuzimanje od PDV">R</option>
+                                    <option value="Z" title="Poresko oslobođenje sa pravom na odbitak prethodnog poreza">Z</option>
+                                    <option value="SS" title="Posebni postupci oporezivanja">SS</option>
+                                    <option value="OE" title="Nije predmet oporezivanja PDV 2">OE</option>
+                                    <option value="N" title="Anuliranje">N</option>
+                                </NativniSelect>
+                            </td>
+                            <td style="padding:4px 6px; text-align:right;">@stavka.PdvProcenat.ToString("N0")</td>
+                            <td style="padding:4px 6px; text-align:right;">@stavka.Pdv.ToString("N2")</td>
+                            <td style="padding:4px 6px; text-align:right; font-weight:600;">@stavka.Ukupno.ToString("N2")</td>
+                            <td style="padding:4px 6px; text-align:center;">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(() => ObrisiStavku(idx))" Disabled="@FormaZakljucana" />
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" Class="mt-2" OnClick="DodajStavku" Disabled="@FormaZakljucana">
+        Dodaj stavku
+    </MudButton>
+</MudPaper>
+
+@* ── DONJI BLOK ────────────────────────────────────────────────────────── *@
+<MudGrid Spacing="3" Class="mt-1">
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <MudTextField @bind-Value="_model.Komentar" Label="Komentar" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Lines="4" Disabled="@FormaZakljucana" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Vozilo" Value="@_model.Vozilo"
+                              ValueChanged="@(v => _model.Vozilo = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj CMR" Value="@_model.BrojCmr"
+                              ValueChanged="@(v => _model.BrojCmr = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj tendera" Value="@_model.BrojTendera"
+                              ValueChanged="@(v => _model.BrojTendera = v ?? string.Empty)" Disabled="@FormaZakljucana" />
+            </div>
+            <div class="mb-2">
+                <NativniSelect Label="Žiro račun / Banka" Value="@(_model.IdBanke?.ToString() ?? "")"
+                               ValueChanged="@(v => _model.IdBanke = int.TryParse(v, out var bid) ? bid : null)"
+                               Disabled="@FormaZakljucana">
+                    <option value="">—</option>
+                    @foreach (var b in _sveBanke)
+                    {
+                        <option value="@b.idBanke">@OpisBanke(b)</option>
+                    }
+                </NativniSelect>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── PRILOZI — placeholder, dijalog se vezuje u sledećem koraku ──────────── *@
+<MudPaper Elevation="0" Class="pa-4 mt-3 d-flex align-center justify-center"
+          Style="border:1px dashed rgba(0,0,0,0.3); border-radius:4px; color:rgba(0,0,0,0.5);">
+    Prateća dokumenta (max 3)
+</MudPaper>
+
+@code {
+    private UnosDokumentaModel _model = new();
+
+    // ── Ulaz sa druge stranice (npr. dugme "E-faktura" na /fakture/unos) ──────
+    // izvor/id se samo pamte za sad (prefill dolazi u sledećem koraku); tip se
+    // odmah postavlja u padajući "Tip dokumenta".
+    [SupplyParameterFromQuery(Name = "izvor")] public string? QIzvor { get; set; }
+    [SupplyParameterFromQuery(Name = "id")]    public int?    QId    { get; set; }
+    [SupplyParameterFromQuery(Name = "tip")]   public string? QTip   { get; set; }
+
+    private string? _izvor;
+    private int?    _izvorId;
+
+    // Zaključavanja kad je forma popunjena iz računa (izvor=racun, uspešan prefill).
+    private bool _izvorRacunLocked;
+
+    // ── Partner (primalac) — autocomplete na polju Naziv, isti pattern kao
+    // /fakture/unos: @onfocusin otvori sve, @onfocusout 150ms delay zatvori,
+    // filter Contains OrdinalIgnoreCase. Read-only pristup imeniku partnera. ──
+    private List<Partner> _sviPartneri     = [];
+    private List<Partner> _partneriPredlozi = [];
+    private bool          _partnerOpen;
+
+    // ── Banka (žiro račun) — isti pattern kao /fakture/unos ──────────────────
+    private List<Banka> _sveBanke = [];
+
+    // ── Osnov oslobođenja od PDV — panel se prikazuje kad bar jedna stavka
+    // ima praznu PDV kategoriju (stopa 0 sa računa, ili ručno izabrano "—"). ──
+    private List<TaxExemption> _clanoviOslobodjenja = [];
+    private int?               _idClanOslobodjenja;
+
+    private bool PrikaziPanelOslobodjenja => Stavke.Any(s => s.PdvKategorija == "");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        _sviPartneri = await Db.Partneri.AsNoTracking().OrderBy(p => p.Naziv).ToListAsync();
+        _sveBanke    = await Db.Banke.AsNoTracking().Where(b => b.aktivan == 1).OrderBy(b => b.idBanke).ToListAsync();
+        _clanoviOslobodjenja = await Db.TaxExemptions.AsNoTracking()
+            .Where(t => t.Koristi == 1).OrderBy(t => t.KeyClan).ToListAsync();
+
+        await UcitajIzIzvora();
+    }
+
+    // Dispatch po izvoru — dodavanje avans/knjizno prefill-a kasnije je samo
+    // novi case ovde, bez diranja ostatka stranice.
+    private async Task UcitajIzIzvora()
+    {
+        _izvor   = QIzvor;
+        _izvorId = QId;
+
+        int? idBankeSaRacuna = null;
+
+        switch (_izvor)
+        {
+            case "racun":
+                if (_izvorId is not null)
+                    idBankeSaRacuna = await PrefillIzRacuna(_izvorId.Value);
+                break;
+            case "avans":
+                // Prefill iz avansa — kasnije.
+                break;
+            case "knjizno":
+                // Prefill iz knjižnog odobrenja/zaduženja — kasnije.
+                break;
+            default:
+                // Bez izvora — prazna forma, kao i do sad.
+                break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(QTip))
+            _model.TipDokumenta = QTip;
+
+        AzurirajDefaultBanku(idBankeSaRacuna);
+    }
+
+    // Čita račun i stavke (READ-ONLY) i popunjava memorijski model. Ništa se ne
+    // upisuje u bazu. Vraća idBanke sa računa (za default žiro računa), ili null
+    // ako prefill nije urađen (nema računa / inostrani račun).
+    private async Task<int?> PrefillIzRacuna(int idRacuna)
+    {
+        var racun = await Db.Racuni.AsNoTracking().FirstOrDefaultAsync(r => r.Broj == idRacuna);
+        if (racun is null)
+        {
+            Snackbar.Add($"Račun #{idRacuna} nije pronađen.", Severity.Warning);
+            return null;
+        }
+
+        // Druga brana (i na formi računa je dugme disabled za INOSTRANI, ali
+        // proveravamo i ovde jer se na ovu formu može doći i direktnim linkom).
+        if (racun.TipProdaje == "INOSTRANI")
+        {
+            Snackbar.Add("Inostrani račun se ne može poslati na SEF.", Severity.Warning);
+            return null;
+        }
+
+        var stavkeRacuna = await Db.ArtikliRacuna.AsNoTracking()
+            .Where(s => s.Id_Racuna == racun.Broj.ToString())
+            .ToListAsync();
+
+        // Glava
+        _model.TipDokumenta     = "FAKTURA";
+        _model.BrojDokumenta    = racun.BrojRacuna ?? "";
+        _model.PozivNaBroj      = racun.BrojRacuna ?? "";
+        _model.BrojNarudzbenice = racun.FiskIsecak ?? "";
+        _model.DatumPrometa     = racun.DatumPrometa?.ToString("yyyy-MM-dd") ?? _model.DatumPrometa;
+        _model.DatumValute      = racun.DatumValute?.ToString("yyyy-MM-dd") ?? _model.DatumValute;
+        _model.Komentar         = racun.Komentar1 ?? "";
+        _model.Vozilo           = racun.Vozilo ?? "";
+        _model.BrojCmr          = "";
+
+        // Partner — fiksan sa računa (autocomplete se zaključava)
+        _model.Naziv = racun.Naziv ?? "";
+        _model.Pib   = racun.PIB ?? "";
+        var partner = racun.IdPartnera is not null
+            ? _sviPartneri.FirstOrDefault(p => p.Broj == racun.IdPartnera)
+            : null;
+        _model.MaticniBroj = partner?.PosBroj ?? "";
+
+        // JBKJS se čuva u koloni Sifra (isto kao PartnerDialog.razor). Ako postoji,
+        // popuni JBKJS i čekiraj CRF; ako ne, ostavi prazno/nečekirano.
+        var jbkjs = partner?.Sifra;
+        _model.Jbkjs     = jbkjs ?? "";
+        _model.SaljiUCrf = !string.IsNullOrWhiteSpace(jbkjs);
+
+        // Stavke
+        Stavke = stavkeRacuna.Count > 0
+            ? [.. stavkeRacuna.Select(MapirajStavkuRacuna)]
+            : [new StavkaVM()];
+
+        // Zamenjuje raniju logiku (OpcijaString11/pdvDatumObracuna fallback) —
+        // "Nastanak PDV obaveze" se sad izvodi iz stavki (ima/nema PDV).
+        AzurirajNastanakPdvObaveze();
+
+        // Predizbor člana zakona za oslobođenje (samo ako panel treba da se prikaže)
+        _idClanOslobodjenja = (racun.TipProdaje, racun.UvozIzvoz) switch
+        {
+            ("IZLAZ_BP", "IZVOZ") => 82,
+            ("IZLAZ_BP", "UVOZ")  => 73,
+            _                     => null
+        };
+
+        _izvorRacunLocked = true;
+
+        return racun.IdBanke;
+    }
+
+    private static StavkaVM MapirajStavkuRacuna(Stavka s)
+    {
+        var cena     = s.CenaPoJMBP ?? 0;
+        var kolicina = s.Kolicina ?? 0;
+
+        // VrednostMinusRab je NETO vrednost (osnovica), ne iznos rabata — pravi
+        // rabat se dobija oduzimanjem stvarne osnovice sa računa od bruto iznosa
+        // (bez rabata daje 0, sa rabatom tačan iznos).
+        var umanjenje = (cena * kolicina) - (s.Osnovica ?? 0);
+
+        return new StavkaVM
+        {
+            Sifra         = s.Barcode ?? "",
+            Naziv         = s.Artikal ?? "",
+            Jm            = s.JM ?? "kom",
+            Kolicina      = kolicina,
+            Cena          = cena,
+            Umanjenje     = umanjenje,
+            PdvKategorija = s.StopaPDV switch
+            {
+                20 => "S20",
+                10 => "S10",
+                _  => ""
+            }
+        };
+    }
+
+    // Default banka: žiro računa sa učitanog računa (ako postoji u aktivnim
+    // bankama), inače podrazumevana banka (defaultRacun) ili prva po redu —
+    // isti fallback kao AzurirajDefaultBanku u /fakture/unos.
+    private void AzurirajDefaultBanku(int? idBankeSaRacuna)
+    {
+        if (idBankeSaRacuna is not null && _sveBanke.Any(b => b.idBanke == idBankeSaRacuna))
+        {
+            _model.IdBanke = idBankeSaRacuna;
+            return;
+        }
+
+        var izbor = _sveBanke.OrderByDescending(b => b.defaultRacun).ThenBy(b => b.idBanke).FirstOrDefault();
+        _model.IdBanke = izbor?.idBanke;
+    }
+
+    private static string OpisBanke(Banka b)
+    {
+        var racunPrikaz = b.TipRacuna == "INOSTRANI" ? (b.IBAN ?? b.racun) : b.racun;
+        return $"{b.banka} — {racunPrikaz}";
+    }
+
+    private bool    _saljem;
+    private string? _poslatSalesInvoiceId;
+
+    // Forma se zaključava TEK posle uspešnog slanja (ima SalesInvoiceId) — sprečava
+    // duplo slanje i dalje izmene dokumenta koji je već na SEF-u.
+    private bool FormaZakljucana => _poslatSalesInvoiceId is not null;
+
+    // Builder je SAMO za minimalnu FAKTURU sa standardnim PDV kategorijama
+    // (S10/S20) — avans/oslobođenje/knjižna/prilozi dolaze u kasnijim koracima.
+    // Zajednička provera i za Izvoz XML i za Pošalji (obe idu kroz isti builder).
+    private string? ProveriBuilderOgranicenja()
+    {
+        if (_model.TipDokumenta != "FAKTURA")
+            return "Ova akcija trenutno podržava samo tip dokumenta FAKTURA.";
+
+        if (Stavke.Count == 0 || Stavke.Any(s => s.PdvKategorija is not ("S10" or "S20")))
+            return "Ova akcija trenutno podržava samo standardne PDV kategorije (S10/S20) na svim stavkama.";
+
+        return null;
+    }
+
+    private async Task IzvozXml()
+    {
+        var greska = ProveriBuilderOgranicenja();
+        if (greska is not null)
+        {
+            Snackbar.Add(greska, Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.BrojDokumenta))
+        {
+            Snackbar.Add("Unesite broj dokumenta pre izvoza.", Severity.Warning);
+            return;
+        }
+
+        var input      = await PripremiUblInput();
+        var xml        = UblBuilder.Build(input);
+        var nazivFajla = $"RACUN_{(_model.BrojDokumenta ?? "").Replace("/", "")}.xml";
+
+        await JS.InvokeVoidAsync("downloadTextFile", nazivFajla, xml);
+        Snackbar.Add("XML generisan.", Severity.Success);
+    }
+
+    // ── Pošalji na SEF (DEMO/PROD prema podešavanjima) — bez upisa u bazu, to je
+    // sledeći korak. Validacije 1:1 prema specifikaciji, zatim potvrda pa slanje. ──
+    private async Task Posalji()
+    {
+        // Idempotencija — već poslato, dugme je i vizuelno disabled ali provera
+        // ostaje i ovde (npr. ako je klik već bio u letu kad je stanje promenjeno).
+        if (FormaZakljucana) return;
+
+        var greska = ValidirajZaSlanje();
+        if (greska is not null)
+        {
+            Snackbar.Add(greska, Severity.Warning);
+            return;
+        }
+
+        var potvrda = await Dialog.ShowMessageBox(
+            "Slanje e-fakture",
+            "Da li želite da pošaljete račun na sistem E-Faktura?",
+            yesText: "Da", cancelText: "Ne");
+        if (potvrda != true) return;
+
+        _saljem = true; StateHasChanged();
+        try
+        {
+            var input = await PripremiUblInput();
+            var xml   = UblBuilder.Build(input);
+
+            var kontekst = new EFakturaSlanjeKontekst
+            {
+                IdRacuna            = _izvor == "racun" ? _izvorId : null,
+                IdClanOslobodjenja  = _idClanOslobodjenja,
+                KeyClanOslobodjenja = _clanoviOslobodjenja.FirstOrDefault(c => c.ReasonId == _idClanOslobodjenja)?.KeyClan,
+                Korisnik            = TenantService.GetImeKorisnika(),
+                Model               = _model.Model
+            };
+
+            var (uspesno, poruka, salesInvoiceId, _, _) =
+                await EFaktureService.PosaljiUblAsync(xml, _model.SaljiUCrf, input, kontekst);
+
+            if (uspesno)
+            {
+                _poslatSalesInvoiceId = salesInvoiceId;
+                Snackbar.Add($"Dokument uspešno poslat. SalesInvoiceId: {salesInvoiceId}", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(poruka, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri slanju: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saljem = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string OcistiNazivFajla(string? brojDokumenta) =>
+        (brojDokumenta ?? "dokument").Replace("/", "").Replace("\\", "");
+
+    private async Task PreuzmiPdf()
+    {
+        if (_poslatSalesInvoiceId is null) return;
+
+        try
+        {
+            var bytes = await EFaktureService.PreuzmiPdfAsync(_poslatSalesInvoiceId);
+            if (bytes is null)
+            {
+                Snackbar.Add("Dokument je verovatno još u obradi, pokušajte malo kasnije", Severity.Warning);
+                return;
+            }
+
+            var naziv = $"Racun_{OcistiNazivFajla(_model.BrojDokumenta)}.pdf";
+            var b64   = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFilePdf", naziv, b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri preuzimanju PDF-a: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task PrikazStampa()
+    {
+        if (_poslatSalesInvoiceId is null) return;
+
+        try
+        {
+            var bytes = await EFaktureService.PreuzmiPdfAsync(_poslatSalesInvoiceId);
+            if (bytes is null)
+            {
+                Snackbar.Add("Dokument je verovatno još u obradi, pokušajte malo kasnije", Severity.Warning);
+                return;
+            }
+
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("openPdfPreview", b64);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri pregledu PDF-a: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string? ValidirajZaSlanje()
+    {
+        if (string.IsNullOrWhiteSpace(_model.TipDokumenta))
+            return "Izaberite tip dokumenta.";
+
+        if ((_model.BrojDokumenta ?? "").Trim().Length < 3)
+            return "Broj dokumenta mora imati bar 3 znaka.";
+
+        if ((_model.Naziv ?? "").Trim().Length < 3)
+            return "Naziv kupca mora imati bar 3 znaka.";
+
+        if (string.IsNullOrWhiteSpace(_model.Pib))
+            return "Unesite PIB kupca.";
+
+        if (string.IsNullOrWhiteSpace(_model.MaticniBroj))
+            return "Unesite matični broj kupca.";
+
+        if (_model.TipDokumenta == "FAKTURA")
+        {
+            var datumPrometa = ParsirajDatum(_model.DatumPrometa);
+            if (datumPrometa is not null && datumPrometa.Value.Date > DateTime.Today)
+                return "Datum prometa ne sme biti veći od današnjeg.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(_model.Jbkjs)
+            && string.IsNullOrWhiteSpace(_model.BrojUgovora)
+            && string.IsNullOrWhiteSpace(_model.BrojNarudzbenice))
+            return "Kupac ima JBKJS (javna ustanova) — unesite Broj ugovora ili Broj narudžbenice.";
+
+        if (PrikaziPanelOslobodjenja && _idClanOslobodjenja is null)
+            return "Izaberite član zakona za PDV oslobođenje.";
+
+        return ProveriBuilderOgranicenja();
+    }
+
+    private async Task<EFakturaUblInput> PripremiUblInput()
+    {
+        var firma   = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
+        var banka   = _sveBanke.FirstOrDefault(b => b.idBanke == _model.IdBanke);
+        var partner = _sviPartneri.FirstOrDefault(p => p.PIB == _model.Pib);
+
+        return new EFakturaUblInput
+        {
+            ProdavacNaziv         = firma?.NazivFirme ?? "",
+            ProdavacPib           = firma?.PIB ?? "",
+            ProdavacAdresa        = firma?.Adresa ?? "",
+            ProdavacMesto         = firma?.Mesto ?? "",
+            ProdavacPostanskiBroj = firma?.PosBroj ?? "",
+            ProdavacMaticniBroj   = firma?.MaticniBroj ?? "",
+
+            KupacNaziv       = _model.Naziv,
+            KupacPib         = _model.Pib,
+            KupacMaticniBroj = _model.MaticniBroj,
+            KupacJbkjs       = string.IsNullOrWhiteSpace(_model.Jbkjs) ? null : _model.Jbkjs,
+            // Partner entitet nema poštanski broj — KupacPostanskiBroj ostaje prazno.
+            KupacAdresa      = partner?.Adresa,
+            KupacMesto       = partner?.Mesto,
+
+            BrojDokumenta          = _model.BrojDokumenta,
+            DatumValute            = ParsirajDatum(_model.DatumValute),
+            DatumPrometa           = ParsirajDatum(_model.DatumPrometa),
+            InterniBrojZaRutiranje = _model.InterniBrojZaRutiranje,
+            NastanakPdvObaveze     = _model.NastanakPdvObaveze,
+            BrojNarudzbenice       = _model.BrojNarudzbenice,
+            BrojTendera            = _model.BrojTendera,
+            BrojUgovora            = _model.BrojUgovora,
+            Vozilo                 = _model.Vozilo,
+            BrojCmr                = _model.BrojCmr,
+            Komentar               = _model.Komentar,
+            PozivNaBroj            = _model.PozivNaBroj,
+            ZiroRacunIzdavaoca     = banka?.racun ?? "",
+
+            Stavke = [.. Stavke.Select(s => new EFakturaUblStavka
+            {
+                Sifra         = s.Sifra,
+                Naziv         = s.Naziv,
+                Jm            = s.Jm,
+                Kolicina      = s.Kolicina,
+                Cena          = s.Cena,
+                Umanjenje     = s.Umanjenje,
+                Osnovica      = s.Osnovica,
+                PdvKategorija = s.PdvKategorija,
+                PdvProcenat   = s.PdvProcenat,
+                Pdv           = s.Pdv,
+                Ukupno        = s.Ukupno
+            })]
+        };
+    }
+
+    private static DateTime? ParsirajDatum(string? iso) =>
+        DateTime.TryParseExact(iso, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    private void AzurirajPartnerPredloge()
+    {
+        _partneriPredlozi = string.IsNullOrWhiteSpace(_model.Naziv)
+            ? [.. _sviPartneri]
+            : [.. _sviPartneri.Where(p => (p.Naziv ?? "").Contains(_model.Naziv, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    private void OnPartnerFocusin()
+    {
+        _partnerOpen = true;
+        AzurirajPartnerPredloge();
+    }
+
+    private async Task OnPartnerFocusout()
+    {
+        await Task.Delay(150);
+        _partnerOpen = false;
+        StateHasChanged();
+    }
+
+    // Matični broj partnera se čuva u koloni PosBroj (isto kao PartnerDialog.razor).
+    // Partner entitet nema JBKJS kolonu — ostaje ručni unos, "Šalji u CRF" se ne dira.
+    private void IzaberiPartnera(Partner p)
+    {
+        _model.Naziv       = p.Naziv ?? "";
+        _model.Pib         = p.PIB ?? "";
+        _model.MaticniBroj = p.PosBroj ?? "";
+
+        _partnerOpen      = false;
+        _partneriPredlozi = [];
+    }
+
+    // ── Stavke ────────────────────────────────────────────────────────────
+    private List<StavkaVM> Stavke = [new()];
+
+    private decimal SumaOsnovica => Stavke.Sum(s => s.Osnovica);
+    private decimal SumaRabat     => Stavke.Sum(s => s.Umanjenje);
+    private decimal SumaPdv       => Stavke.Sum(s => s.Pdv);
+    private decimal SumaRacuna    => Stavke.Sum(s => s.Ukupno);
+
+    private void DodajStavku()
+    {
+        Stavke.Add(new StavkaVM());
+        AzurirajNastanakPdvObaveze();
+    }
+
+    private void ObrisiStavku(int idx)
+    {
+        if (idx >= 0 && idx < Stavke.Count)
+            Stavke.RemoveAt(idx);
+
+        AzurirajNastanakPdvObaveze();
+    }
+
+    // Auto-logika za "Nastanak PDV obaveze izdavaoca" — reaguje na stavke (prefill
+    // i svaka izmena). Ima osnovicu ali nema PDV -> "Ne nastaje PDV obaveza". Ima
+    // PDV -> ako je trenutno prazno/"Ne nastaje..." postavi "Datum prometa", inače
+    // ne diraj ručan izbor korisnika (Datum plaćanja/Datum izdavanja).
+    private void AzurirajNastanakPdvObaveze()
+    {
+        var osnovica = SumaOsnovica;
+        var pdv      = SumaPdv;
+
+        if (osnovica != 0 && pdv == 0)
+        {
+            _model.NastanakPdvObaveze = "Ne nastaje PDV obaveza";
+        }
+        else if (pdv != 0 && (string.IsNullOrWhiteSpace(_model.NastanakPdvObaveze) || _model.NastanakPdvObaveze == "Ne nastaje PDV obaveza"))
+        {
+            _model.NastanakPdvObaveze = "Datum prometa";
+        }
+    }
+
+    private class StavkaVM
+    {
+        public string Sifra { get; set; } = "";
+        public string Naziv { get; set; } = "";
+        public string Jm { get; set; } = "kom";
+        public decimal Kolicina { get; set; }
+        public decimal Cena { get; set; }
+        public decimal Umanjenje { get; set; }
+        public string PdvKategorija { get; set; } = "S20";
+
+        public decimal Osnovica => Kolicina * Cena - Umanjenje;
+
+        public decimal PdvProcenat => PdvKategorija switch
+        {
+            "S10" => 10m,
+            "S20" => 20m,
+            _      => 0m
+        };
+
+        // Samo S10/S20 stvarno obračunavaju PDV — sve ostale kategorije (uključujući
+        // AE10/AE20, obrnuto zaduženje) imaju procenat i PDV jednake 0.
+        public decimal Pdv => PdvKategorija is "S10" or "S20" ? Osnovica * PdvProcenat / 100m : 0m;
+
+        public decimal Ukupno => Osnovica + Pdv;
+    }
+
+    private class UnosDokumentaModel
+    {
+        // A) Primalac dokumenta
+        public string Naziv { get; set; } = "";
+        public string Pib { get; set; } = "";
+        public string MaticniBroj { get; set; } = "";
+        public string Jbkjs { get; set; } = "";
+        public bool SaljiUCrf { get; set; }
+
+        // B) Podaci dokumenta
+        public string TipDokumenta { get; set; } = "FAKTURA";
+        public string BrojDokumenta { get; set; } = "";
+        public string BrojUgovora { get; set; } = "";
+        public string BrojNarudzbenice { get; set; } = "";
+        public string InterniBrojZaRutiranje { get; set; } = "";
+        public string DatumPrometa { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+        public string DatumValute { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+
+        // C) Plaćanje + sume
+        public string Model { get; set; } = "";
+        public string PozivNaBroj { get; set; } = "";
+        public string NastanakPdvObaveze { get; set; } = "Datum prometa";
+
+        // Donji blok
+        public string Komentar { get; set; } = "";
+        public string Vozilo { get; set; } = "";
+        public string BrojCmr { get; set; } = "";
+        public string BrojTendera { get; set; } = "";
+        public int?   IdBanke { get; set; }
+
+        // Toolbar
+        public bool DodajAvans { get; set; }
+    }
+}

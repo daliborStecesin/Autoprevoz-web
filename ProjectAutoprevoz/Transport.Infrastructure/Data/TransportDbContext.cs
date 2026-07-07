@@ -96,6 +96,7 @@ public class TransportDbContext : DbContext
     public DbSet<GroupVatRecord> GroupVatRecords { get; set; }
     public DbSet<EFakturaUlaz> EFaktureUlaz { get; set; }
     public DbSet<EInvoice> EInvoices { get; set; }
+    public DbSet<LineItem> LineItems { get; set; }
 
     // Podešavanja i šifarnici
     public DbSet<DefaultValue>  DefaultValues  { get; set; }
@@ -452,6 +453,35 @@ public class TransportDbContext : DbContext
             e.Property(x => x.korisnik).HasColumnName("korisnik").HasMaxLength(50);
             e.Property(x => x.status).HasColumnName("status").HasMaxLength(10);
             e.Property(x => x.invoiceIDint).HasColumnName("invoiceIDint");
+        });
+
+        // LineItem — mapiranje na tbl_lineItem (postojeća tabela, kolone se ne menjaju)
+        modelBuilder.Entity<LineItem>(e =>
+        {
+            e.ToTable("tbl_lineItem");
+            e.HasKey(x => x.idKolone);
+            e.Property(x => x.idKolone).HasColumnName("idKolone");
+            e.Property(x => x.idRacuna).HasColumnName("idRacuna");
+            e.Property(x => x.rowId).HasColumnName("rowId");
+            e.Property(x => x.invoiceId).HasColumnName("invoiceId");
+            e.Property(x => x.orderNo).HasColumnName("orderNo");
+            e.Property(x => x.code).HasColumnName("code").HasMaxLength(20);
+            e.Property(x => x.description).HasColumnName("description").HasMaxLength(2000);
+            e.Property(x => x.unit).HasColumnName("unit").HasMaxLength(20);
+            e.Property(x => x.unitPrice).HasColumnName("unitPrice").HasColumnType("decimal(18,2)");
+            e.Property(x => x.quantity).HasColumnName("quantity").HasColumnType("decimal(18,3)");
+            e.Property(x => x.discountPercentage).HasColumnName("discountPercentage").HasColumnType("decimal(18,2)");
+            e.Property(x => x.discountAmount).HasColumnName("discountAmount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.sumWithoutVat).HasColumnName("sumWithoutVat").HasColumnType("decimal(18,2)");
+            e.Property(x => x.vatRate).HasColumnName("vatRate").HasColumnType("decimal(18,0)");
+            e.Property(x => x.vatSum).HasColumnName("vatSum").HasColumnType("decimal(18,2)");
+            e.Property(x => x.sumWithVat).HasColumnName("sumWithVat").HasColumnType("decimal(18,2)");
+            e.Property(x => x.vatCategoryCode).HasColumnName("vatCategoryCode").HasMaxLength(5);
+            e.Property(x => x.tipRacuna).HasColumnName("tipRacuna").HasMaxLength(20);
+            e.Property(x => x.cenaSP).HasColumnName("cenaSP").HasColumnType("decimal(18,2)");
+            e.Property(x => x.cenaSaRbt).HasColumnName("cenaSaRbt").HasColumnType("decimal(18,2)");
+            e.Property(x => x.KeyClan).HasColumnName("KeyClan").HasMaxLength(50);
+            e.Property(x => x.idTaxExemption).HasColumnName("idTaxExemption");
         });
 
         // kursEur zahteva 4 decimale

@@ -2737,7 +2737,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((211)),
+	[verzijaBaze] [int] NULL DEFAULT ((212)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -4738,31 +4738,6 @@ REFERENCES [dbo].[tbl_role] ([idRole])
 GO
 ALTER TABLE [dbo].[tbl_web_korisnici]  WITH CHECK ADD FOREIGN KEY([idRole])
 REFERENCES [dbo].[tbl_role] ([idRole])
-GO
-/****** Object:  Trigger [dbo].[brisanjaArtikalatbl_eInvoice]    Script Date: 8.6.2026. 22:52:59 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-CREATE TRIGGER [dbo].[brisanjaArtikalatbl_eInvoice]
-ON  [dbo].[tbl_eInvoice]
-AFTER DELETE
-AS
-BEGIN
-
-declare @idInvoice int;
-
-
-select  @idInvoice = i.idEfakture FROM deleted i;
-
-
- DELETE FROM tbl_lineItem WHERE tbl_lineItem.invoiceId = @idInvoice
-
-END
- 
-
 GO
 /****** Object:  Trigger [dbo].[brisanjaArtikalaOtpreme]    Script Date: 8.6.2026. 22:52:59 ******/
 SET ANSI_NULLS ON

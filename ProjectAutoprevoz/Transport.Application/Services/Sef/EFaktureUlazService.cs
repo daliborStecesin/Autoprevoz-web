@@ -230,6 +230,11 @@ public class EFaktureUlazService : IEFaktureUlazService
     private static XElement? Podelement(XElement? scope, string localName)
         => scope?.Descendants().FirstOrDefault(e => e.Name.LocalName == localName);
 
+    // Svi elementi sa datim lokalnim imenom bilo gde unutar scope-a (rekurzivno) —
+    // za AdditionalDocumentReference može ih biti do 3.
+    private static IEnumerable<XElement> Elementi(XElement? scope, string localName)
+        => scope?.Descendants().Where(e => e.Name.LocalName == localName) ?? [];
+
     private static decimal? ParsirajDecimal(string? raw)
         => decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : null;
 
@@ -349,5 +354,32 @@ public class EFaktureUlazService : IEFaktureUlazService
     {
         var (apiKey, tipServera) = await GetSettings();
         return await _api.GetStringAsync(apiKey, tipServera, $"purchase-invoice/xml?invoiceId={invoiceId}");
+    }
+
+    // ── Prateći dokumenti (prilozi) — cac:AdditionalDocumentReference, do 3 po fakturi ──
+    public async Task<List<PrateciDokument>> UcitajPrateceDokumenteAsync(string invoiceId)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+        var xml  = await _api.GetStringAsync(apiKey, tipServera, $"purchase-invoice/xml?invoiceId={invoiceId}");
+        var root = XDocument.Parse(xml).Root;
+
+        var rezultat = new List<PrateciDokument>();
+
+        foreach (var docRef in Elementi(root, "AdditionalDocumentReference"))
+        {
+            // Neke reference nemaju ugrađen sadržaj (npr. samo broj narudžbenice) —
+            // uzimamo samo one koje stvarno nose Base64 PDF prilog.
+            var attachment = Podelement(docRef, "Attachment");
+            var base64     = Vrednost(attachment, "EmbeddedDocumentBinaryObject");
+            if (string.IsNullOrWhiteSpace(base64)) continue;
+
+            rezultat.Add(new PrateciDokument
+            {
+                Naziv         = Vrednost(docRef, "ID") ?? "Prilog",
+                Base64Sadrzaj = base64
+            });
+        }
+
+        return rezultat;
     }
 }

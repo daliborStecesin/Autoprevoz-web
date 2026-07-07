@@ -1633,15 +1633,31 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- 212 = DROP trigger [brisanjaArtikalatbl_eInvoice] na tbl_eInvoice — trigger na
+--       DELETE je sudarao se sa EF Core-ovim OUTPUT klauzulom pri DELETE nad
+--       tbl_eInvoice ("The target table ... cannot have any enabled triggers if
+--       the statement contains an OUTPUT clause without INTO clause"), rušilo
+--       učitavanje/brisanje izlaznih e-faktura. Legacy funkcija (brisanje
+--       tbl_lineItem po invoiceId) više nije relevantna za ovaj tok.
+-- ================================================================
+IF OBJECT_ID('dbo.brisanjaArtikalatbl_eInvoice', 'TR') IS NOT NULL
+BEGIN
+    DROP TRIGGER [dbo].[brisanjaArtikalatbl_eInvoice];
+    PRINT 'Uklonjen trigger brisanjaArtikalatbl_eInvoice sa tbl_eInvoice.';
+END
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
 -- 210 = OpcijaString13 = domacaValuta + OpcijaInt12 = radSaViseMoneta (konfigurabilna domaca valuta, rad sa EUR)
 -- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz)
+-- 212 = DROP trigger brisanjaArtikalatbl_eInvoice (sudar sa EF Core OUTPUT klauzulom)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 211;
-    PRINT 'Verzija baze postavljena na 211.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 212;
+    PRINT 'Verzija baze postavljena na 212.';
 END
 GO
 

@@ -60,6 +60,12 @@
                 </MudTooltip>
             </MudItem>
 
+            @* ── JBKJS — čuva se u koloni Sifra, samo za državne firme ── *@
+            <MudItem xs="5">
+                <NativniInput TValue="string" Label="JBKJS" Value="@_jbkjs"
+                              ValueChanged="@(v => _jbkjs = new string((v ?? string.Empty).Where(char.IsDigit).ToArray()))" />
+            </MudItem>
+
             @* ── Kontakt ────────────────────────────────────────── *@
             <MudItem xs="12" sm="4">
                 <MudTextField @bind-Value="_telefon1" Label="Telefon 1"
@@ -223,6 +229,7 @@
     private string? _mesto;
     private string? _pib;
     private string? _maticniBroj; // čuva se u PosBroj koloni u bazi
+    private string? _jbkjs;       // čuva se u Sifra koloni u bazi
     private string? _telefon1;
     private string? _telefon2;
     private string? _mobilni;
@@ -254,6 +261,7 @@
                 _mesto       = _entitet.Mesto;
                 _pib         = _entitet.PIB;
                 _maticniBroj = _entitet.PosBroj; // PosBroj = matični broj
+                _jbkjs       = _entitet.Sifra;   // Sifra = JBKJS
                 _telefon1    = _entitet.Telefon1;
                 _telefon2    = _entitet.Telefon2;
                 _mobilni     = _entitet.Mobilni;
@@ -373,6 +381,7 @@
             _entitet.Adresa   = _adresa;
             _entitet.Mesto    = _mesto;
             _entitet.PosBroj  = _maticniBroj; // Matični broj se čuva u PosBroj koloni
+            _entitet.Sifra    = _jbkjs;       // JBKJS se čuva u Sifra koloni
             _entitet.PIB      = _pib;
             _entitet.Telefon1 = _telefon1;
             _entitet.Telefon2 = _telefon2;
