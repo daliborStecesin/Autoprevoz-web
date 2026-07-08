@@ -177,7 +177,7 @@
                                            ValueChanged="@(v => _tipDokumentaFilter = v ?? "SVI TIPOVI")">
                                 <option value="SVI TIPOVI">SVI TIPOVI</option>
                                 <option value="FAKTURA">FAKTURA</option>
-                                <option value="AVANS">AVANS</option>
+                                <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
                                 <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
                                 <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
                             </NativniSelect>
@@ -664,7 +664,7 @@
 
     // ── Kreiraj obaveštenje (navigira na formu Obaveštenja o prethodnom porezu) ──
     private bool MozeKreiratiObavestenje(EFakturaUlaz red) =>
-        (red.tipDokumenta is "FAKTURA" or "AVANS" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU"
+        (red.tipDokumenta is "FAKTURA" or "AVANSNA FAKTURA" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU"
             && red.statusDokumenta == "Stornirano")
         || (red.tipDokumenta is "KNJIZNO ODOBRENJE" or "DOKUMENT O SMANJENJU"
             && red.statusDokumenta == "Odobreno");
@@ -719,7 +719,7 @@
     private static string SkraceniTip(string? tip) => tip switch
     {
         "FAKTURA"                 => "FAKTURA",
-        "AVANS"                   => "AVANS",
+        "AVANSNA FAKTURA"         => "AVANS",
         "DOKUMENT O SMANJENJU"    => "DOK. SMANJENJA",
         "DOKUMENT O POVECANJU"    => "DOK. POVEĆANJA",
         "KNJIZNO ODOBRENJE"       => "DOK. SMANJENJA",

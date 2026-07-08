@@ -274,12 +274,13 @@ public class EFaktureUlazService : IEFaktureUlazService
 
     // 380/381/383/386 — NOVA terminologija za nove upise (stara KNJIZNO ODOBRENJE/ZADUZENJE
     // ostaje samo u starim podacima, filter u GetListaAsync i dalje prepoznaje oba).
+    // "AVANSNA FAKTURA" usklađeno sa formom /efakture/unos i Izlaznim e-fakturama.
     private static string PrevediTipRacuna(string? kod) => kod switch
     {
         "380" => "FAKTURA",
         "381" => "DOKUMENT O SMANJENJU",
         "383" => "DOKUMENT O POVECANJU",
-        "386" => "AVANS",
+        "386" => "AVANSNA FAKTURA",
         _     => kod ?? ""
     };
 

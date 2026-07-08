@@ -189,7 +189,7 @@
                                            ValueChanged="@(v => _tipDokumentaFilter = v ?? "SVI TIPOVI")">
                                 <option value="SVI TIPOVI">SVI TIPOVI</option>
                                 <option value="FAKTURA">FAKTURA</option>
-                                <option value="AVANS">AVANS</option>
+                                <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
                                 <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
                                 <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
                             </NativniSelect>
@@ -871,7 +871,7 @@
     private static string SkraceniTip(string? tip) => tip switch
     {
         "FAKTURA"                 => "FAKTURA",
-        "AVANS"                   => "AVANS",
+        "AVANSNA FAKTURA"         => "AVANS",
         "DOKUMENT O SMANJENJU"    => "DOK. SMANJENJA",
         "DOKUMENT O POVECANJU"    => "DOK. POVEĆANJA",
         "KNJIZNO ODOBRENJE"       => "DOK. SMANJENJA",

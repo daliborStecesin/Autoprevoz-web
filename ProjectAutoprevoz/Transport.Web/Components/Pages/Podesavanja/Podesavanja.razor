@@ -242,22 +242,19 @@ else if (_pod is not null && _firma is not null)
 
             <MudGrid Spacing="3" Class="mb-4">
                 <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Dok_1"
-                                     Label="Broj knjižnog odobrenja (KO)"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                    <NativniInput TValue="int?" Label="Sledeći broj - Avansni račun"
+                                  Value="@_pod.Broj_Dok_2"
+                                  ValueChanged="@(v => _pod.Broj_Dok_2 = v)" />
                 </MudItem>
                 <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Dok_3"
-                                     Label="Broj knjižnog zaduženja (KZ)"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                    <NativniInput TValue="int?" Label="Sledeći broj - Knjižno odobrenje"
+                                  Value="@_pod.Broj_Dok_1"
+                                  ValueChanged="@(v => _pod.Broj_Dok_1 = v)" />
                 </MudItem>
                 <MudItem xs="12" sm="4">
-                    <MudNumericField T="int?"
-                                     @bind-Value="_pod.Broj_Dok_2"
-                                     Label="Broj avansa"
-                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                    <NativniInput TValue="int?" Label="Sledeći broj - Knjižno zaduženje"
+                                  Value="@_pod.Broj_Dok_3"
+                                  ValueChanged="@(v => _pod.Broj_Dok_3 = v)" />
                 </MudItem>
             </MudGrid>
 

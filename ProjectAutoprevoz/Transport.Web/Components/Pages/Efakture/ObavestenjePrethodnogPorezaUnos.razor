@@ -294,14 +294,14 @@ else
     {
         _poreklo = "Dokument izdat preko SEF-a";
 
-        if (QTipDokumenta is "FAKTURA" or "AVANS" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU")
+        if (QTipDokumenta is "FAKTURA" or "AVANSNA FAKTURA" or "KNJIZNO ZADUZENJE" or "DOKUMENT O POVECANJU")
         {
             _osnov = "Storno";
             _tipReference = QTipDokumenta switch
             {
-                "FAKTURA" => "Storno fakture za promet",
-                "AVANS"   => "Storno avansne fakture",
-                _         => "Storno dokumenta o povecanju" // KNJIZNO ZADUZENJE / DOKUMENT O POVECANJU
+                "FAKTURA"         => "Storno fakture za promet",
+                "AVANSNA FAKTURA" => "Storno avansne fakture",
+                _                 => "Storno dokumenta o povecanju" // KNJIZNO ZADUZENJE / DOKUMENT O POVECANJU
             };
         }
         else

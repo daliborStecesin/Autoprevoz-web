@@ -10,4 +10,9 @@ public class EFakturaSlanjeKontekst
     public string? KeyClanOslobodjenja { get; set; }
     public string? Korisnik { get; set; }
     public string? Model { get; set; }
+
+    // Tip dokumenta sa forme ("FAKTURA"/"AVANSNA FAKTURA"/"DOKUMENT O SMANJENJU"/
+    // "DOKUMENT O POVEĆANJU") — koristi se da se posle uspešnog slanja inkrementira
+    // odgovarajući brojač (Broj_Dok_1/2/3) u tbl_Podesavanja.
+    public string? TipDokumenta { get; set; }
 }

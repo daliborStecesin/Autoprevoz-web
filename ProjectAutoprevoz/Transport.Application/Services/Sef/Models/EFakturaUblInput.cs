@@ -20,6 +20,9 @@ public class EFakturaUblInput
     public string? KupacPostanskiBroj { get; set; }
 
     // Glava dokumenta
+    // Tip dokumenta sa forme — "FAKTURA" (default) ili "AVANSNA FAKTURA" za sad;
+    // menja InvoiceTypeCode (380/386), Delivery i InvoicePeriod u builderu.
+    public string TipDokumenta { get; set; } = "FAKTURA";
     public string BrojDokumenta { get; set; } = "";
     public DateTime? DatumValute { get; set; }
     public DateTime? DatumPrometa { get; set; }
@@ -39,12 +42,44 @@ public class EFakturaUblInput
     // Prateća dokumenta (PDF, max 3) — Base64 već gotov u memoriji pre slanja,
     // builder samo ugrađuje, bez ikakve konverzije u ovom trenutku.
     public List<EFakturaUblPrilog> Prilozi { get; set; } = [];
+
+    // Slovo -> KeyClan izabranog člana oslobođenja (sa forme, do 2 stavke).
+    // Builder ovo koristi za TaxExemptionReasonCode po grupi u TaxTotal-u.
+    public List<EFakturaUblOslobodjenje> Oslobodjenja { get; set; } = [];
+
+    // Avansi izabrani na formi (odbici od ove fakture) — builder emituje
+    // SrbDtExt/BillingReference/PrepaidAmount SAMO ako bar jedan avans ima
+    // bar jednu kategoriju sa iskorišćenom osnovicom > 0.
+    public List<EFakturaUblIzabraniAvans> IzabraniAvansi { get; set; } = [];
+}
+
+public class EFakturaUblIzabraniAvans
+{
+    public string BrojDokumenta { get; set; } = "";
+    public DateTime? DatumIzdavanja { get; set; }
+    public List<EFakturaUblAvansKategorija> Kategorije { get; set; } = [];
+}
+
+public class EFakturaUblAvansKategorija
+{
+    // Ista konvencija kao StavkaVM/PdvKategorija: "S20"/"S10" za PDV stope,
+    // slovo (Z/O/OE/E/AE10/AE20/SS/R/N) za oslobođene kategorije.
+    public string Slovo { get; set; } = "";
+    public decimal Stopa { get; set; }
+    public decimal IskorisenaOsnovica { get; set; }
+    public decimal IskorisenPdv { get; set; }
 }
 
 public class EFakturaUblPrilog
 {
     public string ImeFajla { get; set; } = "";
     public string Base64 { get; set; } = "";
+}
+
+public class EFakturaUblOslobodjenje
+{
+    public string Slovo { get; set; } = "";
+    public string KeyClan { get; set; } = "";
 }
 
 public class EFakturaUblStavka
@@ -57,8 +92,8 @@ public class EFakturaUblStavka
     public decimal Umanjenje { get; set; }
     public decimal Osnovica { get; set; }
 
-    // Kategorija sa forme (S10/S20/prazno) — čuva se radi tbl_lineItem.vatCategoryCode,
-    // builder i dalje podržava samo S10/S20 (10/20% u PdvProcenat).
+    // Kategorija IZ MODELA (S20/S10 za PDV stavke; slovo člana za oslobođene) —
+    // builder je čita, ne preračunava. Builder izvodi TaxCategory ID/Percent iz nje.
     public string PdvKategorija { get; set; } = "";
     public decimal PdvProcenat { get; set; }
     public decimal Pdv { get; set; }

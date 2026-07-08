@@ -281,13 +281,17 @@ public class EFaktureIzlazService : IEFaktureIzlazService
     private static DateTime? ParsirajDatum(string? raw)
         => DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
 
-    // 380/381/383/386 — ista mapa kao Ulazne e-fakture (nova terminologija za nove upise).
+    // 380/381/383/386 — usklađeno sa nazivima tipa dokumenta na formi /efakture/unos
+    // (FAKTURA/AVANSNA FAKTURA/DOKUMENT O SMANJENJU/DOKUMENT O POVECANJU), da bi
+    // upit za avansne račune (panel "Odaberite avansne račune") i filter liste
+    // Izlaznih koristili ISTI string bez obzira da li je red upisan pri slanju
+    // (PosaljiUblAsync) ili pri sinhronizaciji sa SEF-om.
     private static string PrevediTipRacuna(string? kod) => kod switch
     {
         "380" => "FAKTURA",
         "381" => "DOKUMENT O SMANJENJU",
         "383" => "DOKUMENT O POVECANJU",
-        "386" => "AVANS",
+        "386" => "AVANSNA FAKTURA",
         _     => kod ?? ""
     };
 
@@ -534,7 +538,7 @@ public class EFaktureIzlazService : IEFaktureIzlazService
         var glava = new EInvoice
         {
             idRacuna                = kontekst.IdRacuna,
-            tipDokumenta             = "FAKTURA",
+            tipDokumenta             = input.TipDokumenta,
             brojDokumenta            = input.BrojDokumenta,
             idPartnera               = partner?.Broj,
             partner                  = input.KupacNaziv,
@@ -597,6 +601,26 @@ public class EFaktureIzlazService : IEFaktureIzlazService
                     vatCategoryCode = s.PdvKategorija,
                     idTaxExemption  = s.PdvKategorija.Length == 0 ? kontekst.IdClanOslobodjenja : null
                 });
+            }
+
+            // Increment brojača (Avans/KO/KZ) TEK ovde — u istoj transakciji kao upis
+            // glave/stavki, i SAMO posle uspešnog slanja. Ako brojač nije dostupan
+            // (red ne postoji/kolona NULL), tiho preskoči — ne blokira upis dokumenta.
+            var pod = await _db.Podesavanja.FirstOrDefaultAsync();
+            if (pod is not null)
+            {
+                switch (kontekst.TipDokumenta)
+                {
+                    case "AVANSNA FAKTURA" when pod.Broj_Dok_2 is not null:
+                        pod.Broj_Dok_2++;
+                        break;
+                    case "DOKUMENT O SMANJENJU" when pod.Broj_Dok_1 is not null:
+                        pod.Broj_Dok_1++;
+                        break;
+                    case "DOKUMENT O POVEĆANJU" when pod.Broj_Dok_3 is not null:
+                        pod.Broj_Dok_3++;
+                        break;
+                }
             }
 
             await _db.SaveChangesAsync();

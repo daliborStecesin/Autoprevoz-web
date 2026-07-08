@@ -67,7 +67,8 @@
         </span>
     </MudTooltip>
 
-    <MudCheckBox @bind-Value="_model.DodajAvans" T="bool" Label="DodajAvans" Size="Size.Small" Color="Color.Primary" Disabled="@FormaZakljucana" />
+    <MudCheckBox Value="_model.DodajAvans" ValueChanged="@((bool v) => _ = OnDodajAvansChanged(v))"
+                 T="bool" Label="DodajAvans" Size="Size.Small" Color="Color.Primary" Disabled="@FormaZakljucana" />
 
     <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.FactCheck" Disabled="@FormaZakljucana">
         U pojedinačnu
@@ -135,7 +136,7 @@
 
             <div class="mb-2">
                 <NativniSelect Label="Tip dokumenta" Value="@_model.TipDokumenta"
-                               ValueChanged="@(v => _model.TipDokumenta = v ?? "FAKTURA")"
+                               ValueChanged="@(async v => await OnTipDokumentaChanged(v))"
                                Disabled="@(_izvorRacunLocked || FormaZakljucana)">
                     <option value="FAKTURA">FAKTURA</option>
                     <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
@@ -159,8 +160,14 @@
                 <NativniInput TValue="string" Label="Interni broj za rutiranje" Value="@_model.InterniBrojZaRutiranje"
                               ValueChanged="@(v => _model.InterniBrojZaRutiranje = v ?? string.Empty)" Disabled="@FormaZakljucana" />
             </div>
-            <div class="mb-2"><DateInput Label="Datum prometa" @bind-Value="_model.DatumPrometa" Disabled="@FormaZakljucana" /></div>
-            <div class="mb-2"><DateInput Label="Datum valute" @bind-Value="_model.DatumValute" Disabled="@FormaZakljucana" /></div>
+            @* Avans nema promet — polje se sakriva za taj tip dokumenta. *@
+            @if (!JeAvansDokument)
+            {
+                <div class="mb-2"><DateInput Label="Datum prometa" @bind-Value="_model.DatumPrometa" Disabled="@FormaZakljucana" /></div>
+            }
+            <div class="mb-2">
+                <DateInput Label="@(JeAvansDokument ? "Datum uplate" : "Datum valute")" @bind-Value="_model.DatumValute" Disabled="@FormaZakljucana" />
+            </div>
         </MudPaper>
     </MudItem>
 
@@ -185,7 +192,7 @@
             <div class="mb-3">
                 <NativniSelect Label="Nastanak PDV obaveze izdavaoca" Value="@_model.NastanakPdvObaveze"
                                ValueChanged="@(v => _model.NastanakPdvObaveze = v ?? "Datum prometa")"
-                               Disabled="@FormaZakljucana">
+                               Disabled="@(FormaZakljucana || JeAvansDokument)">
                     <option value="Datum izdavanja">Datum izdavanja</option>
                     <option value="Datum prometa">Datum prometa</option>
                     <option value="Datum plaćanja">Datum plaćanja</option>
@@ -196,17 +203,37 @@
             @* ── Osnov oslobođenja od PDV — samo kad bar jedna stavka nema PDV ── *@
             @if (PrikaziPanelOslobodjenja)
             {
-                <div class="mb-3">
-                    <NativniSelect Label="Član zakona" Value="@(_idClanOslobodjenja?.ToString() ?? "")"
-                                   ValueChanged="@(v => _idClanOslobodjenja = int.TryParse(v, out var cid) ? cid : null)"
+                <div class="mb-2">
+                    <NativniSelect Label="Član zakona" Value="@(_izabraniClanovi[0].ReasonId?.ToString() ?? "")"
+                                   ValueChanged="@(v => OnClanChanged(0, v))"
                                    Disabled="@FormaZakljucana">
                         <option value="">—</option>
                         @foreach (var c in _clanoviOslobodjenja)
                         {
-                            <option value="@c.ReasonId">@c.KeyClan</option>
+                            <option value="@c.ReasonId">@OpisClana(c)</option>
                         }
                     </NativniSelect>
                 </div>
+
+                <MudCheckBox Value="_koristiViseClanova" ValueChanged="@((bool v) => OnKoristiViseClanovaChanged(v))"
+                             T="bool" Label="Koristi više članova oslobođenja" Size="Size.Small" Color="Color.Primary"
+                             Class="mb-2" Disabled="@FormaZakljucana" />
+
+                @if (_koristiViseClanova)
+                {
+                    <div class="mb-3">
+                        <NativniSelect Label="Član zakona 2"
+                                       Value="@(_izabraniClanovi.Count > 1 ? _izabraniClanovi[1].ReasonId?.ToString() ?? "" : "")"
+                                       ValueChanged="@(v => OnClanChanged(1, v))"
+                                       Disabled="@FormaZakljucana">
+                            <option value="">—</option>
+                            @foreach (var c in _clanoviOslobodjenja)
+                            {
+                                <option value="@c.ReasonId">@OpisClana(c)</option>
+                            }
+                        </NativniSelect>
+                    </div>
+                }
             }
 
             <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
@@ -230,6 +257,123 @@
 
 </MudGrid>
 
+@* ── AVANS — izbor avansnih računa kupca da se odbiju od nove fakture ──── *@
+@if (_model.DodajAvans)
+{
+    <MudPaper Elevation="1" Class="pa-3 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+            Odaberite avansne račune
+        </MudText>
+
+        @if (_ucitavaAvanse)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        }
+        else if (_dostupniAvansi.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                Nema poslatih avansnih računa za ovog kupca.
+            </MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Class="mb-3">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"></th>
+                        <th>Broj dokumenta</th>
+                        <th>Datum</th>
+                        <th style="text-align:right;">Bruto iznos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var avans in _dostupniAvansi)
+                    {
+                        <tr>
+                            <td>
+                                <MudCheckBox Value="avans.Izabran"
+                                             ValueChanged="@((bool v) => _ = OnAvansIzabran(avans, v))"
+                                             T="bool" Color="Color.Primary" Disabled="@FormaZakljucana" />
+                            </td>
+                            <td>@avans.BrojDokumenta</td>
+                            <td>@(avans.DatumIzdavanja?.ToString("dd.MM.yyyy"))</td>
+                            <td style="text-align:right;">@avans.BrutoIznos.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+
+        @foreach (var izabran in _izabraniAvansi)
+        {
+            <MudPaper Elevation="0" Class="pa-3 mb-3" Style="border:1px solid rgba(0,0,0,0.15); border-radius:4px;">
+                <div class="d-flex justify-space-between align-center mb-2">
+                    <div class="d-flex gap-3 flex-wrap" style="flex:1;">
+                        <div style="min-width:160px;">
+                            <NativniInput TValue="string" Label="Broj dokumenta" Value="@izabran.BrojDokumenta" Disabled="true" />
+                        </div>
+                        <div style="min-width:140px;">
+                            <NativniInput TValue="string" Label="Datum" Value="@(izabran.DatumIzdavanja?.ToString("dd.MM.yyyy") ?? "")" Disabled="true" />
+                        </div>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => UkloniIzabraniAvans(izabran))" Disabled="@FormaZakljucana" />
+                </div>
+
+                @if (izabran.NemaPodatakaOStavkama)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                        Podaci o stavkama ovog avansa nisu dostupni — unesite ručno.
+                    </MudAlert>
+                }
+
+                <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                    <thead>
+                        <tr style="background:#f5f5f5;">
+                            <th style="text-align:left; padding:4px 6px;">Kategorija</th>
+                            <th style="text-align:right; padding:4px 6px; min-width:130px;">Osnovica</th>
+                            <th style="text-align:right; padding:4px 6px; min-width:130px;">Iznos sa PDV</th>
+                            <th style="text-align:right; padding:4px 6px; min-width:110px;">PDV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var kat in izabran.Kategorije)
+                        {
+                            <tr>
+                                <td style="padding:4px 6px;">
+                                    @kat.Slovo
+                                    @if (kat.RaspoloziveOsnovica is not null)
+                                    {
+                                        <span style="color:#888; font-size:0.75rem;"> (raspoloživo @kat.RaspoloziveOsnovica.Value.ToString("N2"))</span>
+                                    }
+                                </td>
+                                <td style="padding:4px 6px;">
+                                    <NativniInput TValue="decimal" Value="@kat.IskorisenoOsnovica"
+                                                  ValueChanged="@(v => OnIskorisenoOsnovicaChanged(kat, v))"
+                                                  Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                </td>
+                                <td style="padding:4px 6px;">
+                                    @if (kat.Stopa > 0)
+                                    {
+                                        <NativniInput TValue="decimal" Value="@kat.IskorisenoBruto"
+                                                      ValueChanged="@(v => OnIskorisenoBrutoChanged(kat, v))"
+                                                      Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#888;">@kat.IskorisenoOsnovica.ToString("N2")</span>
+                                    }
+                                </td>
+                                <td style="padding:4px 6px; text-align:right;">@kat.IskorisenoPdv.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </MudPaper>
+        }
+    </MudPaper>
+}
+
 @* ── STAVKE — tabela, puna širina, aritmetika uživo ────────────────────── *@
 <MudPaper Elevation="1" Class="pa-3 mt-3">
     <div class="d-flex justify-space-between align-center mb-2">
@@ -245,10 +389,17 @@
                     <th style="padding:4px 6px; text-align:left; min-width:160px;">Naziv</th>
                     <th style="padding:4px 6px; text-align:left; min-width:80px;">JM</th>
                     <th style="padding:4px 6px; text-align:right; min-width:90px;">Količina</th>
-                    <th style="padding:4px 6px; text-align:right; min-width:100px;">Cena</th>
-                    <th style="padding:4px 6px; text-align:right; min-width:100px;">Umanjenje</th>
+                    <th style="padding:4px 6px; text-align:right; min-width:100px;">@(JeAvansDokument ? "Iznos uplate" : "Cena")</th>
+                    @if (!JeAvansDokument)
+                    {
+                        <th style="padding:4px 6px; text-align:right; min-width:100px;">Umanjenje</th>
+                    }
                     <th style="padding:4px 6px; text-align:right;">Osnovica</th>
-                    <th style="padding:4px 6px; text-align:left; min-width:90px;">PDV kategorija</th>
+                    <th style="padding:4px 6px; text-align:left; min-width:90px;">Stopa</th>
+                    @if (PrikaziKolonuSlovo)
+                    {
+                        <th style="padding:4px 6px; text-align:left; min-width:90px;">PDV kategorija</th>
+                    }
                     <th style="padding:4px 6px; text-align:right;">PDV %</th>
                     <th style="padding:4px 6px; text-align:right;">PDV</th>
                     <th style="padding:4px 6px; text-align:right;">Ukupno</th>
@@ -258,7 +409,7 @@
             <tbody>
                 @if (Stavke.Count == 0)
                 {
-                    <tr><td colspan="13" style="text-align:center; padding:18px; color:#999;">Nema stavki.</td></tr>
+                    <tr><td colspan="@BrojKolonaStavki" style="text-align:center; padding:18px; color:#999;">Nema stavki.</td></tr>
                 }
                 else
                 {
@@ -290,34 +441,55 @@
                                     <option value="t">t</option>
                                 </NativniSelect>
                             </td>
-                            <td style="padding:4px 6px;">
-                                <NativniInput TValue="decimal" @bind-Value="stavka.Kolicina" @bind-Value:after="AzurirajNastanakPdvObaveze" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                            <td style="padding:4px 6px; text-align:right;">
+                                @if (stavka.JeAvans)
+                                {
+                                    <span>1</span>
+                                }
+                                else
+                                {
+                                    <NativniInput TValue="decimal" @bind-Value="stavka.Kolicina" @bind-Value:after="AzurirajNastanakPdvObaveze" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                }
                             </td>
                             <td style="padding:4px 6px;">
                                 <NativniInput TValue="decimal" @bind-Value="stavka.Cena" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
                             </td>
-                            <td style="padding:4px 6px;">
-                                <NativniInput TValue="decimal" @bind-Value="stavka.Umanjenje" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
-                            </td>
+                            @if (!JeAvansDokument)
+                            {
+                                <td style="padding:4px 6px;">
+                                    <NativniInput TValue="decimal" @bind-Value="stavka.Umanjenje" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                </td>
+                            }
                             <td style="padding:4px 6px; text-align:right;">@stavka.Osnovica.ToString("N2")</td>
                             <td style="padding:4px 6px;">
-                                <NativniSelect Value="@stavka.PdvKategorija"
-                                               ValueChanged="@(v => { stavka.PdvKategorija = v ?? "S20"; AzurirajNastanakPdvObaveze(); })"
+                                <NativniSelect Value="@stavka.Stopa.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                               ValueChanged="@(v => OnStopaChanged(stavka, v))"
                                                Style="margin-top:0;" Disabled="@FormaZakljucana">
-                                    <option value="" title="Bira se u panelu poreskog oslobođenja">—</option>
-                                    <option value="S10" title="Standardno obračunavanje PDV">S10</option>
-                                    <option value="S20" title="Standardno obračunavanje PDV">S20</option>
-                                    <option value="AE10" title="Promet po poreskoj stopi od 10% za koji je poreski dužnik primalac">AE10</option>
-                                    <option value="AE20" title="Promet po poreskoj stopi od 20% za koji je poreski dužnik primalac">AE20</option>
-                                    <option value="O" title="Nije predmet oporezivanja">O</option>
-                                    <option value="E" title="Poresko oslobođenje bez prava na odbitak prethodnog poreza">E</option>
-                                    <option value="R" title="Izuzimanje od PDV">R</option>
-                                    <option value="Z" title="Poresko oslobođenje sa pravom na odbitak prethodnog poreza">Z</option>
-                                    <option value="SS" title="Posebni postupci oporezivanja">SS</option>
-                                    <option value="OE" title="Nije predmet oporezivanja PDV 2">OE</option>
-                                    <option value="N" title="Anuliranje">N</option>
+                                    <option value="20">20%</option>
+                                    <option value="10">10%</option>
+                                    <option value="0">Bez PDV (0%)</option>
                                 </NativniSelect>
                             </td>
+                            @if (PrikaziKolonuSlovo)
+                            {
+                                <td style="padding:4px 6px;">
+                                    @if (stavka.Stopa == 0)
+                                    {
+                                        <NativniSelect Value="@stavka.OslobodjenjeSlovo"
+                                                       ValueChanged="@(v => stavka.OslobodjenjeSlovo = v ?? "")"
+                                                       Style="margin-top:0;" Disabled="@FormaZakljucana">
+                                            @foreach (var slovo in AktivnaSlova)
+                                            {
+                                                <option value="@slovo">@slovo</option>
+                                            }
+                                        </NativniSelect>
+                                    }
+                                    else
+                                    {
+                                        <span>@stavka.PdvKategorija</span>
+                                    }
+                                </td>
+                            }
                             <td style="padding:4px 6px; text-align:right;">@stavka.PdvProcenat.ToString("N0")</td>
                             <td style="padding:4px 6px; text-align:right;">@stavka.Pdv.ToString("N2")</td>
                             <td style="padding:4px 6px; text-align:right; font-weight:600;">@stavka.Ukupno.ToString("N2")</td>
@@ -454,12 +626,311 @@
     // ── Banka (žiro račun) — isti pattern kao /fakture/unos ──────────────────
     private List<Banka> _sveBanke = [];
 
-    // ── Osnov oslobođenja od PDV — panel se prikazuje kad bar jedna stavka
-    // ima praznu PDV kategoriju (stopa 0 sa računa, ili ručno izabrano "—"). ──
-    private List<TaxExemption> _clanoviOslobodjenja = [];
-    private int?               _idClanOslobodjenja;
+    // ── Osnov oslobođenja od PDV — panel se prikazuje kad bar jedna stavka ima
+    // stopu 0. Grupisanje je PO SLOVU (kategoriji) — jedan član po slovu (SEF
+    // pravilo). Lista IzabraniClanovi drži do 2 člana (slot 0 uvek postoji, slot 1
+    // samo kad je "Koristi više članova" uključeno); struktura kao lista da se
+    // lako proširi na više članova kasnije. ──────────────────────────────────
+    private List<TaxExemption>        _clanoviOslobodjenja = [];
+    private List<ClanOslobodjenjaVM>  _izabraniClanovi     = [new()];
+    private bool                      _koristiViseClanova;
 
-    private bool PrikaziPanelOslobodjenja => Stavke.Any(s => s.PdvKategorija == "");
+    private bool PrikaziPanelOslobodjenja => Stavke.Any(s => s.Stopa == 0);
+
+    // Sva RAZLIČITA slova od trenutno izabranih članova (0, 1 ili 2 slova).
+    private List<string> AktivnaSlova =>
+        [.. _izabraniClanovi
+            .Where(c => !string.IsNullOrWhiteSpace(c.Slovo))
+            .Select(c => c.Slovo!)
+            .Distinct()];
+
+    // Kolona "PDV kategorija" (slovo po stavci) ima smisla SAMO kad postoje 2
+    // različita aktivna slova — sa jednim članom je slovo uvek isto, pa se ne
+    // pita korisnik ništa (auto-primena, vidi AzurirajOslobodjenjeSlova).
+    private bool PrikaziKolonuSlovo => _koristiViseClanova && AktivnaSlova.Count > 1;
+
+    private class ClanOslobodjenjaVM
+    {
+        public int?    ReasonId { get; set; }
+        public string? KeyClan  { get; set; }
+        public string? Slovo    { get; set; } // TaxExemption.Category
+    }
+
+    // Kratak prikaz u padajućem — KeyClan + referenca (čl./st./tač.) + skraćen tekst.
+    private static string OpisClana(TaxExemption c)
+    {
+        var delovi = new List<string>();
+        if (!string.IsNullOrWhiteSpace(c.Article))   delovi.Add($"čl. {c.Article}");
+        if (!string.IsNullOrWhiteSpace(c.Paragraph)) delovi.Add($"st. {c.Paragraph}");
+        if (!string.IsNullOrWhiteSpace(c.Point))     delovi.Add($"tač. {c.Point}");
+
+        var referenca   = string.Join(" ", delovi);
+        var kratakTekst = string.IsNullOrWhiteSpace(c.Text)
+            ? ""
+            : (c.Text.Length > 40 ? c.Text[..40] + "…" : c.Text);
+
+        var opis = string.Join(" — ", new[] { referenca, kratakTekst }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return string.IsNullOrWhiteSpace(opis) ? (c.KeyClan ?? "") : $"{c.KeyClan} ({opis})";
+    }
+
+    private void OnKoristiViseClanovaChanged(bool v)
+    {
+        _koristiViseClanova = v;
+
+        if (v)
+        {
+            if (_izabraniClanovi.Count < 2)
+                _izabraniClanovi.Add(new ClanOslobodjenjaVM());
+        }
+        else if (_izabraniClanovi.Count > 1)
+        {
+            _izabraniClanovi.RemoveRange(1, _izabraniClanovi.Count - 1);
+        }
+
+        AzurirajOslobodjenjeSlova();
+    }
+
+    // slotIdx: 0 = prvi padajući (uvek postoji), 1 = drugi (samo kad je checkbox uključen).
+    // Ista kategorija (slovo) ne sme biti na oba slota — SEF pravilo: 1 član po slovu.
+    private void OnClanChanged(int slotIdx, string? v)
+    {
+        if (slotIdx == 1 && !_koristiViseClanova) return;
+
+        var noviId    = int.TryParse(v, out var id) ? id : (int?)null;
+        var novi      = _clanoviOslobodjenja.FirstOrDefault(c => c.ReasonId == noviId);
+        var novoSlovo = novi?.Category ?? "";
+
+        var drugiSlotIdx = slotIdx == 0 ? 1 : 0;
+        var drugoSlovo   = drugiSlotIdx < _izabraniClanovi.Count ? _izabraniClanovi[drugiSlotIdx].Slovo : null;
+
+        if (!string.IsNullOrWhiteSpace(novoSlovo) && novoSlovo == drugoSlovo)
+        {
+            Snackbar.Add("Ista PDV kategorija ne može imati dva člana.", Severity.Warning);
+            return;
+        }
+
+        if (slotIdx >= _izabraniClanovi.Count)
+            _izabraniClanovi.Add(new ClanOslobodjenjaVM());
+
+        _izabraniClanovi[slotIdx].ReasonId = novi?.ReasonId;
+        _izabraniClanovi[slotIdx].KeyClan  = novi?.KeyClan;
+        _izabraniClanovi[slotIdx].Slovo    = novoSlovo;
+
+        AzurirajOslobodjenjeSlova();
+    }
+
+    private void OnStopaChanged(StavkaVM stavka, string? v)
+    {
+        stavka.Stopa = decimal.TryParse(v, out var n) ? n : 20m;
+        AzurirajOslobodjenjeSlova();
+        AzurirajNastanakPdvObaveze();
+    }
+
+    // Primena slova na 0% stavke: jedan član -> svima automatski to slovo; dva
+    // člana -> default prvi, korisnik po stavci bira između dva; nevalidno slovo
+    // (npr. posle promene člana/checkbox-a) vraća se na prvi član.
+    private void AzurirajOslobodjenjeSlova()
+    {
+        var slovaAktivna = AktivnaSlova;
+        var prvoSlovo    = slovaAktivna.FirstOrDefault() ?? "";
+
+        foreach (var s in Stavke.Where(s => s.Stopa == 0))
+        {
+            if (!slovaAktivna.Contains(s.OslobodjenjeSlovo))
+                s.OslobodjenjeSlovo = prvoSlovo;
+        }
+    }
+
+    // ── Avans — izbor postojećih avansnih računa (istog kupca) da se odbiju od
+    // nove fakture. Samo unos podataka u memoriji — glavni obračun fakture
+    // (TaxTotal/Sume/stavke) se ovde ne dira, builder ih koristi kasnije. ──────
+    private List<DostupanAvansVM>  _dostupniAvansi = [];
+    private List<IzabraniAvansVM>  _izabraniAvansi = [];
+    private bool                   _ucitavaAvanse;
+
+    // Sve SEF kategorije za fallback prikaz (avans bez sačuvanih stavki) — isti
+    // skup kao stavke tabela. Van S20/S10 stopa je uvek 0 za PDV auto-obračun
+    // (isto pravilo kao StavkaVM.Pdv — AE10/AE20 ne obračunavaju PDV ovde).
+    private static readonly (string Slovo, decimal Stopa)[] SveKategorijeOslobodjenja =
+    [
+        ("S20", 20m), ("S10", 10m), ("AE10", 0m), ("AE20", 0m), ("O", 0m),
+        ("E", 0m), ("R", 0m), ("Z", 0m), ("SS", 0m), ("OE", 0m), ("N", 0m)
+    ];
+
+    private class DostupanAvansVM
+    {
+        public int       IdEfakture { get; set; }
+        public string?   InvoiceID { get; set; }
+        public string    BrojDokumenta { get; set; } = "";
+        public DateTime? DatumIzdavanja { get; set; }
+        public decimal   BrutoIznos { get; set; }
+        public bool      Izabran { get; set; }
+    }
+
+    private class AvansKategorijaVM
+    {
+        public string  Slovo { get; set; } = "";
+        public decimal Stopa { get; set; }
+        public decimal? RaspoloziveOsnovica { get; set; }
+        public decimal IskorisenoOsnovica { get; set; }
+        public decimal IskorisenoPdv => Stopa > 0 ? Math.Round(IskorisenoOsnovica * Stopa / 100m, 2) : 0m;
+
+        // Čisto UX polje (alternativni dvosmerni unos) — builderu i dalje ide
+        // samo IskorisenoOsnovica/IskorisenoPdv, ovo je izvedeno/prikazno.
+        public decimal IskorisenoBruto => IskorisenoOsnovica + IskorisenoPdv;
+    }
+
+    private class IzabraniAvansVM
+    {
+        public int                       IdEfakture { get; set; }
+        public string                    BrojDokumenta { get; set; } = "";
+        public DateTime?                 DatumIzdavanja { get; set; }
+        public bool                      NemaPodatakaOStavkama { get; set; }
+        public List<AvansKategorijaVM>   Kategorije { get; set; } = [];
+    }
+
+    private async Task OnDodajAvansChanged(bool v)
+    {
+        _model.DodajAvans = v;
+
+        if (v)
+        {
+            await UcitajDostupneAvanse();
+        }
+        else
+        {
+            _dostupniAvansi = [];
+            _izabraniAvansi = [];
+        }
+    }
+
+    // Avansi istog kupca (PIB), stvarno poslati na SEF — READ-ONLY.
+    private async Task UcitajDostupneAvanse()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Pib))
+        {
+            _dostupniAvansi = [];
+            return;
+        }
+
+        _ucitavaAvanse = true;
+        try
+        {
+            var lista = await Db.EInvoices.AsNoTracking()
+                .Where(e => e.tipDokumenta == "AVANSNA FAKTURA" && e.status == "POSLATO" && e.pib == _model.Pib)
+                .OrderByDescending(e => e.invoiceDateUtc)
+                .ToListAsync();
+
+            _dostupniAvansi = [.. lista.Select(e => new DostupanAvansVM
+            {
+                IdEfakture     = e.idEfakture,
+                InvoiceID      = e.invoiceID,
+                BrojDokumenta  = e.brojDokumenta ?? "",
+                DatumIzdavanja = e.invoiceDateUtc,
+                BrutoIznos     = e.sumWithVat ?? 0
+            })];
+        }
+        finally
+        {
+            _ucitavaAvanse = false;
+        }
+    }
+
+    private async Task OnAvansIzabran(DostupanAvansVM avans, bool v)
+    {
+        avans.Izabran = v;
+
+        if (v)
+        {
+            _izabraniAvansi.Add(await UcitajDetaljAvansa(avans));
+        }
+        else
+        {
+            _izabraniAvansi.RemoveAll(x => x.IdEfakture == avans.IdEfakture);
+        }
+    }
+
+    private void UkloniIzabraniAvans(IzabraniAvansVM izabran)
+    {
+        _izabraniAvansi.Remove(izabran);
+
+        var dostupan = _dostupniAvansi.FirstOrDefault(a => a.IdEfakture == izabran.IdEfakture);
+        if (dostupan is not null) dostupan.Izabran = false;
+    }
+
+    // Stavke avansa idu preko tbl_lineItem.invoiceId — to je SEF InvoiceId (isti
+    // izvor kao EInvoice.invoiceID varchar), NE invoiceIDint (taj je SalesInvoiceId,
+    // pogrešan ključ za ovaj join). Grupisano po (vatCategoryCode, vatRate).
+    private async Task<IzabraniAvansVM> UcitajDetaljAvansa(DostupanAvansVM avans)
+    {
+        var detalj = new IzabraniAvansVM
+        {
+            IdEfakture     = avans.IdEfakture,
+            BrojDokumenta  = avans.BrojDokumenta,
+            DatumIzdavanja = avans.DatumIzdavanja
+        };
+
+        List<LineItem> stavkeAvansa = [];
+        if (long.TryParse(avans.InvoiceID, out var invoiceIdLong))
+        {
+            stavkeAvansa = await Db.LineItems.AsNoTracking()
+                .Where(li => li.invoiceId == invoiceIdLong)
+                .ToListAsync();
+        }
+
+        if (stavkeAvansa.Count > 0)
+        {
+            detalj.Kategorije = [.. stavkeAvansa
+                .GroupBy(li => (Slovo: li.vatCategoryCode ?? "", Stopa: li.vatRate ?? 0))
+                .Select(g =>
+                {
+                    var raspoloziva = g.Sum(li => li.sumWithoutVat ?? 0);
+                    return new AvansKategorijaVM
+                    {
+                        Slovo               = g.Key.Slovo,
+                        Stopa               = g.Key.Stopa,
+                        RaspoloziveOsnovica = raspoloziva,
+                        IskorisenoOsnovica  = raspoloziva // prefill = ceo raspoloživi iznos
+                    };
+                })];
+        }
+        else
+        {
+            detalj.NemaPodatakaOStavkama = true;
+            detalj.Kategorije = [.. SveKategorijeOslobodjenja.Select(k => new AvansKategorijaVM
+            {
+                Slovo               = k.Slovo,
+                Stopa               = k.Stopa,
+                RaspoloziveOsnovica = null,
+                IskorisenoOsnovica  = 0m
+            })];
+        }
+
+        return detalj;
+    }
+
+    // Korisnik može SMANJITI unetu osnovicu, nikad je povećati preko raspoloživog
+    // (kad je raspoloživo poznato — fallback bez stavki nema gornju granicu).
+    private void OnIskorisenoOsnovicaChanged(AvansKategorijaVM kat, decimal v)
+    {
+        if (v < 0) v = 0;
+        if (kat.RaspoloziveOsnovica is not null && v > kat.RaspoloziveOsnovica.Value)
+            v = kat.RaspoloziveOsnovica.Value;
+
+        kat.IskorisenoOsnovica = v;
+    }
+
+    // Alternativni (bruto) unos — editovanje "Iznos sa PDV" izvodi Osnovicu unazad
+    // (isti princip kao avans-stavka bruto unosa), pa prosleđuje kroz isti
+    // floor/cap kao direktan unos Osnovice (ne sme preći raspoloživo).
+    private void OnIskorisenoBrutoChanged(AvansKategorijaVM kat, decimal v)
+    {
+        if (kat.Stopa <= 0) return; // oslobođene kategorije nemaju editabilan bruto (uvek = osnovica)
+
+        if (v < 0) v = 0;
+        var novaOsnovica = Math.Round(v / (1 + kat.Stopa / 100m), 2);
+        OnIskorisenoOsnovicaChanged(kat, novaOsnovica);
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -538,7 +1009,7 @@
         _model.DatumValute      = racun.DatumValute?.ToString("yyyy-MM-dd") ?? _model.DatumValute;
         _model.Komentar         = racun.Komentar1 ?? "";
         _model.Vozilo           = racun.Vozilo ?? "";
-        _model.BrojCmr          = "";
+        _model.BrojCmr          = racun.Otpremnica ?? ""; // CMR / Otpremnica na formi računa
 
         // Partner — fiksan sa računa (autocomplete se zaključava)
         _model.Naziv = racun.Naziv ?? "";
@@ -564,12 +1035,22 @@
         AzurirajNastanakPdvObaveze();
 
         // Predizbor člana zakona za oslobođenje (samo ako panel treba da se prikaže)
-        _idClanOslobodjenja = (racun.TipProdaje, racun.UvozIzvoz) switch
+        var reasonId = (racun.TipProdaje, racun.UvozIzvoz) switch
         {
             ("IZLAZ_BP", "IZVOZ") => 82,
             ("IZLAZ_BP", "UVOZ")  => 73,
-            _                     => null
+            _                     => (int?)null
         };
+
+        var predizabraniClan = reasonId is null ? null : _clanoviOslobodjenja.FirstOrDefault(c => c.ReasonId == reasonId);
+        if (predizabraniClan is not null)
+        {
+            _izabraniClanovi[0].ReasonId = predizabraniClan.ReasonId;
+            _izabraniClanovi[0].KeyClan  = predizabraniClan.KeyClan;
+            _izabraniClanovi[0].Slovo    = predizabraniClan.Category ?? "";
+        }
+
+        AzurirajOslobodjenjeSlova();
 
         _izvorRacunLocked = true;
 
@@ -588,18 +1069,13 @@
 
         return new StavkaVM
         {
-            Sifra         = s.Barcode ?? "",
-            Naziv         = s.Artikal ?? "",
-            Jm            = s.JM ?? "kom",
-            Kolicina      = kolicina,
-            Cena          = cena,
-            Umanjenje     = umanjenje,
-            PdvKategorija = s.StopaPDV switch
-            {
-                20 => "S20",
-                10 => "S10",
-                _  => ""
-            }
+            Sifra     = s.Barcode ?? "",
+            Naziv     = s.Artikal ?? "",
+            Jm        = s.JM ?? "kom",
+            Kolicina  = kolicina,
+            Cena      = cena,
+            Umanjenje = umanjenje,
+            Stopa     = s.StopaPDV ?? 0
         };
     }
 
@@ -622,6 +1098,82 @@
     {
         var racunPrikaz = b.TipRacuna == "INOSTRANI" ? (b.IBAN ?? b.racun) : b.racun;
         return $"{b.banka} — {racunPrikaz}";
+    }
+
+    // Mapiranje naših 4 opcije "Tip dokumenta" na desktop tipove/brojače
+    // (tbl_Podesavanja): AVANSNI RAČUN -> Broj_Dok_2, KNJIZNO ODOBRENJE (KO) ==
+    // DOKUMENT O SMANJENJU -> Broj_Dok_1, KNJIZNO ZADUŽENJE (KZ) == DOKUMENT O
+    // POVEĆANJU -> Broj_Dok_3 (ista ekvivalencija terminologije kao Izlazne
+    // e-fakture). FAKTURA nema sopstveni brojač ovde — broj dolazi iz računa.
+    private static int? BrojacZaTip(Podesavanja? pod, string tipDokumenta) => tipDokumenta switch
+    {
+        "AVANSNA FAKTURA"      => pod?.Broj_Dok_2,
+        "DOKUMENT O SMANJENJU" => pod?.Broj_Dok_1,
+        "DOKUMENT O POVEĆANJU" => pod?.Broj_Dok_3,
+        _                      => null
+    };
+
+    private bool JeAvansDokument => _model.TipDokumenta == "AVANSNA FAKTURA";
+
+    // Ukupan broj kolona u tabeli stavki — za "Nema stavki" colspan. Avans skida
+    // kolonu Umanjenje (-1), 2 aktivna slova oslobođenja dodaju kolonu (+1).
+    private int BrojKolonaStavki => (JeAvansDokument ? 12 : 13) + (PrikaziKolonuSlovo ? 1 : 0);
+
+    private async Task OnTipDokumentaChanged(string? v)
+    {
+        _model.TipDokumenta = v ?? "FAKTURA";
+        AzurirajZaTipDokumenta();
+        await PredloziBrojDokumenta();
+    }
+
+    // AVANSNA FAKTURA menja ponašanje stavki (Kolicina fiksna 1, Umanjenje se ne
+    // koristi, obrnut obračun Osnovica/PDV iz "Iznos uplate") i uvek ima PDV
+    // obavezu po datumu plaćanja (ne po stavkama). Ostali tipovi — bez izmena,
+    // normalna auto-logika se ponovo primeni pri izlasku iz avansa.
+    private void AzurirajZaTipDokumenta()
+    {
+        var jeAvans = JeAvansDokument;
+
+        foreach (var s in Stavke)
+        {
+            s.JeAvans = jeAvans;
+            if (jeAvans)
+            {
+                s.Kolicina  = 1m;
+                s.Umanjenje = 0m;
+            }
+        }
+
+        if (jeAvans)
+            _model.NastanakPdvObaveze = "Datum plaćanja";
+        else
+            AzurirajNastanakPdvObaveze();
+
+        AzurirajOslobodjenjeSlova();
+    }
+
+    // Predlog broja dokumenta iz brojača u podešavanjima — SAMO za ručni unos
+    // (bez izvornog računa) i SAMO za tipove koji imaju sopstveni brojač
+    // (Avans/KO/KZ). Format: "{brojac}-{poslednje 2 cifre godine}". Ne
+    // inkrementira ništa — samo predlog, polje ostaje editabilno. Ako brojač
+    // nije dostupan (null/greška), ne blokira formu — polje ostaje prazno.
+    private async Task PredloziBrojDokumenta()
+    {
+        if (_izvor == "racun") return; // broj dolazi iz računa, ne diramo
+
+        try
+        {
+            var pod = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
+            var brojac = BrojacZaTip(pod, _model.TipDokumenta);
+            if (brojac is null) return;
+
+            var godina2 = (DateTime.Today.Year % 100).ToString("00");
+            _model.BrojDokumenta = $"{brojac}-{godina2}";
+        }
+        catch
+        {
+            // Brojač nedostupan — ostavi polje kako jeste (ručni upis).
+        }
     }
 
     private bool    _saljem;
@@ -697,16 +1249,16 @@
         public string Base64 { get; set; } = "";
     }
 
-    // Builder je SAMO za minimalnu FAKTURU sa standardnim PDV kategorijama
-    // (S10/S20) — avans/oslobođenje/knjižna dolaze u kasnijim koracima.
-    // Zajednička provera i za Izvoz XML i za Pošalji (obe idu kroz isti builder).
+    // Builder podržava FAKTURU i AVANSNU FAKTURU — knjižna dokumenta dolaze u
+    // kasnijim koracima. Oslobođene (0%) stavke SU podržane (C2). Zajednička
+    // provera i za Izvoz XML i za Pošalji (obe idu kroz isti builder).
     private string? ProveriBuilderOgranicenja()
     {
-        if (_model.TipDokumenta != "FAKTURA")
-            return "Ova akcija trenutno podržava samo tip dokumenta FAKTURA.";
+        if (_model.TipDokumenta is not ("FAKTURA" or "AVANSNA FAKTURA"))
+            return "Ova akcija trenutno podržava samo tip dokumenta FAKTURA ili AVANSNA FAKTURA.";
 
-        if (Stavke.Count == 0 || Stavke.Any(s => s.PdvKategorija is not ("S10" or "S20")))
-            return "Ova akcija trenutno podržava samo standardne PDV kategorije (S10/S20) na svim stavkama.";
+        if (Stavke.Count == 0)
+            return "Dodajte bar jednu stavku.";
 
         return null;
     }
@@ -761,13 +1313,18 @@
             var input = await PripremiUblInput();
             var xml   = UblBuilder.Build(input);
 
+            // tbl_eInvoice ima SAMO jednu kolonu za oslobođenje (idPoreskoOslobodjenje/
+            // clanPoreskogOslobodjenje) — kad ima 2 člana, upisuje se prvi; upis za
+            // više članova čeka proširenje šeme (van obima ovog koraka).
+            var glavniClan = _izabraniClanovi[0];
             var kontekst = new EFakturaSlanjeKontekst
             {
                 IdRacuna            = _izvor == "racun" ? _izvorId : null,
-                IdClanOslobodjenja  = _idClanOslobodjenja,
-                KeyClanOslobodjenja = _clanoviOslobodjenja.FirstOrDefault(c => c.ReasonId == _idClanOslobodjenja)?.KeyClan,
+                IdClanOslobodjenja  = glavniClan.ReasonId,
+                KeyClanOslobodjenja = glavniClan.KeyClan,
                 Korisnik            = TenantService.GetImeKorisnika(),
-                Model               = _model.Model
+                Model               = _model.Model,
+                TipDokumenta        = _model.TipDokumenta
             };
 
             var (uspesno, poruka, salesInvoiceId, _, _) =
@@ -871,8 +1428,24 @@
             && string.IsNullOrWhiteSpace(_model.BrojNarudzbenice))
             return "Kupac ima JBKJS (javna ustanova) — unesite Broj ugovora ili Broj narudžbenice.";
 
-        if (PrikaziPanelOslobodjenja && _idClanOslobodjenja is null)
-            return "Izaberite član zakona za PDV oslobođenje.";
+        var stavkeBezPdv = Stavke.Where(s => s.Stopa == 0).ToList();
+        if (stavkeBezPdv.Count > 0)
+        {
+            if (AktivnaSlova.Count == 0)
+                return "Ako postoji stavka bez PDV-a, obavezno je odabrati član oslobođenja.";
+
+            foreach (var slovo in AktivnaSlova)
+            {
+                if (!stavkeBezPdv.Any(s => s.OslobodjenjeSlovo == slovo))
+                    return $"Nije upotrebljena '{slovo}' kategorija oslobođenja.";
+            }
+
+            foreach (var s in stavkeBezPdv)
+            {
+                if (!AktivnaSlova.Contains(s.OslobodjenjeSlovo))
+                    return "Svaka stavka bez PDV-a mora imati kategoriju oslobođenja iz izabranog člana.";
+            }
+        }
 
         return ProveriBuilderOgranicenja();
     }
@@ -900,6 +1473,7 @@
             KupacAdresa      = partner?.Adresa,
             KupacMesto       = partner?.Mesto,
 
+            TipDokumenta           = _model.TipDokumenta,
             BrojDokumenta          = _model.BrojDokumenta,
             DatumValute            = ParsirajDatum(_model.DatumValute),
             DatumPrometa           = ParsirajDatum(_model.DatumPrometa),
@@ -934,6 +1508,28 @@
             {
                 ImeFajla = p.ImeFajla,
                 Base64   = p.Base64
+            })],
+
+            // Slovo -> KeyClan izabranih članova (do 2) — builder ih koristi za
+            // TaxExemptionReasonCode po grupi u TaxTotal-u.
+            Oslobodjenja = [.. _izabraniClanovi
+                .Where(c => !string.IsNullOrWhiteSpace(c.Slovo) && !string.IsNullOrWhiteSpace(c.KeyClan))
+                .Select(c => new EFakturaUblOslobodjenje { Slovo = c.Slovo!, KeyClan = c.KeyClan! })],
+
+            // Avansi izabrani u panelu "Odaberite avansne račune" — builder sam
+            // filtrira kategorije bez iskorišćenog iznosa (>0) i ignoriše avans
+            // ako mu nijedna kategorija nema uneti iznos.
+            IzabraniAvansi = [.. _izabraniAvansi.Select(a => new EFakturaUblIzabraniAvans
+            {
+                BrojDokumenta  = a.BrojDokumenta,
+                DatumIzdavanja = a.DatumIzdavanja,
+                Kategorije = [.. a.Kategorije.Select(k => new EFakturaUblAvansKategorija
+                {
+                    Slovo              = k.Slovo,
+                    Stopa              = k.Stopa,
+                    IskorisenaOsnovica = k.IskorisenoOsnovica,
+                    IskorisenPdv       = k.IskorisenoPdv
+                })]
             })]
         };
     }
@@ -984,8 +1580,10 @@
 
     private void DodajStavku()
     {
-        Stavke.Add(new StavkaVM());
+        var jeAvans = JeAvansDokument;
+        Stavke.Add(new StavkaVM { JeAvans = jeAvans, Kolicina = jeAvans ? 1m : 0m });
         AzurirajNastanakPdvObaveze();
+        AzurirajOslobodjenjeSlova();
     }
 
     private void ObrisiStavku(int idx)
@@ -994,14 +1592,19 @@
             Stavke.RemoveAt(idx);
 
         AzurirajNastanakPdvObaveze();
+        AzurirajOslobodjenjeSlova();
     }
 
     // Auto-logika za "Nastanak PDV obaveze izdavaoca" — reaguje na stavke (prefill
     // i svaka izmena). Ima osnovicu ali nema PDV -> "Ne nastaje PDV obaveza". Ima
     // PDV -> ako je trenutno prazno/"Ne nastaje..." postavi "Datum prometa", inače
-    // ne diraj ručan izbor korisnika (Datum plaćanja/Datum izdavanja).
+    // ne diraj ručan izbor korisnika (Datum plaćanja/Datum izdavanja). AVANSNA
+    // FAKTURA je izuzetak — uvek "Datum plaćanja", ne diramo je odavde (postavlja
+    // se i zaključava u AzurirajZaTipDokumenta).
     private void AzurirajNastanakPdvObaveze()
     {
+        if (JeAvansDokument) return;
+
         var osnovica = SumaOsnovica;
         var pdv      = SumaPdv;
 
@@ -1023,22 +1626,43 @@
         public decimal Kolicina { get; set; }
         public decimal Cena { get; set; }
         public decimal Umanjenje { get; set; }
-        public string PdvKategorija { get; set; } = "S20";
 
-        public decimal Osnovica => Kolicina * Cena - Umanjenje;
+        // Stopa PDV (20/10/0) — birano select-om po redu (jedini ručni izbor po
+        // stavci). 0 znači "bez PDV" (oslobođenje).
+        public decimal Stopa { get; set; } = 20m;
 
-        public decimal PdvProcenat => PdvKategorija switch
+        // Slovo kategorije oslobođenja (Z/O/OE/E/AE/SS/R/N...) — relevantno SAMO
+        // kad je Stopa==0, dolazi iz izabranog člana (panel), ne bira se slobodno
+        // osim kad su aktivna 2 člana (tada bira između njih po stavci).
+        public string OslobodjenjeSlovo { get; set; } = "";
+
+        // AVANSNA FAKTURA: Kolicina fiksna 1, Umanjenje se ne koristi, Cena je
+        // "Iznos uplate" (bruto/Ukupno direktno) — obrnut obračun, Osnovica/PDV
+        // se izvlače IZ Ukupno umesto da ga grade.
+        public bool JeAvans { get; set; }
+
+        public decimal Osnovica => JeAvans
+            ? Math.Round(Cena / (1 + Stopa / 100m), 2)
+            : Kolicina * Cena - Umanjenje;
+
+        public decimal PdvProcenat => Stopa;
+
+        // Avans: PDV = razlika Ukupno-Osnovica (ne nezavisan proizvod) da zbir
+        // bude tačan do pare. Normalno: proizvod Osnovica*stopa.
+        public decimal Pdv => JeAvans
+            ? Ukupno - Osnovica
+            : (Stopa > 0 ? Osnovica * Stopa / 100m : 0m);
+
+        public decimal Ukupno => JeAvans ? Cena : Osnovica + Pdv;
+
+        // SEF kategorija — IZVEDENA, ne bira se ručno. S-stavke prate stopu
+        // (20->S20, 10->S10); 0%-stavke nose slovo dodeljenog člana oslobođenja.
+        public string PdvKategorija => Stopa switch
         {
-            "S10" => 10m,
-            "S20" => 20m,
-            _      => 0m
+            20m => "S20",
+            10m => "S10",
+            _   => OslobodjenjeSlovo
         };
-
-        // Samo S10/S20 stvarno obračunavaju PDV — sve ostale kategorije (uključujući
-        // AE10/AE20, obrnuto zaduženje) imaju procenat i PDV jednake 0.
-        public decimal Pdv => PdvKategorija is "S10" or "S20" ? Osnovica * PdvProcenat / 100m : 0m;
-
-        public decimal Ukupno => Osnovica + Pdv;
     }
 
     private class UnosDokumentaModel
