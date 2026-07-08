@@ -17,7 +17,7 @@ public interface IEFaktureIzlazService
         DateTime? datumDo);
 
     /// Povlači listu ID-jeva sa SEF-a za dati period, preskače već upisane (dedupe po
-    /// invoiceID), za svaki nov upisuje red (XML parsiranje + status). Vraća broj
+    /// salesInvoiceID), za svaki nov upisuje red (XML parsiranje + status). Vraća broj
     /// upisanih redova i listu PIB-ova partnera koji ne postoje lokalno (za info, bez insert-a).
     Task<(int brojNovih, List<string> upozorenjaPartner)> SinhronizujAsync(DateTime datumOd, DateTime datumDo);
 
@@ -58,4 +58,10 @@ public interface IEFaktureIzlazService
     /// i statusDokumenta na uspeh; prevedenu (ili sirovu) SEF grešku na neuspeh.
     Task<(bool uspesno, string poruka, string? salesInvoiceId, int? idEfakture, string? statusDokumenta)>
         PosaljiUblAsync(string xml, bool sendToCir, EFakturaUblInput input, EFakturaSlanjeKontekst kontekst);
+
+    /// Jednokratni backfill: za stare redove gde je invoiceIDint NULL a salesInvoiceID
+    /// se parsira u broj, popunjava invoiceIDint (kolona već postoji, samo je do sad
+    /// ostajala prazna). Bezbedno za pozivanje uvek — bez kandidata je no-op. Vraća broj
+    /// ažuriranih redova.
+    Task<int> PopuniInvoiceIdIntBackfillAsync();
 }

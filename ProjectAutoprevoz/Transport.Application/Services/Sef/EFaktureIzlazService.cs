@@ -90,11 +90,41 @@ public class EFaktureIzlazService : IEFaktureIzlazService
                 : q.Where(x => x.invoiceDateUtc <= doKraj);
         }
 
+        // Sekundarni sort po invoiceIDint (pravi bigint, ne varchar) — u okviru istog
+        // datuma noviji dokumenti (veći SEF ID) idu prvi. NULL invoiceIDint (stari
+        // redovi pre backfill-a) automatski idu na kraj svog datuma — SQL Server
+        // DESC sortira NULL kao najmanju vrednost, pa je poslednji u opadajućem redu.
         q = poPrometu
-            ? q.OrderByDescending(x => x.accountingDateUtc)
-            : q.OrderByDescending(x => x.invoiceDateUtc);
+            ? q.OrderByDescending(x => x.accountingDateUtc).ThenByDescending(x => x.invoiceIDint)
+            : q.OrderByDescending(x => x.invoiceDateUtc).ThenByDescending(x => x.invoiceIDint);
 
         return await q.ToListAsync();
+    }
+
+    // ── Backfill invoiceIDint — kolona već postoji, samo je stare redove (upisane
+    // pre nego što je popunjavanje uvedeno) ostavljala prazne. Bira samo kandidate
+    // (NULL invoiceIDint + salesInvoiceID koji se parsira u broj), pa je posle prvog
+    // uspešnog poziva trajno no-op (prazan WHERE rezultat). ──────────────────────
+    public async Task<int> PopuniInvoiceIdIntBackfillAsync()
+    {
+        var kandidati = await _db.EInvoices
+            .Where(x => x.invoiceIDint == null && x.salesInvoiceID != null)
+            .ToListAsync();
+
+        var azurirano = 0;
+        foreach (var red in kandidati)
+        {
+            if (long.TryParse(red.salesInvoiceID, out var n))
+            {
+                red.invoiceIDint = n;
+                azurirano++;
+            }
+        }
+
+        if (azurirano > 0)
+            await _db.SaveChangesAsync();
+
+        return azurirano;
     }
 
     // ── Sinhronizacija (1:1 prevod button1_Click iz frm_eFakturaLista) ──────
@@ -533,6 +563,7 @@ public class EFaktureIzlazService : IEFaktureIzlazService
             vremeSlanja              = DateTime.Now,
             invoiceID                = dto?.InvoiceId?.ToString(),
             salesInvoiceID           = dto?.SalesInvoiceId?.ToString(),
+            invoiceIDint             = dto?.SalesInvoiceId, // već long? — isti izvor kao salesInvoiceID, za pravi bigint sort
             purchaseInvoiceId        = dto?.PurchaseInvoiceId?.ToString(),
             status                   = "POSLATO",
             statusDokumenta          = "Poslato"
