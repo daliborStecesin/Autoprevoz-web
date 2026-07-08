@@ -349,6 +349,18 @@
         if (pUcitaj  is not null) _ucitajSekcijaOtvorena = pUcitaj  == "True";
         if (pFilteri is not null) _filteriOtvoreni       = pFilteri == "True";
 
+        // Jednokratni backfill invoiceIDint za stare redove (kolona već postoji, ranije
+        // ostajala prazna) — pre učitavanja liste da sortiranje odmah bude ispravno.
+        // Posle prvog uspešnog poziva postaje trajno no-op, pa se bezbedno zove svaki put.
+        try
+        {
+            await EFaktureService.PopuniInvoiceIdIntBackfillAsync();
+        }
+        catch
+        {
+            // Tiho — backfill ne sme srušiti učitavanje liste.
+        }
+
         await Ucitaj(primeniFiltere: false);
     }
 

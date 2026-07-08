@@ -9,8 +9,9 @@ namespace Transport.Application.Services.Sef;
 
 // Gradi UBL XML za minimalnu FAKTURU (S10/S20), redosled elemenata prati
 // desktop Class_E_Racun (već prihvaćen na SEF-u). Bez avansa/oslobođenja/
-// knjižnih/priloga — dodaju se u kasnijim koracima. Čist string builder,
-// bez baze i bez slanja. XElement escapuje &,<,> automatski u tekstu.
+// knjižnih — dodaju se u kasnijim koracima. Prateća dokumenta (PDF, max 3,
+// Base64 već gotov u memoriji) SU podržana. Čist string builder, bez baze
+// i bez slanja. XElement escapuje &,<,> automatski u tekstu.
 public class EFakturaUblBuilder : IEFakturaUblBuilder
 {
     private static readonly XNamespace Ns  = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2";
@@ -48,6 +49,8 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
             RefTag(Cac + "OrderReference", input.BrojNarudzbenice),
             RefTag(Cac + "OriginatorDocumentReference", input.BrojTendera),
             RefTag(Cac + "ContractDocumentReference", input.BrojUgovora),
+
+            input.Prilozi.Select(AdditionalDocumentReference),
 
             AccountingSupplierParty(input),
             AccountingCustomerParty(input),
@@ -134,6 +137,17 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
 
         return code is null ? null : new XElement(Cac + "InvoicePeriod", new XElement(Cbc + "DescriptionCode", code));
     }
+
+    // Prilog je već Base64 u memoriji (konvertovano pri dodavanju, ne ovde) — builder
+    // ga samo ugrađuje. ID = ime fajla, isto kao Class_E_Racun.
+    private static XElement AdditionalDocumentReference(EFakturaUblPrilog prilog) =>
+        new(Cac + "AdditionalDocumentReference",
+            new XElement(Cbc + "ID", Cln(prilog.ImeFajla)),
+            new XElement(Cac + "Attachment",
+                new XElement(Cbc + "EmbeddedDocumentBinaryObject",
+                    new XAttribute("mimeCode", "application/pdf"),
+                    new XAttribute("filename", Cln(prilog.ImeFajla)),
+                    prilog.Base64)));
 
     private static XElement AccountingSupplierParty(EFakturaUblInput input)
     {

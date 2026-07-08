@@ -39,4 +39,10 @@ public interface IEFaktureUlazService
     /// Preskače reference bez ugrađenog Base64 sadržaja (npr. samo broj narudžbenice).
     /// Vraća praznu listu ako dokument nema priloga.
     Task<List<PrateciDokument>> UcitajPrateceDokumenteAsync(string invoiceId);
+
+    /// Jednokratni backfill: za stare redove gde je invoiceIDint NULL a invoiceID se
+    /// parsira u broj, popunjava invoiceIDint (kolona već postoji, samo je do sad
+    /// ostajala prazna). Bezbedno za pozivanje uvek — bez kandidata je no-op. Vraća
+    /// broj ažuriranih redova.
+    Task<int> PopuniInvoiceIdIntBackfillAsync();
 }

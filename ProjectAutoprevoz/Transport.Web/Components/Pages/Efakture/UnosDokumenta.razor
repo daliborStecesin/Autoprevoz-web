@@ -48,7 +48,8 @@
         </span>
     </MudTooltip>
 
-    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.NoteAdd" Disabled="@FormaZakljucana">
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.NoteAdd" Disabled="@FormaZakljucana"
+               OnClick="@(() => _prikaziPriloge = !_prikaziPriloge)">
         Dodaj dokument
     </MudButton>
 
@@ -375,11 +376,57 @@
     </MudItem>
 </MudGrid>
 
-@* ── PRILOZI — placeholder, dijalog se vezuje u sledećem koraku ──────────── *@
-<MudPaper Elevation="0" Class="pa-4 mt-3 d-flex align-center justify-center"
-          Style="border:1px dashed rgba(0,0,0,0.3); border-radius:4px; color:rgba(0,0,0,0.5);">
-    Prateća dokumenta (max 3)
-</MudPaper>
+@* ── PRILOZI — Base64 konverzija odmah pri dodavanju, sve u memoriji ──────── *@
+@if (_prikaziPriloge)
+{
+    <MudPaper Elevation="1" Class="pa-3 mt-3">
+        <div class="d-flex justify-space-between align-center mb-2">
+            <MudText Typo="Typo.subtitle1" Style="color:#2D3E50; font-weight:600;">
+                Prateća dokumenta (max 3)
+            </MudText>
+            <MudFileUpload T="IBrowserFile" FilesChanged="DodajPrilog" Accept=".pdf" MaximumFileCount="1"
+                           Disabled="@(_prilozi.Count >= 3 || FormaZakljucana)">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Disabled="@(_prilozi.Count >= 3 || FormaZakljucana)">
+                        Dodaj
+                    </MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+        </div>
+
+        @if (_prilozi.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Nema dodatih priloga.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Class="mb-1">
+                <thead>
+                    <tr>
+                        <th>Naziv fajla</th>
+                        <th style="width:110px;">Veličina</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _prilozi)
+                    {
+                        <tr>
+                            <td>@p.ImeFajla</td>
+                            <td>@FormatVelicina(p.VelicinaByte)</td>
+                            <td>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(() => UkloniPrilog(p))" Disabled="@FormaZakljucana" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+}
 
 @code {
     private UnosDokumentaModel _model = new();
@@ -584,8 +631,74 @@
     // duplo slanje i dalje izmene dokumenta koji je već na SEF-u.
     private bool FormaZakljucana => _poslatSalesInvoiceId is not null;
 
+    // ── Prateća dokumenta (PDF, max 3) — Base64 konverzija ODMAH pri dodavanju,
+    // sve u memoriji, bez baze. Šalju se ugrađeni u UBL (EFakturaUblBuilder). ──
+    private bool          _prikaziPriloge;
+    private List<PrilogVM> _prilozi = [];
+
+    private const long MaxPrilogBajta  = 25 * 1024 * 1024;
+    private const int  MaxDuzinaImena  = 45;
+
+    private async Task DodajPrilog(IBrowserFile file)
+    {
+        if (_prilozi.Count >= 3)
+        {
+            Snackbar.Add("Maksimalno 3 priloga po dokumentu.", Severity.Warning);
+            return;
+        }
+
+        var jePdf = file.ContentType == "application/pdf"
+                    || file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+        if (!jePdf)
+        {
+            Snackbar.Add("Dozvoljeni su samo PDF fajlovi.", Severity.Warning);
+            return;
+        }
+
+        if (file.Size > MaxPrilogBajta)
+        {
+            Snackbar.Add("Fajl je veći od dozvoljenih 25 MB.", Severity.Warning);
+            return;
+        }
+
+        if (file.Name.Length > MaxDuzinaImena)
+        {
+            Snackbar.Add($"Naziv fajla je predugačak (maksimalno {MaxDuzinaImena} znakova).", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: MaxPrilogBajta).CopyToAsync(ms);
+
+            _prilozi.Add(new PrilogVM
+            {
+                ImeFajla     = file.Name,
+                VelicinaByte = ms.Length,
+                Base64       = Convert.ToBase64String(ms.ToArray())
+            });
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri učitavanju priloga: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void UkloniPrilog(PrilogVM p) => _prilozi.Remove(p);
+
+    private static string FormatVelicina(long bajta) =>
+        bajta < 1024 * 1024 ? $"{bajta / 1024.0:N0} KB" : $"{bajta / 1024.0 / 1024.0:N2} MB";
+
+    private class PrilogVM
+    {
+        public string ImeFajla { get; set; } = "";
+        public long   VelicinaByte { get; set; }
+        public string Base64 { get; set; } = "";
+    }
+
     // Builder je SAMO za minimalnu FAKTURU sa standardnim PDV kategorijama
-    // (S10/S20) — avans/oslobođenje/knjižna/prilozi dolaze u kasnijim koracima.
+    // (S10/S20) — avans/oslobođenje/knjižna dolaze u kasnijim koracima.
     // Zajednička provera i za Izvoz XML i za Pošalji (obe idu kroz isti builder).
     private string? ProveriBuilderOgranicenja()
     {
@@ -814,6 +927,13 @@
                 PdvProcenat   = s.PdvProcenat,
                 Pdv           = s.Pdv,
                 Ukupno        = s.Ukupno
+            })],
+
+            // Već gotov Base64 iz memorije — nula konverzije u ovom trenutku.
+            Prilozi = [.. _prilozi.Select(p => new EFakturaUblPrilog
+            {
+                ImeFajla = p.ImeFajla,
+                Base64   = p.Base64
             })]
         };
     }

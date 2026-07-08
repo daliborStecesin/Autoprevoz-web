@@ -35,6 +35,16 @@ public class EFakturaUblInput
     public string? ZiroRacunIzdavaoca { get; set; }
 
     public List<EFakturaUblStavka> Stavke { get; set; } = [];
+
+    // Prateća dokumenta (PDF, max 3) — Base64 već gotov u memoriji pre slanja,
+    // builder samo ugrađuje, bez ikakve konverzije u ovom trenutku.
+    public List<EFakturaUblPrilog> Prilozi { get; set; } = [];
+}
+
+public class EFakturaUblPrilog
+{
+    public string ImeFajla { get; set; } = "";
+    public string Base64 { get; set; } = "";
 }
 
 public class EFakturaUblStavka
