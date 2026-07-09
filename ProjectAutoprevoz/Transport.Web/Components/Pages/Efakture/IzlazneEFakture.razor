@@ -356,9 +356,10 @@
     private bool    _osvezavaSve;
     private string? _liveKomentarOdbijanja;
 
-    // Status vrednosti koje se smatraju "u toku" — Osveži sve preskače sve ostalo
-    // (Prihvaceno/Odbijeno/Otkazano/Stornirano/Placeno) jer je taj status finalan.
-    private static readonly string[] StatusiUToku = ["Slanje", "Poslato", "Novi", "Priprema"];
+    // Jedino "Prihvaceno" se smatra konačnim stanjem — Osveži sve ga preskače.
+    // Svi ostali statusi (Poslato/Nepoznato/NULL/Odbijeno/...) i dalje mogu da se
+    // promene (npr. Odbijeno -> Storno/nova verzija), pa se uvek ponovo proveravaju.
+    private const string StatusFinalan = "Prihvaceno";
 
     protected override async Task OnInitializedAsync()
     {
@@ -520,7 +521,7 @@
                 // sales-invoice/ids). Za sveže sinhronizovane redove su ova dva polja
                 // identična, ali za starije/ručno diranute redove mogu da se razlikuju.
                 if (red.salesInvoiceID is null) continue;
-                if (!StatusiUToku.Contains(red.statusDokumenta)) continue;
+                if (red.statusDokumenta == StatusFinalan) continue;
 
                 try
                 {

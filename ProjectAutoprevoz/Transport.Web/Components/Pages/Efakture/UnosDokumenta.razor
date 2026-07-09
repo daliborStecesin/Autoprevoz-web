@@ -141,7 +141,7 @@
                     <option value="FAKTURA">FAKTURA</option>
                     <option value="AVANSNA FAKTURA">AVANSNA FAKTURA</option>
                     <option value="DOKUMENT O SMANJENJU">DOKUMENT O SMANJENJU</option>
-                    <option value="DOKUMENT O POVEĆANJU">DOKUMENT O POVEĆANJU</option>
+                    <option value="DOKUMENT O POVECANJU">DOKUMENT O POVECANJU</option>
                 </NativniSelect>
             </div>
             <div class="mb-2">
@@ -160,14 +160,19 @@
                 <NativniInput TValue="string" Label="Interni broj za rutiranje" Value="@_model.InterniBrojZaRutiranje"
                               ValueChanged="@(v => _model.InterniBrojZaRutiranje = v ?? string.Empty)" Disabled="@FormaZakljucana" />
             </div>
-            @* Avans nema promet — polje se sakriva za taj tip dokumenta. *@
-            @if (!JeAvansDokument)
+            @* Avans nema promet; Smanjenje ima sopstveno "Datum smanjenja" (u svom
+               panelu) umesto ovog polja — oba se sakrivaju za svoj tip dokumenta. *@
+            @if (!JeAvansDokument && !JeSmanjenjeDokument)
             {
                 <div class="mb-2"><DateInput Label="Datum prometa" @bind-Value="_model.DatumPrometa" Disabled="@FormaZakljucana" /></div>
             }
-            <div class="mb-2">
-                <DateInput Label="@(JeAvansDokument ? "Datum uplate" : "Datum valute")" @bind-Value="_model.DatumValute" Disabled="@FormaZakljucana" />
-            </div>
+            @* Smanjenje nema Datum dospeća/valute uopšte (nema DueDate u XML-u). *@
+            @if (!JeSmanjenjeDokument)
+            {
+                <div class="mb-2">
+                    <DateInput Label="@(JeAvansDokument ? "Datum uplate" : JePovecanjeDokument ? "Datum dospeća" : "Datum valute")" @bind-Value="_model.DatumValute" Disabled="@FormaZakljucana" />
+                </div>
+            }
         </MudPaper>
     </MudItem>
 
@@ -189,16 +194,21 @@
                 </div>
             </div>
 
-            <div class="mb-3">
-                <NativniSelect Label="Nastanak PDV obaveze izdavaoca" Value="@_model.NastanakPdvObaveze"
-                               ValueChanged="@(v => _model.NastanakPdvObaveze = v ?? "Datum prometa")"
-                               Disabled="@(FormaZakljucana || JeAvansDokument)">
-                    <option value="Datum izdavanja">Datum izdavanja</option>
-                    <option value="Datum prometa">Datum prometa</option>
-                    <option value="Datum plaćanja">Datum plaćanja</option>
-                    <option value="Ne nastaje PDV obaveza">Ne nastaje PDV obaveza</option>
-                </NativniSelect>
-            </div>
+            @* Koncept "Nastanak PDV obaveze" ne postoji kod Dokumenta o smanjenju —
+               polje se u potpunosti sakriva za taj tip (ne samo disable). *@
+            @if (!JeSmanjenjeDokument)
+            {
+                <div class="mb-3">
+                    <NativniSelect Label="Nastanak PDV obaveze izdavaoca" Value="@_model.NastanakPdvObaveze"
+                                   ValueChanged="@(v => _model.NastanakPdvObaveze = v ?? "Datum prometa")"
+                                   Disabled="@(FormaZakljucana || JeAvansDokument)">
+                        <option value="Datum izdavanja">Datum izdavanja</option>
+                        <option value="Datum prometa">Datum prometa</option>
+                        <option value="Datum plaćanja">Datum plaćanja</option>
+                        <option value="Ne nastaje PDV obaveza">Ne nastaje PDV obaveza</option>
+                    </NativniSelect>
+                </div>
+            }
 
             @* ── Osnov oslobođenja od PDV — samo kad bar jedna stavka nema PDV ── *@
             @if (PrikaziPanelOslobodjenja)
@@ -371,6 +381,305 @@
                 </table>
             </MudPaper>
         }
+    </MudPaper>
+}
+
+@* ── DOKUMENT O POVEĆANJU — pojedinačna faktura / fakture u periodu ──────
+   Samo forma/state u ovom koraku (K1) — builder (K2) će ovo iskoristiti.
+   Send dugme i dalje blokira ovaj tip (ProveriBuilderOgranicenja), nepromenjeno. *@
+@if (JePovecanjeDokument)
+{
+    <MudPaper Elevation="1" Class="pa-3 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+            Dokument o povećanju
+        </MudText>
+
+        <div class="mb-2" style="max-width:320px;">
+            <NativniSelect Label="Dokument o povećanju se odnosi na" Value="@_povecanjeOdnosiSeNa"
+                           ValueChanged="@(async v => await OnPovecanjeOdnosiSeNaChanged(v))"
+                           Disabled="@FormaZakljucana">
+                <option value="Pojedinačna faktura">Pojedinačna faktura</option>
+                <option value="Fakture u periodu">Fakture u periodu</option>
+            </NativniSelect>
+        </div>
+
+        @if (_povecanjeOdnosiSeNa == "Pojedinačna faktura")
+        {
+            <MudCheckBox Value="_povecanjeNijeRegistrovano"
+                         ValueChanged="@((bool v) => _ = OnPovecanjeNijeRegistrovanoChanged(v))"
+                         T="bool" Label="Dokument o povećanju se odnosi na fakture koje nisu registrovane na E-fakturi"
+                         Size="Size.Small" Color="Color.Primary" Class="mb-2" Disabled="@FormaZakljucana" />
+
+            @if (!_povecanjeNijeRegistrovano)
+            {
+                @if (_ucitavaIzvorneFakture)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                }
+
+                <div class="d-flex gap-2 align-end mb-2" style="max-width:520px;">
+                    <div style="flex:1;">
+                        <NativniSelect Label="Izvorna faktura" Value="@(_odabranaIzvornaFakturaId ?? "")"
+                                       ValueChanged="@(v => _odabranaIzvornaFakturaId = v)"
+                                       Disabled="@FormaZakljucana">
+                            <option value="">—</option>
+                            @foreach (var f in _dostupneIzvorneFakture)
+                            {
+                                <option value="@f.IdEfakture">@f.BrojDokumenta — @(f.DatumIzdavanja?.ToString("dd.MM.yyyy"))</option>
+                            }
+                        </NativniSelect>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="DodajIzabranuFakturu"
+                               Disabled="@(FormaZakljucana || string.IsNullOrWhiteSpace(_odabranaIzvornaFakturaId))">
+                        Dodaj izvornu fakturu
+                    </MudButton>
+                </div>
+
+                @if (_izabraneIzvorneFakture.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Class="mb-2">
+                        <thead>
+                            <tr>
+                                <th>Broj dokumenta</th>
+                                <th>Datum</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in _izabraneIzvorneFakture)
+                            {
+                                <tr>
+                                    <td>@f.BrojDokumenta</td>
+                                    <td>@(f.DatumIzdavanja?.ToString("dd.MM.yyyy"))</td>
+                                    <td>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UkloniIzabranuFakturu(f))" Disabled="@FormaZakljucana" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            }
+            else
+            {
+                <div class="d-flex gap-2 align-end mb-2" style="max-width:420px;">
+                    <div style="flex:1;">
+                        <NativniInput TValue="string" Label="Broj izvorne fakture" Value="@_rucnaIzvornaFaktura"
+                                      ValueChanged="@(v => _rucnaIzvornaFaktura = v ?? "")" Disabled="@FormaZakljucana" />
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="DodajRucnuFakturu"
+                               Disabled="@(FormaZakljucana || string.IsNullOrWhiteSpace(_rucnaIzvornaFaktura))">
+                        Dodaj izvornu fakturu
+                    </MudButton>
+                </div>
+
+                @if (_rucneIzvorneFakture.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Class="mb-2">
+                        <thead>
+                            <tr>
+                                <th>Broj izvorne fakture</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var broj in _rucneIzvorneFakture)
+                            {
+                                <tr>
+                                    <td>@broj</td>
+                                    <td>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UkloniRucnuFakturu(broj))" Disabled="@FormaZakljucana" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            }
+        }
+        else
+        {
+            <div class="d-flex gap-3 flex-wrap mb-2">
+                <div style="min-width:180px;">
+                    <DateInput Label="Period od" @bind-Value="_povecanjePeriodOd" Disabled="@FormaZakljucana" />
+                </div>
+                <div style="min-width:180px;">
+                    <DateInput Label="Period do" @bind-Value="_povecanjePeriodDo" Disabled="@FormaZakljucana" />
+                </div>
+            </div>
+        }
+
+        @* Automatski izvedeno iz stavki (ista logika kao FAKTURA) — read-only,
+           bez mogućnosti ručne promene, reaguje na svaku izmenu/dodavanje/brisanje
+           stavke jer je computed property. *@
+        <div class="mb-2" style="max-width:320px;">
+            <NativniInput TValue="string" Label="Nastanak PDV obaveze za izdavaoca" Value="@PovecanjeNastanakPdv" Disabled="true" />
+        </div>
+
+        @if (PovecanjeNastanakPdv == "PDV se obračunava")
+        {
+            <div class="mb-2" style="max-width:320px;">
+                <NativniSelect Label="Vrsta datuma" Value="@_povecanjeVrstaDatuma"
+                               ValueChanged="@(v => _povecanjeVrstaDatuma = v ?? "Datum povećanja - ugovor")"
+                               Disabled="@FormaZakljucana">
+                    <option value="Datum povećanja - ugovor">Datum povećanja - ugovor</option>
+                    <option value="Datum izdavanja - zaračunavanje troškova">Datum izdavanja - zaračunavanje troškova</option>
+                </NativniSelect>
+            </div>
+
+            @if (_povecanjeVrstaDatuma == "Datum povećanja - ugovor")
+            {
+                <div class="mb-2" style="max-width:180px;">
+                    <DateInput Label="Datum povećanja - ugovor" @bind-Value="_povecanjeDatumUgovor" Disabled="@FormaZakljucana" />
+                </div>
+            }
+        }
+    </MudPaper>
+}
+
+@* ── DOKUMENT O SMANJENJU — pojedinačna faktura / pojedinačna avansna faktura /
+   fakture u periodu. Samo forma/state u ovom koraku — builder dolazi u S2.
+   NEMA "Nastanak PDV obaveze" (koncept ne postoji kod smanjenja) niti Datum
+   dospeća/valute — sopstveno obavezno "Datum smanjenja" zamenjuje oboje. *@
+@if (JeSmanjenjeDokument)
+{
+    <MudPaper Elevation="1" Class="pa-3 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">
+            Dokument o smanjenju
+        </MudText>
+
+        <div class="mb-2" style="max-width:320px;">
+            <NativniSelect Label="Dokument o smanjenju se odnosi na" Value="@_smanjenjeOdnosiSeNa"
+                           ValueChanged="@(async v => await OnSmanjenjeOdnosiSeNaChanged(v))"
+                           Disabled="@FormaZakljucana">
+                <option value="Pojedinačna faktura">Pojedinačna faktura</option>
+                <option value="Pojedinačna avansna faktura">Pojedinačna avansna faktura</option>
+                <option value="Fakture u periodu">Fakture u periodu</option>
+            </NativniSelect>
+        </div>
+
+        @if (_smanjenjeOdnosiSeNa is "Pojedinačna faktura" or "Pojedinačna avansna faktura")
+        {
+            <MudCheckBox Value="_smanjenjeNijeRegistrovano"
+                         ValueChanged="@((bool v) => _ = OnSmanjenjeNijeRegistrovanoChanged(v))"
+                         T="bool"
+                         Label="@(SmanjenjeIzAvansa
+                                    ? "Dokument o smanjenju se odnosi na avansne fakture koje nisu registrovane na E-fakturi"
+                                    : "Dokument o smanjenju se odnosi na fakture koje nisu registrovane na E-fakturi")"
+                         Size="Size.Small" Color="Color.Primary" Class="mb-2" Disabled="@FormaZakljucana" />
+
+            @if (!_smanjenjeNijeRegistrovano)
+            {
+                @if (_ucitavaSmanjenjeFakture)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                }
+
+                <div class="d-flex gap-2 align-end mb-2" style="max-width:520px;">
+                    <div style="flex:1;">
+                        <NativniSelect Label="@(SmanjenjeIzAvansa ? "Izvorna avansna faktura" : "Izvorna faktura")"
+                                       Value="@(_smanjenjeOdabranaFakturaId ?? "")"
+                                       ValueChanged="@(v => _smanjenjeOdabranaFakturaId = v)"
+                                       Disabled="@FormaZakljucana">
+                            <option value="">—</option>
+                            @foreach (var f in _smanjenjeDostupneFakture)
+                            {
+                                <option value="@f.IdEfakture">@f.BrojDokumenta — @(f.DatumIzdavanja?.ToString("dd.MM.yyyy"))</option>
+                            }
+                        </NativniSelect>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="DodajIzabranuSmanjenjeFakturu"
+                               Disabled="@(FormaZakljucana || string.IsNullOrWhiteSpace(_smanjenjeOdabranaFakturaId))">
+                        @(SmanjenjeIzAvansa ? "Dodaj izvornu avansnu fakturu" : "Dodaj izvornu fakturu")
+                    </MudButton>
+                </div>
+
+                @if (_smanjenjeIzabraneFakture.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Class="mb-2">
+                        <thead>
+                            <tr>
+                                <th>Broj dokumenta</th>
+                                <th>Datum</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in _smanjenjeIzabraneFakture)
+                            {
+                                <tr>
+                                    <td>@f.BrojDokumenta</td>
+                                    <td>@(f.DatumIzdavanja?.ToString("dd.MM.yyyy"))</td>
+                                    <td>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UkloniIzabranuSmanjenjeFakturu(f))" Disabled="@FormaZakljucana" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            }
+            else
+            {
+                <div class="d-flex gap-2 align-end mb-2" style="max-width:420px;">
+                    <div style="flex:1;">
+                        <NativniInput TValue="string" Label="@(SmanjenjeIzAvansa ? "Broj izvorne avansne fakture" : "Broj izvorne fakture")"
+                                      Value="@_smanjenjeRucnaFaktura"
+                                      ValueChanged="@(v => _smanjenjeRucnaFaktura = v ?? "")" Disabled="@FormaZakljucana" />
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="DodajRucnuSmanjenjeFakturu"
+                               Disabled="@(FormaZakljucana || string.IsNullOrWhiteSpace(_smanjenjeRucnaFaktura))">
+                        @(SmanjenjeIzAvansa ? "Dodaj izvornu avansnu fakturu" : "Dodaj izvornu fakturu")
+                    </MudButton>
+                </div>
+
+                @if (_smanjenjeRucneFakture.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Class="mb-2">
+                        <thead>
+                            <tr>
+                                <th>@(SmanjenjeIzAvansa ? "Broj izvorne avansne fakture" : "Broj izvorne fakture")</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var broj in _smanjenjeRucneFakture)
+                            {
+                                <tr>
+                                    <td>@broj</td>
+                                    <td>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => UkloniRucnuSmanjenjeFakturu(broj))" Disabled="@FormaZakljucana" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            }
+        }
+        else
+        {
+            <div class="d-flex gap-3 flex-wrap mb-2">
+                <div style="min-width:180px;">
+                    <DateInput Label="Period od" @bind-Value="_smanjenjePeriodOd" Disabled="@FormaZakljucana" />
+                </div>
+                <div style="min-width:180px;">
+                    <DateInput Label="Period do" @bind-Value="_smanjenjePeriodDo" Disabled="@FormaZakljucana" />
+                </div>
+            </div>
+        }
+
+        <div class="mb-2" style="max-width:180px;">
+            <DateInput Label="Datum smanjenja" @bind-Value="_smanjenjeDatumSmanjenja" Disabled="@FormaZakljucana" />
+        </div>
     </MudPaper>
 }
 
@@ -816,8 +1125,14 @@
         _ucitavaAvanse = true;
         try
         {
+            // "status" se popunjava SAMO pri direktnom slanju kroz ovu aplikaciju
+            // (PosaljiUblAsync); sinhronizovani (SEF-učitani) avansi imaju samo
+            // statusDokumenta. Avans je upotrebljiv ako je uspešno poslat/prihvaćen
+            // na SEF bez obzira kroz koji tok je ušao u bazu — "Nepoznato"/"Odbijeno"
+            // se isključuju kao nesiguran/neuspešan status.
             var lista = await Db.EInvoices.AsNoTracking()
-                .Where(e => e.tipDokumenta == "AVANSNA FAKTURA" && e.status == "POSLATO" && e.pib == _model.Pib)
+                .Where(e => e.tipDokumenta == "AVANSNA FAKTURA" && e.pib == _model.Pib
+                         && (e.status == "POSLATO" || e.statusDokumenta == "Poslato" || e.statusDokumenta == "Prihvaceno"))
                 .OrderByDescending(e => e.invoiceDateUtc)
                 .ToListAsync();
 
@@ -931,6 +1246,240 @@
         var novaOsnovica = Math.Round(v / (1 + kat.Stopa / 100m), 2);
         OnIskorisenoOsnovicaChanged(kat, novaOsnovica);
     }
+
+    // ── DOKUMENT O POVEĆANJU — pojedinačna faktura (picker ili ručni unos broja)
+    // ili fakture u periodu. Samo forma/state (K1) — builder (K2) će ovo iskoristiti,
+    // BillingReference/period se ne šalju u ovom koraku (Send i dalje blokira ovaj
+    // tip preko ProveriBuilderOgranicenja, nepromenjeno). ─────────────────────────
+    private string _povecanjeOdnosiSeNa    = "Pojedinačna faktura"; // ili "Fakture u periodu"
+    private bool   _povecanjeNijeRegistrovano;
+    private string _povecanjePeriodOd      = "";
+    private string _povecanjePeriodDo      = "";
+    private string _povecanjeVrstaDatuma   = "Datum povećanja - ugovor";
+    private string _povecanjeDatumUgovor   = DateTime.Today.ToString("yyyy-MM-dd");
+
+    // Automatski izveden iz stavki (bar jedna sa PDV -> obračunava se; sve 0% ili
+    // nema stavki -> ne nastaje obaveza) — computed property, bez ručnog izbora,
+    // uvek u sinhronizaciji sa Stavke bez potrebe da se kači na svaki event.
+    private string PovecanjeNastanakPdv =>
+        Stavke.Any(s => s.Stopa > 0) ? "PDV se obračunava" : "Ne nastaje obaveza obračuna PDV";
+
+    private bool                     _ucitavaIzvorneFakture;
+    private List<IzvornaFakturaVM>   _dostupneIzvorneFakture = [];
+    private string?                  _odabranaIzvornaFakturaId;
+    private List<IzvornaFakturaVM>   _izabraneIzvorneFakture = [];
+
+    private string       _rucnaIzvornaFaktura = "";
+    private List<string> _rucneIzvorneFakture = [];
+
+    private class IzvornaFakturaVM
+    {
+        public int       IdEfakture { get; set; }
+        public string    BrojDokumenta { get; set; } = "";
+        public DateTime? DatumIzdavanja { get; set; }
+    }
+
+    private async Task OnPovecanjeOdnosiSeNaChanged(string? v)
+    {
+        _povecanjeOdnosiSeNa = v ?? "Pojedinačna faktura";
+
+        if (_povecanjeOdnosiSeNa == "Pojedinačna faktura" && !_povecanjeNijeRegistrovano)
+            await UcitajDostupneIzvorneFakture();
+    }
+
+    private async Task OnPovecanjeNijeRegistrovanoChanged(bool v)
+    {
+        _povecanjeNijeRegistrovano = v;
+
+        // Prebacivanje moda čisti oba spiska — picker i ručni unos su nezavisni.
+        _izabraneIzvorneFakture = [];
+        _rucneIzvorneFakture = [];
+
+        if (!v)
+            await UcitajDostupneIzvorneFakture();
+    }
+
+    // Izvorne fakture istog kupca (PIB), stvarno poslate/prihvaćene na SEF — isti
+    // kombinovani uslov statusa kao panel avansa (status="POSLATO" za direktno
+    // poslate, statusDokumenta="Poslato"/"Prihvaceno" za sinhronizovane sa SEF-a).
+    private async Task UcitajDostupneIzvorneFakture()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Pib))
+        {
+            _dostupneIzvorneFakture = [];
+            return;
+        }
+
+        _ucitavaIzvorneFakture = true;
+        try
+        {
+            var vecIzabrane = _izabraneIzvorneFakture.Select(f => f.IdEfakture).ToHashSet();
+
+            var lista = await Db.EInvoices.AsNoTracking()
+                .Where(e => e.tipDokumenta == "FAKTURA" && e.pib == _model.Pib
+                         && (e.status == "POSLATO" || e.statusDokumenta == "Poslato" || e.statusDokumenta == "Prihvaceno"))
+                .OrderByDescending(e => e.invoiceDateUtc)
+                .ToListAsync();
+
+            _dostupneIzvorneFakture = [.. lista
+                .Where(e => !vecIzabrane.Contains(e.idEfakture))
+                .Select(e => new IzvornaFakturaVM
+                {
+                    IdEfakture     = e.idEfakture,
+                    BrojDokumenta  = e.brojDokumenta ?? "",
+                    DatumIzdavanja = e.invoiceDateUtc
+                })];
+        }
+        finally
+        {
+            _ucitavaIzvorneFakture = false;
+        }
+    }
+
+    private void DodajIzabranuFakturu()
+    {
+        if (!int.TryParse(_odabranaIzvornaFakturaId, out var id)) return;
+
+        var izvor = _dostupneIzvorneFakture.FirstOrDefault(f => f.IdEfakture == id);
+        if (izvor is null) return;
+
+        _izabraneIzvorneFakture.Add(izvor);
+        _dostupneIzvorneFakture.Remove(izvor);
+        _odabranaIzvornaFakturaId = null;
+    }
+
+    private void UkloniIzabranuFakturu(IzvornaFakturaVM f)
+    {
+        _izabraneIzvorneFakture.Remove(f);
+        _dostupneIzvorneFakture = [.. _dostupneIzvorneFakture, f];
+        _dostupneIzvorneFakture = [.. _dostupneIzvorneFakture.OrderByDescending(x => x.DatumIzdavanja)];
+    }
+
+    private void DodajRucnuFakturu()
+    {
+        var broj = _rucnaIzvornaFaktura.Trim();
+        if (broj.Length == 0) return;
+
+        _rucneIzvorneFakture.Add(broj);
+        _rucnaIzvornaFaktura = "";
+    }
+
+    private void UkloniRucnuFakturu(string broj) => _rucneIzvorneFakture.Remove(broj);
+
+    // ── DOKUMENT O SMANJENJU — pojedinačna faktura / pojedinačna avansna faktura /
+    // fakture u periodu. Isti UI obrazac kao Povećanje, ali sopstvena (nezavisna)
+    // state — izvor pickera prebacuje FAKTURA <-> AVANSNA FAKTURA po modu, pa se
+    // liste ne smeju mešati sa Povećanjem niti sa Avans-1 panelom. Samo forma/state
+    // u ovom koraku — builder dolazi u S2. ─────────────────────────────────────
+    private string _smanjenjeOdnosiSeNa     = "Pojedinačna faktura"; // ili "Pojedinačna avansna faktura" / "Fakture u periodu"
+    private bool   _smanjenjeNijeRegistrovano;
+    private string _smanjenjePeriodOd       = "";
+    private string _smanjenjePeriodDo       = "";
+    private string _smanjenjeDatumSmanjenja = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private bool                   _ucitavaSmanjenjeFakture;
+    private List<IzvornaFakturaVM> _smanjenjeDostupneFakture = [];
+    private string?                _smanjenjeOdabranaFakturaId;
+    private List<IzvornaFakturaVM> _smanjenjeIzabraneFakture = [];
+
+    private string       _smanjenjeRucnaFaktura = "";
+    private List<string> _smanjenjeRucneFakture = [];
+
+    private bool SmanjenjeIzAvansa => _smanjenjeOdnosiSeNa == "Pojedinačna avansna faktura";
+
+    private async Task OnSmanjenjeOdnosiSeNaChanged(string? v)
+    {
+        _smanjenjeOdnosiSeNa = v ?? "Pojedinačna faktura";
+
+        // Promena moda menja i izvor pickera (FAKTURA <-> AVANSNA FAKTURA) — očisti
+        // izabrane, ne mešaj fakture i avanse u istoj listi.
+        _smanjenjeIzabraneFakture = [];
+        _smanjenjeRucneFakture = [];
+
+        if (_smanjenjeOdnosiSeNa is "Pojedinačna faktura" or "Pojedinačna avansna faktura" && !_smanjenjeNijeRegistrovano)
+            await UcitajDostupneSmanjenjeFakture();
+    }
+
+    private async Task OnSmanjenjeNijeRegistrovanoChanged(bool v)
+    {
+        _smanjenjeNijeRegistrovano = v;
+
+        _smanjenjeIzabraneFakture = [];
+        _smanjenjeRucneFakture = [];
+
+        if (!v)
+            await UcitajDostupneSmanjenjeFakture();
+    }
+
+    // Izvorne (obične ili avansne, zavisno od moda) fakture istog kupca (PIB),
+    // stvarno poslate/prihvaćene na SEF — isti kombinovani uslov statusa kao
+    // paneli Avansa i Povećanja (status="POSLATO" za direktno poslate,
+    // statusDokumenta="Poslato"/"Prihvaceno" za sinhronizovane sa SEF-a).
+    private async Task UcitajDostupneSmanjenjeFakture()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Pib))
+        {
+            _smanjenjeDostupneFakture = [];
+            return;
+        }
+
+        var tipIzvora = SmanjenjeIzAvansa ? "AVANSNA FAKTURA" : "FAKTURA";
+
+        _ucitavaSmanjenjeFakture = true;
+        try
+        {
+            var vecIzabrane = _smanjenjeIzabraneFakture.Select(f => f.IdEfakture).ToHashSet();
+
+            var lista = await Db.EInvoices.AsNoTracking()
+                .Where(e => e.tipDokumenta == tipIzvora && e.pib == _model.Pib
+                         && (e.status == "POSLATO" || e.statusDokumenta == "Poslato" || e.statusDokumenta == "Prihvaceno"))
+                .OrderByDescending(e => e.invoiceDateUtc)
+                .ToListAsync();
+
+            _smanjenjeDostupneFakture = [.. lista
+                .Where(e => !vecIzabrane.Contains(e.idEfakture))
+                .Select(e => new IzvornaFakturaVM
+                {
+                    IdEfakture     = e.idEfakture,
+                    BrojDokumenta  = e.brojDokumenta ?? "",
+                    DatumIzdavanja = e.invoiceDateUtc
+                })];
+        }
+        finally
+        {
+            _ucitavaSmanjenjeFakture = false;
+        }
+    }
+
+    private void DodajIzabranuSmanjenjeFakturu()
+    {
+        if (!int.TryParse(_smanjenjeOdabranaFakturaId, out var id)) return;
+
+        var izvor = _smanjenjeDostupneFakture.FirstOrDefault(f => f.IdEfakture == id);
+        if (izvor is null) return;
+
+        _smanjenjeIzabraneFakture.Add(izvor);
+        _smanjenjeDostupneFakture.Remove(izvor);
+        _smanjenjeOdabranaFakturaId = null;
+    }
+
+    private void UkloniIzabranuSmanjenjeFakturu(IzvornaFakturaVM f)
+    {
+        _smanjenjeIzabraneFakture.Remove(f);
+        _smanjenjeDostupneFakture = [.. _smanjenjeDostupneFakture, f];
+        _smanjenjeDostupneFakture = [.. _smanjenjeDostupneFakture.OrderByDescending(x => x.DatumIzdavanja)];
+    }
+
+    private void DodajRucnuSmanjenjeFakturu()
+    {
+        var broj = _smanjenjeRucnaFaktura.Trim();
+        if (broj.Length == 0) return;
+
+        _smanjenjeRucneFakture.Add(broj);
+        _smanjenjeRucnaFaktura = "";
+    }
+
+    private void UkloniRucnuSmanjenjeFakturu(string broj) => _smanjenjeRucneFakture.Remove(broj);
 
     protected override async Task OnInitializedAsync()
     {
@@ -1103,17 +1652,23 @@
     // Mapiranje naših 4 opcije "Tip dokumenta" na desktop tipove/brojače
     // (tbl_Podesavanja): AVANSNI RAČUN -> Broj_Dok_2, KNJIZNO ODOBRENJE (KO) ==
     // DOKUMENT O SMANJENJU -> Broj_Dok_1, KNJIZNO ZADUŽENJE (KZ) == DOKUMENT O
-    // POVEĆANJU -> Broj_Dok_3 (ista ekvivalencija terminologije kao Izlazne
+    // POVECANJU -> Broj_Dok_3 (ista ekvivalencija terminologije kao Izlazne
     // e-fakture). FAKTURA nema sopstveni brojač ovde — broj dolazi iz računa.
+    // NAPOMENA: vrednost mora biti BEZ Ć ("DOKUMENT O POVECANJU"), isto kao svuda
+    // drugde u projektu (Izlazne/Ulazne liste, sync mapiranje) — sa Ć bi ovaj red
+    // bio nevidljiv/nekonzistentan sa ostatkom sistema (isti bag kao Avans/AVANSNA
+    // FAKTURA ranije).
     private static int? BrojacZaTip(Podesavanja? pod, string tipDokumenta) => tipDokumenta switch
     {
         "AVANSNA FAKTURA"      => pod?.Broj_Dok_2,
         "DOKUMENT O SMANJENJU" => pod?.Broj_Dok_1,
-        "DOKUMENT O POVEĆANJU" => pod?.Broj_Dok_3,
+        "DOKUMENT O POVECANJU" => pod?.Broj_Dok_3,
         _                      => null
     };
 
     private bool JeAvansDokument => _model.TipDokumenta == "AVANSNA FAKTURA";
+    private bool JePovecanjeDokument => _model.TipDokumenta == "DOKUMENT O POVECANJU";
+    private bool JeSmanjenjeDokument => _model.TipDokumenta == "DOKUMENT O SMANJENJU";
 
     // Ukupan broj kolona u tabeli stavki — za "Nema stavki" colspan. Avans skida
     // kolonu Umanjenje (-1), 2 aktivna slova oslobođenja dodaju kolonu (+1).
@@ -1124,6 +1679,13 @@
         _model.TipDokumenta = v ?? "FAKTURA";
         AzurirajZaTipDokumenta();
         await PredloziBrojDokumenta();
+
+        if (JePovecanjeDokument && _povecanjeOdnosiSeNa == "Pojedinačna faktura" && !_povecanjeNijeRegistrovano)
+            await UcitajDostupneIzvorneFakture();
+
+        if (JeSmanjenjeDokument && _smanjenjeOdnosiSeNa is "Pojedinačna faktura" or "Pojedinačna avansna faktura"
+            && !_smanjenjeNijeRegistrovano)
+            await UcitajDostupneSmanjenjeFakture();
     }
 
     // AVANSNA FAKTURA menja ponašanje stavki (Kolicina fiksna 1, Umanjenje se ne
@@ -1249,13 +1811,24 @@
         public string Base64 { get; set; } = "";
     }
 
-    // Builder podržava FAKTURU i AVANSNU FAKTURU — knjižna dokumenta dolaze u
-    // kasnijim koracima. Oslobođene (0%) stavke SU podržane (C2). Zajednička
-    // provera i za Izvoz XML i za Pošalji (obe idu kroz isti builder).
+    // Builder podržava sve 4 opcije Tip dokumenta (FAKTURA, AVANSNA FAKTURA,
+    // DOKUMENT O POVECANJU, DOKUMENT O SMANJENJU — S2). Oslobođene (0%) stavke SU
+    // podržane (C2). Zajednička provera i za Izvoz XML i za Pošalji (obe idu kroz
+    // isti builder).
     private string? ProveriBuilderOgranicenja()
     {
-        if (_model.TipDokumenta is not ("FAKTURA" or "AVANSNA FAKTURA"))
-            return "Ova akcija trenutno podržava samo tip dokumenta FAKTURA ili AVANSNA FAKTURA.";
+        // Datum povećanja - ugovor ne sme biti u budućnosti u odnosu na datum izdavanja
+        // (danas).
+        if (JePovecanjeDokument && PovecanjeNastanakPdv == "PDV se obračunava"
+            && _povecanjeVrstaDatuma == "Datum povećanja - ugovor")
+        {
+            var datumUgovora = ParsirajDatum(_povecanjeDatumUgovor);
+            if (datumUgovora is not null && datumUgovora.Value.Date > DateTime.Today)
+                return "Datum povećanja - ugovor ne može biti veći od datuma izdavanja.";
+        }
+
+        if (_model.TipDokumenta is not ("FAKTURA" or "AVANSNA FAKTURA" or "DOKUMENT O POVECANJU" or "DOKUMENT O SMANJENJU"))
+            return "Ova akcija trenutno podržava samo tip dokumenta FAKTURA, AVANSNA FAKTURA, DOKUMENT O POVECANJU ili DOKUMENT O SMANJENJU.";
 
         if (Stavke.Count == 0)
             return "Dodajte bar jednu stavku.";
@@ -1530,7 +2103,57 @@
                     IskorisenaOsnovica = k.IskorisenoOsnovica,
                     IskorisenPdv       = k.IskorisenoPdv
                 })]
-            })]
+            })],
+
+            // Dokument o povećanju — polja se prosleđuju SAMO za taj tip dokumenta.
+            PovecanjeOdnosiSeNa    = JePovecanjeDokument ? _povecanjeOdnosiSeNa : null,
+            PovecanjeNastanakPdv   = JePovecanjeDokument ? PovecanjeNastanakPdv : null,
+            PovecanjeVrstaDatuma   = JePovecanjeDokument ? _povecanjeVrstaDatuma : null,
+            PovecanjeDatumUgovor   = JePovecanjeDokument ? ParsirajDatum(_povecanjeDatumUgovor) : null,
+            PovecanjePeriodOd      = JePovecanjeDokument ? ParsirajDatum(_povecanjePeriodOd) : null,
+            PovecanjePeriodDo      = JePovecanjeDokument ? ParsirajDatum(_povecanjePeriodDo) : null,
+
+            // Samo jedan od ova dva spiska ima sadržaj u isto vreme (checkbox
+            // "nije registrovano" prebacuje mod i čisti onaj drugi — vidi
+            // OnPovecanjeNijeRegistrovanoChanged), pa je bezbedno spojiti ih.
+            PovecanjeIzvorneFakture = JePovecanjeDokument && _povecanjeOdnosiSeNa == "Pojedinačna faktura"
+                ? [
+                    .. _izabraneIzvorneFakture.Select(f => new EFakturaUblIzvornaFaktura
+                    {
+                        BrojDokumenta  = f.BrojDokumenta,
+                        DatumIzdavanja = f.DatumIzdavanja
+                    }),
+                    .. _rucneIzvorneFakture.Select(broj => new EFakturaUblIzvornaFaktura
+                    {
+                        BrojDokumenta  = broj,
+                        DatumIzdavanja = null
+                    })
+                  ]
+                : [],
+
+            // Dokument o smanjenju — polja se prosleđuju SAMO za taj tip dokumenta.
+            SmanjenjeOdnosiSeNa     = JeSmanjenjeDokument ? _smanjenjeOdnosiSeNa : null,
+            SmanjenjeDatumSmanjenja = JeSmanjenjeDokument ? ParsirajDatum(_smanjenjeDatumSmanjenja) : null,
+            SmanjenjePeriodOd       = JeSmanjenjeDokument ? ParsirajDatum(_smanjenjePeriodOd) : null,
+            SmanjenjePeriodDo       = JeSmanjenjeDokument ? ParsirajDatum(_smanjenjePeriodDo) : null,
+
+            // Samo jedan od ova dva spiska ima sadržaj u isto vreme (checkbox
+            // "nije registrovano" prebacuje mod i čisti onaj drugi).
+            SmanjenjeIzvorneFakture = JeSmanjenjeDokument
+                && _smanjenjeOdnosiSeNa is "Pojedinačna faktura" or "Pojedinačna avansna faktura"
+                ? [
+                    .. _smanjenjeIzabraneFakture.Select(f => new EFakturaUblIzvornaFaktura
+                    {
+                        BrojDokumenta  = f.BrojDokumenta,
+                        DatumIzdavanja = f.DatumIzdavanja
+                    }),
+                    .. _smanjenjeRucneFakture.Select(broj => new EFakturaUblIzvornaFaktura
+                    {
+                        BrojDokumenta  = broj,
+                        DatumIzdavanja = null
+                    })
+                  ]
+                : []
         };
     }
 

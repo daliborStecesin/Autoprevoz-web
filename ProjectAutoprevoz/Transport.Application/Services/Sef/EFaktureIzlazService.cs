@@ -617,7 +617,7 @@ public class EFaktureIzlazService : IEFaktureIzlazService
                     case "DOKUMENT O SMANJENJU" when pod.Broj_Dok_1 is not null:
                         pod.Broj_Dok_1++;
                         break;
-                    case "DOKUMENT O POVEĆANJU" when pod.Broj_Dok_3 is not null:
+                    case "DOKUMENT O POVECANJU" when pod.Broj_Dok_3 is not null:
                         pod.Broj_Dok_3++;
                         break;
                 }

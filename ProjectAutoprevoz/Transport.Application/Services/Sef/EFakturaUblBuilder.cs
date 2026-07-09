@@ -16,6 +16,9 @@ namespace Transport.Application.Services.Sef;
 public class EFakturaUblBuilder : IEFakturaUblBuilder
 {
     private static readonly XNamespace Ns  = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2";
+    // DOKUMENT O SMANJENJU koristi <CreditNote> kao root, sa sopstvenim default
+    // namespace-om — cec/cac/cbc/xsi/xsd/sbt ostaju identični (odvojeni, prefiksirani).
+    private static readonly XNamespace NsCreditNote = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2";
     private static readonly XNamespace Cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
     private static readonly XNamespace Cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
     private static readonly XNamespace Cec = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
@@ -25,7 +28,9 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
 
     public string Build(EFakturaUblInput input)
     {
-        var jeAvans = input.TipDokumenta == "AVANSNA FAKTURA";
+        var jeAvans      = input.TipDokumenta == "AVANSNA FAKTURA";
+        var jePovecanje  = input.TipDokumenta == "DOKUMENT O POVECANJU";
+        var jeSmanjenje  = input.TipDokumenta == "DOKUMENT O SMANJENJU";
 
         var osnovicaUkupno = input.Stavke.Sum(s => s.Osnovica);
         var pdvUkupno       = input.Stavke.Sum(s => s.Pdv);
@@ -43,7 +48,10 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
         var imaAvansniOdbitak = iskorisceniAvansi.Count > 0;
         var prepaidAmount = iskorisceniAvansi.Sum(a => a.Kategorije.Sum(k => k.IskorisenaOsnovica + k.IskorisenPdv));
 
-        var invoice = new XElement(Ns + "Invoice",
+        var rootNs  = jeSmanjenje ? NsCreditNote : Ns;
+        var rootIme = jeSmanjenje ? "CreditNote" : "Invoice";
+
+        var invoice = new XElement(rootNs + rootIme,
             new XAttribute(XNamespace.Xmlns + "cec", Cec.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "cac", Cac.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "cbc", Cbc.NamespaceName),
@@ -58,17 +66,29 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
             new XElement(Cbc + "CustomizationID", "urn:cen.eu:en16931:2017#compliant#urn:mfin.gov.rs:srbdt:2022"),
             new XElement(Cbc + "ID", Cln(input.BrojDokumenta)),
             new XElement(Cbc + "IssueDate", DateTime.Today.ToString("yyyy-MM-dd")),
-            Tag(Cbc + "DueDate", input.DatumValute?.ToString("yyyy-MM-dd")),
-            new XElement(Cbc + "InvoiceTypeCode", jeAvans ? "386" : "380"),
+            // Smanjenje (CreditNote) nikad nema DueDate.
+            jeSmanjenje ? null : Tag(Cbc + "DueDate", input.DatumValute?.ToString("yyyy-MM-dd")),
+            jeSmanjenje
+                ? new XElement(Cbc + "CreditNoteTypeCode", "381")
+                : new XElement(Cbc + "InvoiceTypeCode", jeAvans ? "386" : jePovecanje ? "383" : "380"),
             NoteTag(input),
             new XElement(Cbc + "DocumentCurrencyCode", "RSD"),
             Tag(Cbc + "BuyerReference", input.InterniBrojZaRutiranje),
 
-            jeAvans ? InvoicePeriodZaAvans(input) : InvoicePeriod(input.NastanakPdvObaveze),
+            jeAvans ? InvoicePeriodZaAvans(input)
+                : jePovecanje ? InvoicePeriodZaPovecanje(input)
+                : jeSmanjenje ? InvoicePeriodZaSmanjenje(input)
+                : InvoicePeriod(input.NastanakPdvObaveze),
             RefTag(Cac + "OrderReference", input.BrojNarudzbenice),
-            // BillingReference (avans) ide POSLE OrderReference, PRE Originator/Contract —
-            // strogi UBL redosled elemenata (SEF šema).
+            // BillingReference (avans/povećanje/smanjenje) ide POSLE OrderReference,
+            // PRE Originator/Contract — strogi UBL redosled elemenata (SEF šema).
             imaAvansniOdbitak ? iskorisceniAvansi.Select(BillingReference) : null,
+            jePovecanje && input.PovecanjeOdnosiSeNa == "Pojedinačna faktura"
+                ? input.PovecanjeIzvorneFakture.Select(BillingReferenceIzvornaFaktura)
+                : null,
+            jeSmanjenje && input.SmanjenjeOdnosiSeNa is "Pojedinačna faktura" or "Pojedinačna avansna faktura"
+                ? input.SmanjenjeIzvorneFakture.Select(BillingReferenceIzvornaFaktura)
+                : null,
             RefTag(Cac + "OriginatorDocumentReference", input.BrojTendera),
             RefTag(Cac + "ContractDocumentReference", input.BrojUgovora),
 
@@ -78,12 +98,17 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
             AccountingCustomerParty(input),
 
             // Avans nema datum prometa — Delivery se nikad ne emituje za taj tip.
-            jeAvans ? null : Delivery(input.DatumPrometa),
+            // Povećanje ima sopstveno pravilo (DeliveryZaPovecanje). Smanjenje UVEK
+            // emituje Delivery = Datum smanjenja, za sva 3 moda, bez grananja.
+            jeAvans ? null
+                : jePovecanje ? DeliveryZaPovecanje(input)
+                : jeSmanjenje ? Delivery(input.SmanjenjeDatumSmanjenja)
+                : Delivery(input.DatumPrometa),
             PaymentMeans(input),
             TaxTotal(input, pdvUkupno),
             LegalMonetaryTotal(osnovicaUkupno, ukupnoSaPdv, prepaidAmount),
 
-            input.Stavke.Select((s, i) => InvoiceLine(s, i + 1, jeAvans))
+            input.Stavke.Select((s, i) => InvoiceLine(s, i + 1, jeAvans, jeSmanjenje))
         );
 
         var sb = new StringBuilder();
@@ -180,6 +205,61 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
         var imaPdv = input.Stavke.Any(s => KategorijaZaStavku(s).Id == "S");
         return imaPdv ? new XElement(Cac + "InvoicePeriod", new XElement(Cbc + "DescriptionCode", "432")) : null;
     }
+
+    // Dokument o povećanju: InvoicePeriod NE koristi generičko "Nastanak PDV obaveze"
+    // mapiranje (3/35/432 od FAKTURE) — ima sopstveni izbor sa forme: mod
+    // (pojedinačna/period) + vrsta datuma (ugovor=35 / zaračunavanje troškova=3).
+    // Potvrđeno na 6 realnih primera: mod "Fakture u periodu" UVEK emituje
+    // Start/EndDate (bez obzira na PDV stanje) — DescriptionCode se dodaje SAMO
+    // kad PDV se obračunava. Mod "Pojedinačna faktura" nema Start/End uopšte —
+    // ili samo DescriptionCode (PDV se obračunava) ili ništa ("Ne nastaje").
+    private static XElement? InvoicePeriodZaPovecanje(EFakturaUblInput input)
+    {
+        var imaPdv = input.PovecanjeNastanakPdv == "PDV se obračunava";
+        var code   = input.PovecanjeVrstaDatuma == "Datum povećanja - ugovor" ? "35" : "3";
+
+        if (input.PovecanjeOdnosiSeNa == "Fakture u periodu")
+        {
+            var sadrzaj = new List<XElement?>
+            {
+                Tag(Cbc + "StartDate", input.PovecanjePeriodOd?.ToString("yyyy-MM-dd")),
+                Tag(Cbc + "EndDate", input.PovecanjePeriodDo?.ToString("yyyy-MM-dd"))
+            };
+
+            if (imaPdv)
+                sadrzaj.Add(new XElement(Cbc + "DescriptionCode", code));
+
+            return new XElement(Cac + "InvoicePeriod", sadrzaj);
+        }
+
+        // Pojedinačna faktura — nema Start/End; DescriptionCode samo kad PDV se obračunava.
+        return imaPdv ? new XElement(Cac + "InvoicePeriod", new XElement(Cbc + "DescriptionCode", code)) : null;
+    }
+
+    // Dokument o smanjenju: "Pojedinačna faktura"/"Pojedinačna avansna faktura" NIKAD
+    // nemaju InvoicePeriod; "Fakture u periodu" UVEK ga emituje sa Start/EndDate,
+    // BEZ DescriptionCode (kod smanjenja taj kod ne postoji nikad).
+    private static XElement? InvoicePeriodZaSmanjenje(EFakturaUblInput input) =>
+        input.SmanjenjeOdnosiSeNa == "Fakture u periodu"
+            ? new XElement(Cac + "InvoicePeriod",
+                Tag(Cbc + "StartDate", input.SmanjenjePeriodOd?.ToString("yyyy-MM-dd")),
+                Tag(Cbc + "EndDate", input.SmanjenjePeriodDo?.ToString("yyyy-MM-dd")))
+            : null;
+
+    // Delivery/ActualDeliveryDate — kontroliše ISKLJUČIVO pod-padajući "Vrsta datuma",
+    // nezavisno od (auto-izvedenog) glavnog PDV stanja: "Datum povećanja - ugovor" ->
+    // UVEK Delivery, čak i kad je PDV stanje "Ne nastaje"; "zaračunavanje troškova" ->
+    // NIKAD Delivery. Potvrđeno na 6 realnih primera.
+    private static XElement? DeliveryZaPovecanje(EFakturaUblInput input) =>
+        input.PovecanjeVrstaDatuma == "Datum povećanja - ugovor" ? Delivery(input.PovecanjeDatumUgovor) : null;
+
+    // Izvorna faktura iz naše baze ima IssueDate; ručno uneti broj (fakture koje
+    // nisu registrovane na E-fakturi) nema datum — Tag() ga izostavlja kad je null.
+    private static XElement BillingReferenceIzvornaFaktura(EFakturaUblIzvornaFaktura f) =>
+        new(Cac + "BillingReference",
+            new XElement(Cac + "InvoiceDocumentReference",
+                new XElement(Cbc + "ID", Cln(f.BrojDokumenta)),
+                Tag(Cbc + "IssueDate", f.DatumIzdavanja?.ToString("yyyy-MM-dd"))));
 
     // Prilog je već Base64 u memoriji (konvertovano pri dodavanju, ne ovde) — builder
     // ga samo ugrađuje. ID = ime fajla, isto kao Class_E_Racun.
@@ -396,13 +476,15 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
         return new XElement(Sbt + "ReducedTotals", taxTotal, legalMonetaryTotal);
     }
 
-    private static XElement InvoiceLine(EFakturaUblStavka s, int rb, bool jeAvans)
+    // Smanjenje (CreditNote) koristi CreditNoteLine/CreditedQuantity umesto
+    // InvoiceLine/InvoicedQuantity — sve ostalo unutar linije identično kao FAKTURA.
+    private static XElement InvoiceLine(EFakturaUblStavka s, int rb, bool jeAvans, bool jeSmanjenje)
     {
         var baznaVrednost = s.Cena * s.Kolicina;
 
-        var linija = new XElement(Cac + "InvoiceLine",
+        var linija = new XElement(Cac + (jeSmanjenje ? "CreditNoteLine" : "InvoiceLine"),
             new XElement(Cbc + "ID", rb),
-            new XElement(Cbc + "InvoicedQuantity", new XAttribute("unitCode", MapUnitCode(s.Jm)), F4(s.Kolicina)),
+            new XElement(Cbc + (jeSmanjenje ? "CreditedQuantity" : "InvoicedQuantity"), new XAttribute("unitCode", MapUnitCode(s.Jm)), F4(s.Kolicina)),
             Amount(Cbc + "LineExtensionAmount", s.Osnovica));
 
         if (s.Umanjenje > 0)

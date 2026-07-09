@@ -51,6 +51,37 @@ public class EFakturaUblInput
     // SrbDtExt/BillingReference/PrepaidAmount SAMO ako bar jedan avans ima
     // bar jednu kategoriju sa iskorišćenom osnovicom > 0.
     public List<EFakturaUblIzabraniAvans> IzabraniAvansi { get; set; } = [];
+
+    // Dokument o povećanju — polja sa forme (K1), koristi ih builder (K2) SAMO
+    // kad je TipDokumenta == "DOKUMENT O POVECANJU".
+    public string? PovecanjeOdnosiSeNa { get; set; }   // "Pojedinačna faktura" | "Fakture u periodu"
+    public string? PovecanjeNastanakPdv { get; set; }  // "PDV se obračunava" | "Ne nastaje obaveza obračuna PDV"
+    public string? PovecanjeVrstaDatuma { get; set; }  // "Datum povećanja - ugovor" | "Datum izdavanja - zaračunavanje troškova"
+    public DateTime? PovecanjeDatumUgovor { get; set; }
+    public DateTime? PovecanjePeriodOd { get; set; }
+    public DateTime? PovecanjePeriodDo { get; set; }
+
+    // Izvorne fakture (mod "Pojedinačna faktura") — DatumIzdavanja je NULL za
+    // ručno unete brojeve (fakture koje nisu registrovane na E-fakturi).
+    public List<EFakturaUblIzvornaFaktura> PovecanjeIzvorneFakture { get; set; } = [];
+
+    // Dokument o smanjenju — polja sa forme (S1), koristi ih builder (S2) SAMO
+    // kad je TipDokumenta == "DOKUMENT O SMANJENJU". Nema "NastanakPdv"/"VrstaDatuma"
+    // (taj koncept ne postoji kod smanjenja).
+    public string? SmanjenjeOdnosiSeNa { get; set; } // "Pojedinačna faktura" | "Pojedinačna avansna faktura" | "Fakture u periodu"
+    public DateTime? SmanjenjeDatumSmanjenja { get; set; }
+    public DateTime? SmanjenjePeriodOd { get; set; }
+    public DateTime? SmanjenjePeriodDo { get; set; }
+
+    // Izvorni dokumenti (fakture ili avansne fakture, zavisno od moda) — isti oblik
+    // kao PovecanjeIzvorneFakture (DatumIzdavanja NULL za ručno unete brojeve).
+    public List<EFakturaUblIzvornaFaktura> SmanjenjeIzvorneFakture { get; set; } = [];
+}
+
+public class EFakturaUblIzvornaFaktura
+{
+    public string BrojDokumenta { get; set; } = "";
+    public DateTime? DatumIzdavanja { get; set; }
 }
 
 public class EFakturaUblIzabraniAvans
