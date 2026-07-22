@@ -13,10 +13,34 @@
 
 <PageTitle>Vozila — Autoprevoz</PageTitle>
 
+<div style="overflow-x:hidden; max-width:100vw;">
+
 <MudText Typo="Typo.h5" Class="mb-3">
     <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Class="mr-2" />
     Vozila
 </MudText>
+
+@* ── Toolbar VAN MudDataGrid-a — ToolBarContent ima fiksnu visinu i ne raste uz
+   višeredni sadržaj, pa se dvoredni layout na mobilnom preklapao sa tabelom. ── *@
+<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+    <MudTextField Value="_pretraga" T="string"
+                  ValueChanged="@((string v) => Filtriraj(v))"
+                  Placeholder="Pretraga po reg. oznaci ili marci..."
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Clearable="true"
+                  Style="width:100%;" />
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NovoVozilo">
+            Novo vozilo
+        </MudButton>
+    </div>
+</div>
 
 @* ── GORNJI PANEL: Lista vozila ──────────────────────────── *@
 <MudDataGrid T="Vozilo"
@@ -27,23 +51,6 @@
              RowStyleFunc="@((v, _) => v.VoziloId == _selektovano?.VoziloId
                  ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
                  : VoziloRowStyle(v))">
-    <ToolBarContent>
-        <MudTextField Value="_pretraga" T="string"
-                      ValueChanged="@((string v) => Filtriraj(v))"
-                      Placeholder="Pretraga po reg. oznaci ili marci..."
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Clearable="true"
-                      Style="min-width:300px;"
-                      Class="mr-3" />
-        <MudSpacer />
-        <MudButton Variant="Variant.Filled" Color="Color.Success"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="NovoVozilo">
-            Novo vozilo
-        </MudButton>
-    </ToolBarContent>
     <Columns>
         <PropertyColumn Property="x => x.vrstaVozila"       Title="Vrsta" />
         <PropertyColumn Property="x => x.marka"             Title="Marka" />
@@ -78,7 +85,7 @@
                     </MudText>
                 }
             </MudText>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
                 <MudButton Size="Size.Small" Variant="Variant.Outlined"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="DodajDatum">
@@ -135,6 +142,8 @@
         }
     </MudPaper>
 }
+
+</div>
 
 @code {
     private List<Vozilo>    _svi          = [];
@@ -203,7 +212,15 @@
 
     private async Task NovoVozilo()
     {
-        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var opts = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Large,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var dlg  = await Dialog.ShowAsync<VoziloDialog>("Novo vozilo",
             new DialogParameters<VoziloDialog> { { x => x.VoziloId, 0 } }, opts);
         if (!(await dlg.Result).Canceled) await UcitajSve();
@@ -211,7 +228,15 @@
 
     private async Task OtvoriDialog(int id)
     {
-        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var opts = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Large,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var dlg  = await Dialog.ShowAsync<VoziloDialog>("Vozilo",
             new DialogParameters<VoziloDialog> { { x => x.VoziloId, id } }, opts);
         if (!(await dlg.Result).Canceled)

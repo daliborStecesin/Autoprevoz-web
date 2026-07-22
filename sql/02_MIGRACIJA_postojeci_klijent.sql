@@ -37,7 +37,7 @@ PRINT 'Provera/kreiranje tabele dbo.tbl_DefaultValues';
 IF OBJECT_ID(N'[dbo].[tbl_DefaultValues]', N'U') IS NULL
 BEGIN
 SET ANSI_NULLS ON
-SET QUOTED_IDENTIFIER ON
+SET QUOTED_IDENTIFIER ONFiskalna_kasa
 SET ANSI_PADDING ON
 CREATE TABLE [dbo].[tbl_DefaultValues](
 	[DefaultId] [int] IDENTITY(1,1) NOT NULL,

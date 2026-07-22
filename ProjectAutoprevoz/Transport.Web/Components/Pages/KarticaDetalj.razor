@@ -740,7 +740,15 @@ else
             return;
         }
 
-        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var opts = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Small,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var prms = new DialogParameters<PartnerDialog> { { x => x.PartnerId, partner.Broj } };
         await Dialog.ShowAsync<PartnerDialog>("Podaci partnera", prms, opts);
     }

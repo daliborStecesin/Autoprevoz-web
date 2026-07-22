@@ -12,10 +12,69 @@
 
 <PageTitle>Partneri — Autoprevoz</PageTitle>
 
+<div style="overflow-x:hidden; max-width:100vw;">
+
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
     Imenik firme — Partneri
 </MudText>
+
+@* ── Toolbar VAN MudDataGrid-a — ToolBarContent ima fiksnu visinu (mud-toolbar,
+   ~56-64px) i ne raste uz višeredni sadržaj, pa se dvoredni layout na mobilnom
+   preklapao sa telom tabele ispod. Kao obična markup iznad grida nema tog problema. ── *@
+<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+    @* RED 1 — filter po polju, izgleda kao chip-selector (isti MudChipSet obrazac
+       kao status-filteri na /transport/nalozi i /transport/ture), ne kao page-tabovi. ── *@
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
+                    SelectedValue="_paramPretraga"
+                    SelectedValueChanged="@(async (string v) => { _paramPretraga = v; await Filtriraj(_pretraga); })"
+                    CheckMark="false">
+            <MudChip T="string" Value="@("Naziv")"  Color="Color.Primary">Naziv</MudChip>
+            <MudChip T="string" Value="@("PIB")"    Color="Color.Primary">PIB</MudChip>
+            <MudChip T="string" Value="@("MB")"     Color="Color.Primary">MB</MudChip>
+            <MudChip T="string" Value="@("Adresa")" Color="Color.Primary">Adresa</MudChip>
+            <MudChip T="string" Value="@("Mesto")"  Color="Color.Primary">Mesto</MudChip>
+        </MudChipSet>
+    </div>
+
+    @* RED 2 — search, puna širina *@
+    <MudTextField Value="_pretraga"
+                  T="string"
+                  ValueChanged="@(async (string v) => await Filtriraj(v))"
+                  Placeholder="Unesite vrednost..."
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Clearable="true"
+                  Style="width:100%;" />
+
+    @* RED 3 — dugmad *@
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="NoviPartner">
+            Dodaj partnera
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })">
+            Izmeni
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Error"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Delete"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="Obrisi">
+            Obriši
+        </MudButton>
+    </div>
+</div>
 
 <MudDataGrid T="Partner"
              Items="@_filtrirani"
@@ -27,56 +86,6 @@
              RowStyleFunc="@((item, _) => item.Broj == _selektovani?.Broj
                  ? "background-color:#1976D2 !important; color:#ffffff !important; font-weight:600;"
                  : string.Empty)">
-    <ToolBarContent>
-        <MudToggleGroup T="string"
-                        Value="_paramPretraga"
-                        ValueChanged="@(async (string v) => { _paramPretraga = v; await Filtriraj(_pretraga); })"
-                        Exclusive="true"
-                        Color="Color.Primary"
-                        Size="Size.Small"
-                        Class="mr-3">
-            <MudToggleItem T="string" Value="@("Naziv")"  Text="Naziv"  />
-            <MudToggleItem T="string" Value="@("PIB")"    Text="PIB"    />
-            <MudToggleItem T="string" Value="@("MB")"     Text="MB"     />
-            <MudToggleItem T="string" Value="@("Adresa")" Text="Adresa" />
-            <MudToggleItem T="string" Value="@("Mesto")"  Text="Mesto"  />
-        </MudToggleGroup>
-
-        <MudTextField Value="_pretraga"
-                      T="string"
-                      ValueChanged="@(async (string v) => await Filtriraj(v))"
-                      Placeholder="Unesite vrednost..."
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Clearable="true"
-                      Style="min-width:250px;"
-                      Class="mr-3" />
-
-        <MudSpacer />
-
-        <MudButton Variant="Variant.Filled" Color="Color.Success"
-                   StartIcon="@Icons.Material.Filled.PersonAdd"
-                   OnClick="NoviPartner" Class="mr-2">
-            Dodaj partnera
-        </MudButton>
-
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Edit"
-                   Disabled="@(_selektovani is null)"
-                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })"
-                   Class="mr-2">
-            Izmeni
-        </MudButton>
-
-        <MudButton Variant="Variant.Filled" Color="Color.Error"
-                   StartIcon="@Icons.Material.Filled.Delete"
-                   Disabled="@(_selektovani is null)"
-                   OnClick="Obrisi">
-            Obriši
-        </MudButton>
-    </ToolBarContent>
-
     <Columns>
         <PropertyColumn Property="x => x.Naziv"   Title="Naziv" />
         <PropertyColumn Property="x => x.Adresa"  Title="Adresa" />
@@ -91,6 +100,8 @@
         <MudDataGridPager T="Partner" />
     </PagerContent>
 </MudDataGrid>
+
+</div>
 
 @code {
     private List<Partner> _filtrirani    = [];
@@ -155,7 +166,15 @@
 
     private async Task NoviPartner()
     {
-        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var opts       = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Small,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var parameters = new DialogParameters<PartnerDialog> { { x => x.PartnerId, 0 } };
         var dialog     = await Dialog.ShowAsync<PartnerDialog>("Novi partner", parameters, opts);
         var result     = await dialog.Result;
@@ -164,7 +183,15 @@
 
     private async Task OtvoriDialog(int id)
     {
-        var opts       = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var opts       = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Small,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var parameters = new DialogParameters<PartnerDialog> { { x => x.PartnerId, id } };
         var dialog     = await Dialog.ShowAsync<PartnerDialog>("Partner", parameters, opts);
         var result     = await dialog.Result;

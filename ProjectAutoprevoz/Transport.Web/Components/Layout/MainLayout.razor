@@ -11,6 +11,11 @@
 
 <HeadContent>
     <style>
+        /* ── Sprečava horizontalno pomeranje stranice na mobilnom ── */
+        body {
+            overflow-x: hidden;
+        }
+
         /* ── Sidebar navigacija ─────────────────────────── */
         .nav-section-title {
             padding: 14px 14px 4px;
@@ -56,6 +61,35 @@
         .logo-area img { height: 46px; max-width: 46px; object-fit: contain; border-radius: 8px; }
         .logo-title { color: #E6EBF0; font-weight: 700; font-size: 1rem; line-height: 1.2; }
         .logo-sub   { color: rgba(230,235,240,0.55); font-size: 0.72rem; }
+
+        /* ── Fix za MudDialog na mobilnom (centriranje, bez pomeranja pozadine) ── */
+        .mud-dialog {
+            margin: 16px !important;
+            max-height: 90vh;
+            max-width: min(600px, calc(100vw - 32px)) !important;
+            overflow-y: auto;
+        }
+
+        /* ── Tabele (MudTable/MudDataGrid) skroluju horizontalno unutar sebe,
+           ne guraju celu stranicu ── */
+        .mud-table-container {
+            overflow-x: auto;
+        }
+
+        @@media (max-width: 600px) {
+            .mud-dialog-container {
+                align-items: flex-start !important;
+                padding-top: 8px;
+            }
+            .mud-dialog {
+                margin: 8px !important;
+                max-width: calc(100vw - 16px) !important;
+                width: 100% !important;
+            }
+            .mud-overlay {
+                position: fixed !important;
+            }
+        }
     </style>
 </HeadContent>
 

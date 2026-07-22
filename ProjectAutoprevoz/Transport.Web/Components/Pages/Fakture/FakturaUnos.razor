@@ -471,6 +471,12 @@
     private int?        _idBanke;
     private bool        _bankaRucnoIzabrana;
 
+    // Prati za koji Id je forma trenutno učitana ("-1" = sentinel, nijedan pravi
+    // račun nema taj Broj) — koristi ga OnParametersSetAsync da otkrije stvarnu
+    // promenu ida (ne svaki re-render) i da zna da referentne liste već postoje.
+    private int?  _ucitanZaId = -1;
+    private bool  _referenceListeUcitane;
+
     protected override void OnInitialized()
     {
         if (!TenantService.IsAuthenticated()) Nav.NavigateTo("/login");
@@ -488,34 +494,9 @@
             _firma       = await Db.PodaciFirme.AsNoTracking().FirstOrDefaultAsync();
             _podesavanja = await Db.Podesavanja.AsNoTracking().FirstOrDefaultAsync();
             _sveBanke    = await Db.Banke.AsNoTracking().Where(b => b.aktivan == 1).OrderBy(b => b.idBanke).ToListAsync();
+            _referenceListeUcitane = true;
 
-            var uid = TenantService.GetIdKorisnika();
-
-            if (Id is not null)
-            {
-                _postojeci = await Db.Racuni.AsNoTracking().FirstOrDefaultAsync(r => r.Broj == Id.Value);
-                if (_postojeci is not null)
-                    await UcitajPostojeci(_postojeci);
-            }
-            else
-            {
-                // Podrazumevane vrednosti za novi račun
-                var tipDefault = await DefaultValues.GetDefault("fakture-unos", "tipRacuna", uid);
-                _tipRacuna = tipDefault ?? "IZLAZ";
-
-                var osnovaDefault = await DefaultValues.GetDefault("fakture-unos", "osnovaValute", uid);
-                _osnovaValute = osnovaDefault ?? "DATUM RACUNA";
-
-                AzurirajUvozIzvozDefault();
-                AzurirajPdvNapomenu();
-                AzurirajPdvStopu();
-                AzurirajValutu();
-
-                AzurirajBrojRacunaPreview();
-                AzurirajDefaultBanku();
-
-                await UcitajKurs();
-            }
+            await UcitajZaTrenutniId();
         }
         catch (Exception ex)
         {
@@ -527,6 +508,103 @@
             _ucitava = false;
             StateHasChanged();
         }
+    }
+
+    // Blazor router PONOVO KORISTI istu instancu komponente kad se ruta ne menja
+    // (npr. PrebaciNaEditMod posle Save-a radi Nav.NavigateTo("/fakture/unos?id=X",
+    // replace:true) na OVOJ istoj stranici) — OnAfterRenderAsync(firstRender) se
+    // tada NE poziva ponovo, pa bez ovoga _stavke/_postojeci/partner/vozilo itd.
+    // ostaju "zaglavljeni" na prethodno učitanom računu. Ako korisnik posle toga
+    // otvori "novi" račun (Id postane null) na istoj instanci, Save bi pokušao da
+    // PONOVO ubaci stare stavke (koje već imaju dodeljen Broj) —
+    // "Cannot insert explicit value for identity column ... IDENTITY_INSERT OFF".
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_referenceListeUcitane) return; // prvi render to radi u OnAfterRenderAsync
+        if (Id == _ucitanZaId) return;        // isti račun kao pre — ništa se nije promenilo
+
+        _ucitava = true; StateHasChanged();
+        try
+        {
+            await UcitajZaTrenutniId();
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UcitajZaTrenutniId()
+    {
+        if (Id is not null)
+        {
+            _postojeci = await Db.Racuni.AsNoTracking().FirstOrDefaultAsync(r => r.Broj == Id.Value);
+            if (_postojeci is not null)
+                await UcitajPostojeci(_postojeci);
+        }
+        else
+        {
+            await PripremiNoviRacun();
+        }
+
+        _ucitanZaId = Id;
+    }
+
+    // Pun reset na prazan/podrazumevan "novi račun" — koristi se i pri stvarnom
+    // prvom otvaranju forme i pri prelasku sa već učitanog/sačuvanog računa nazad
+    // na "novi" (ista instanca komponente, vidi OnParametersSetAsync).
+    private async Task PripremiNoviRacun()
+    {
+        _postojeci = null;
+        _stavke    = [];
+
+        _partner        = null;
+        _partnerNaziv    = "";
+        _partnerPib      = "";
+        _partnerAdresa   = "";
+        _partnerMesto    = "";
+        _idPartnera      = null;
+
+        _vozilo = null;
+        _vozac  = null;
+
+        _brojNaloga = "";
+        _cmr        = "";
+        _komentar1  = "";
+        _komentar2  = "";
+        _komentar3  = "";
+
+        _osnovica = 0;
+        _pdv      = 0;
+        _ukupno   = 0;
+
+        _idBanke             = null;
+        _bankaRucnoIzabrana  = false;
+
+        _datumRacuna   = DateTime.Today.ToString("yyyy-MM-dd");
+        _valuta        = DateTime.Today.ToString("yyyy-MM-dd");
+        _datumUtovara  = DateTime.Today.ToString("yyyy-MM-dd");
+        _datumIstovara = DateTime.Today.ToString("yyyy-MM-dd");
+        _datumKursa    = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var uid = TenantService.GetIdKorisnika();
+
+        var tipDefault = await DefaultValues.GetDefault("fakture-unos", "tipRacuna", uid);
+        _tipRacuna = tipDefault ?? "IZLAZ";
+
+        var osnovaDefault = await DefaultValues.GetDefault("fakture-unos", "osnovaValute", uid);
+        _osnovaValute = osnovaDefault ?? "DATUM RACUNA";
+
+        AzurirajUvozIzvozDefault();
+        AzurirajPdvNapomenu();
+        AzurirajPdvStopu();
+        AzurirajValutu();
+
+        AzurirajBrojRacunaPreview();
+        AzurirajDefaultBanku();
+
+        await UcitajKurs();
     }
 
     private async Task UcitajPostojeci(Racun r)
@@ -1097,9 +1175,18 @@
                     var dbStavka = s.Broj != 0 ? postojeceStavke.FirstOrDefault(p => p.Broj == s.Broj) : null;
 
                     if (dbStavka is not null)
+                    {
                         Db.Entry(dbStavka).CurrentValues.SetValues(s);
+                    }
                     else
+                    {
+                        // Broj != 0 a bez poklapanja u bazi = stara/tuđa vrednost (npr. zaostala
+                        // iz prethodno učitanog računa u istoj instanci forme) — mora na 0 pre
+                        // Add-a, inače EF šalje eksplicitnu vrednost u IDENTITY kolonu i SQL Server
+                        // baca "Cannot insert explicit value ... IDENTITY_INSERT is set to OFF".
+                        s.Broj = 0;
                         Db.ArtikliRacuna.Add(s);
+                    }
                 }
 
                 await Db.SaveChangesAsync();

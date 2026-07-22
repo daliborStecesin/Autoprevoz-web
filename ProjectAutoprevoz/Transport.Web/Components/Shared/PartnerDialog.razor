@@ -7,98 +7,86 @@
 @inject IDialogService     Dialog
 @inject ISnackbar          Snackbar
 
-<MudDialog Style="min-width:720px; max-width:820px;">
+<MudDialog>
     <DialogContent>
         <MudGrid Spacing="2" Class="mt-1">
 
-            @* ── Naziv + NBS lupa ─────────────────────────────── *@
-            <MudItem xs="11">
+            @* ── Naziv (+ NBS lupa kao adornment, ne posebna kolona) ──── *@
+            <MudItem xs="12">
                 <MudTextField @bind-Value="_naziv" Label="Naziv *"
-                              Variant="Variant.Outlined" ShrinkLabel="true" />
-            </MudItem>
-            <MudItem xs="1" Class="d-flex align-end pb-1">
-                <MudTooltip Text="NBS pretraga po nazivu">
-                    <MudIconButton Icon="@Icons.Material.Filled.Search"
-                                   Color="Color.Primary"
-                                   OnClick="@(async () => await OtvoriNbs("NAZIV", _naziv))" />
-                </MudTooltip>
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                              AdornmentColor="Color.Primary"
+                              OnAdornmentClick="@(async () => await OtvoriNbs("NAZIV", _naziv))" />
             </MudItem>
 
             @* ── Adresa, Mesto ─────────────────────────────────── *@
-            <MudItem xs="12" sm="7">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_adresa" Label="Adresa"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
-            <MudItem xs="12" sm="5">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_mesto" Label="Mesto"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
 
-            @* ── PIB + NBS lupa ────────────────────────────────── *@
-            <MudItem xs="5">
+            @* ── PIB + Matični broj (NBS lupa kao adornment na svakom) ── *@
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_pib" Label="PIB"
-                              Variant="Variant.Outlined" ShrinkLabel="true" />
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                              AdornmentColor="Color.Primary"
+                              OnAdornmentClick="@(async () => await OtvoriNbs("PIB", _pib))" />
             </MudItem>
-            <MudItem xs="1" Class="d-flex align-end pb-1">
-                <MudTooltip Text="NBS pretraga po PIB-u">
-                    <MudIconButton Icon="@Icons.Material.Filled.Search"
-                                   Color="Color.Primary"
-                                   OnClick="@(async () => await OtvoriNbs("PIB", _pib))" />
-                </MudTooltip>
-            </MudItem>
-
-            @* ── Matični broj + NBS lupa ──────────────────────── *@
-            <MudItem xs="5">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_maticniBroj" Label="Matični broj"
-                              Variant="Variant.Outlined" ShrinkLabel="true" />
-            </MudItem>
-            <MudItem xs="1" Class="d-flex align-end pb-1">
-                <MudTooltip Text="NBS pretraga po matičnom broju">
-                    <MudIconButton Icon="@Icons.Material.Filled.Search"
-                                   Color="Color.Primary"
-                                   OnClick="@(async () => await OtvoriNbs("MB", _maticniBroj))" />
-                </MudTooltip>
+                              Variant="Variant.Outlined" ShrinkLabel="true"
+                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                              AdornmentColor="Color.Primary"
+                              OnAdornmentClick="@(async () => await OtvoriNbs("MB", _maticniBroj))" />
             </MudItem>
 
-            @* ── JBKJS — čuva se u koloni Sifra, samo za državne firme ── *@
-            <MudItem xs="5">
+            @* ── Telefon 1 + JBKJS (JBKJS se čuva u koloni Sifra) ─────── *@
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_telefon1" Label="Telefon 1"
+                              Variant="Variant.Outlined" ShrinkLabel="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
                 <NativniInput TValue="string" Label="JBKJS" Value="@_jbkjs"
                               ValueChanged="@(v => _jbkjs = new string((v ?? string.Empty).Where(char.IsDigit).ToArray()))" />
             </MudItem>
 
-            @* ── Kontakt ────────────────────────────────────────── *@
-            <MudItem xs="12" sm="4">
-                <MudTextField @bind-Value="_telefon1" Label="Telefon 1"
-                              Variant="Variant.Outlined" ShrinkLabel="true" />
-            </MudItem>
-            <MudItem xs="12" sm="4">
+            @* ── Telefon 2, Mobilni, Fax ───────────────────────────────── *@
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_telefon2" Label="Telefon 2"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
-            <MudItem xs="12" sm="4">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_mobilni" Label="Mobilni"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
-
-            <MudItem xs="12" sm="4">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_fax" Label="Fax"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
-            <MudItem xs="12" sm="4">
+
+            @* ── Mail, Web ─────────────────────────────────────────────── *@
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_mail" Label="Mail"
                               Variant="Variant.Outlined" ShrinkLabel="true"
                               InputType="InputType.Email" />
             </MudItem>
-            <MudItem xs="12" sm="4">
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_web" Label="Web"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
 
-            <MudItem xs="12" sm="8">
+            @* ── Kontakt osoba, Status ─────────────────────────────────── *@
+            <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_konOsoba" Label="Kontakt osoba"
                               Variant="Variant.Outlined" ShrinkLabel="true" />
             </MudItem>
-            <MudItem xs="12" sm="4">
+            <MudItem xs="12" sm="6">
                 <MudSelect T="string" @bind-Value="_status" Label="Status"
                            Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("KUPAC")">Kupac</MudSelectItem>
@@ -294,7 +282,9 @@
 
     private async Task OtvoriNbs(string tip, string? vrednost)
     {
-        var opts = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        // Ista širina kao Partner dialog — da se NBS pretraga vizuelno uklapa
+        // kad se otvori iznad njega, umesto da bude šira (Large).
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
         var parameters = new DialogParameters<NbsPretragaDialog>
         {
             { x => x.TipPretrage,     tip      },

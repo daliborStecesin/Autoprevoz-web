@@ -12,10 +12,45 @@
 
 <PageTitle>Zaposleni — Autoprevoz</PageTitle>
 
+<div style="overflow-x:hidden; max-width:100vw;">
+
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
     Zaposleni
 </MudText>
+
+@* ── Toolbar VAN MudDataGrid-a — ToolBarContent ima fiksnu visinu i ne raste uz
+   višeredni sadržaj, pa se dvoredni layout na mobilnom preklapao sa tabelom. ── *@
+<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+    <MudTextField Value="_pretraga"
+                  T="string"
+                  ValueChanged="@((string v) => Filtriraj(v))"
+                  Label="Pretraga po imenu / prezimenu"
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Clearable="true"
+                  Style="width:100%;" />
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="NoviVozac">
+            Novi zaposleni
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   Disabled="@(_selektovani is null)"
+                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })">
+            Izmeni
+        </MudButton>
+    </div>
+</div>
 
 <MudDataGrid T="Vozac"
              Items="@_filtrirani"
@@ -27,36 +62,6 @@
              RowStyleFunc="@((item, _) => item.Broj == _selektovani?.Broj
                  ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
                  : string.Empty)">
-    <ToolBarContent>
-        <MudTextField Value="_pretraga"
-                      T="string"
-                      ValueChanged="@((string v) => Filtriraj(v))"
-                      Label="Pretraga po imenu / prezimenu"
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Clearable="true"
-                      Style="min-width:280px;" />
-
-        <MudSpacer />
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Success"
-                   StartIcon="@Icons.Material.Filled.PersonAdd"
-                   OnClick="NoviVozac"
-                   Class="mr-2">
-            Novi zaposleni
-        </MudButton>
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Edit"
-                   Disabled="@(_selektovani is null)"
-                   OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })">
-            Izmeni
-        </MudButton>
-    </ToolBarContent>
-
     <Columns>
         <PropertyColumn Property="x => x.Ime"        Title="Ime" />
         <PropertyColumn Property="x => x.Prezime"    Title="Prezime" />
@@ -97,6 +102,8 @@
         <MudDataGridPager T="Vozac" />
     </PagerContent>
 </MudDataGrid>
+
+</div>
 
 @code {
     private List<Vozac>               _svi           = [];
@@ -169,7 +176,15 @@
 
     private async Task NoviVozac()
     {
-        var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var opts   = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Small,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, 0 } };
         var dialog = await Dialog.ShowAsync<VozacDialog>("Novi zaposleni", prms, opts);
         if (!(await dialog.Result).Canceled) await UcitajSve();
@@ -177,7 +192,15 @@
 
     private async Task OtvoriDialog(int id)
     {
-        var opts   = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var opts   = new DialogOptions
+        {
+            MaxWidth          = MaxWidth.Small,
+            FullWidth         = true,
+            CloseButton       = true,
+            Position          = DialogPosition.Center,
+            NoHeader          = false,
+            CloseOnEscapeKey  = true
+        };
         var prms   = new DialogParameters<VozacDialog> { { x => x.VozacId, id } };
         var dialog = await Dialog.ShowAsync<VozacDialog>("Zaposleni", prms, opts);
         if (!(await dialog.Result).Canceled) await UcitajSve();
