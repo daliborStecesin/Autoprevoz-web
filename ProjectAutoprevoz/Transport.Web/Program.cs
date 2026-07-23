@@ -90,6 +90,16 @@ builder.Services.AddScoped<IEFaktureIzlazService, EFaktureIzlazService>();
 builder.Services.AddSingleton<IEFakturaUblBuilder, EFakturaUblBuilder>();
 builder.Services.AddSingleton<IGreskaEfakturaPrevodService, GreskaEfakturaPrevodService>();
 
+// ProvisioningService čita 01_CREATE_kasa_template.sql kao embedded resurs iz OVOG
+// sklopa (Transport.Web) — servis živi u Transport.Application (bez reference nazad
+// na Web), pa se Assembly prosleđuje eksplicitno kroz konstruktor umesto reflection-a
+// unutar servisa.
+builder.Services.AddScoped<IProvisioningService>(sp => new ProvisioningService(
+    sp.GetRequiredService<IDbContextFactory<MasterDbContext>>(),
+    sp.GetRequiredService<IConfiguration>(),
+    sp.GetRequiredService<ILogger<ProvisioningService>>(),
+    typeof(Program).Assembly));
+
 // ============================================================================
 // INFRASTRUCTURE
 // ============================================================================
@@ -148,6 +158,10 @@ async Task<LoginRezultatInterno> PrijaviKorisnikaAsync(string email, string pass
     var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", password);
     if (verResult == PasswordVerificationResult.Failed)
         return new LoginRezultatInterno(false, "Pogrešan email ili lozinka.", null, null, 0, 0);
+
+    // Prijava je uvek nova sesija — nikad ne sme naslediti impersonaciju iz
+    // prethodne sesije na istom browseru (i za običnu i za superadmin granu).
+    ctx.Response.Cookies.Delete("ap_impersonate", new CookieOptions { Path = "/" });
 
     var optsSuperAdmin = new CookieOptions
     {
@@ -299,6 +313,7 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
     ctx.Response.Cookies.Delete("ap_transport", deleteOpts);
     ctx.Response.Cookies.Delete("ap_efaktura",  deleteOpts);
     ctx.Response.Cookies.Delete("ap_licence",   deleteOpts);
+    ctx.Response.Cookies.Delete("ap_impersonate", deleteOpts);
     return Results.Redirect("/login");
 });
 
@@ -379,9 +394,24 @@ app.MapGet("/api/superadmin/udji", async (int id, HttpContext ctx, MasterDbConte
     return Results.Redirect("/dashboard");
 });
 
-app.MapGet("/api/superadmin/izadji", (HttpContext ctx) =>
+app.MapGet("/api/superadmin/izadji", async (HttpContext ctx, MasterDbContext db) =>
 {
     var deleteOpts = new CookieOptions { Path = "/" };
+
+    // SIGURNOSNA PROVERA — ista kao /api/superadmin/udji, ne veruj kolačiću
+    // ap_priv. Bez ovoga bilo koji impersonirani korisnik (ap_priv=1) mogao
+    // je pozvati ovaj endpoint i sam sebi postaviti ap_priv=9.
+    var idKorisnika = int.TryParse(ctx.Request.Cookies["ap_user"], out var uid) ? uid : 0;
+
+    var korisnik = await db.WebKorisnici.AsNoTracking()
+        .FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+
+    if (korisnik is null || korisnik.Aktivan != 1 || korisnik.Privilegija != 9)
+    {
+        ctx.Response.Cookies.Delete("ap_impersonate", deleteOpts);
+        return Results.Redirect("/dashboard");
+    }
+
     ctx.Response.Cookies.Delete("ap_licence",     deleteOpts);
     ctx.Response.Cookies.Delete("ap_firma",       deleteOpts);
     ctx.Response.Cookies.Delete("ap_impersonate", deleteOpts);

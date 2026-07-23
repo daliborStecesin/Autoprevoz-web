@@ -94,21 +94,6 @@
     </style>
 </HeadContent>
 
-@if (TenantService.JeImpersonacija())
-{
-    @* position:sticky + z-index veći od MudAppBar-a — inače je fixed AppBar prekriva
-       (AppBar je position:fixed pa se renderuje preko normalnog flow-a bez obzira
-       na redosled u markup-u). *@
-    <div style="position:sticky; top:0; z-index:1300; width:100%; background:#7B1FA2; color:#fff;
-                display:flex; align-items:center; justify-content:space-between;
-                padding:6px 16px; font-size:0.85rem; gap:12px;">
-        <span>SUPER ADMIN — radiš u firmi: @TenantService.GetNazivFirme()</span>
-        <a href="/api/superadmin/izadji" style="color:#fff; font-weight:600; text-decoration:underline; white-space:nowrap;">
-            Vrati se u panel
-        </a>
-    </div>
-}
-
 <MudLayout>
     <MudAppBar Elevation="0" Style="background:#2D3E50; border-bottom:1px solid rgba(255,255,255,0.08);">
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
@@ -119,6 +104,16 @@
         <MudText Typo="Typo.h6" Class="mr-auto" Style="color:#E6EBF0; font-weight:600;">
             Autoprevoz — Transport
         </MudText>
+        @if (TenantService.JeImpersonacija())
+        {
+            <MudChip T="string" Size="Size.Small"
+                     Icon="@Icons.Material.Filled.Logout"
+                     Style="background:#7B1FA2; color:#fff; cursor:pointer;"
+                     Class="mr-2"
+                     OnClick="@(() => Nav.NavigateTo("/api/superadmin/izadji", forceLoad: true))">
+                SUPER ADMIN
+            </MudChip>
+        }
         <MudIcon Icon="@Icons.Material.Filled.Business" Style="color:rgba(230,235,240,0.60); font-size:1rem;" Class="d-none d-sm-inline" />
         <MudText Typo="Typo.body2" Class="mx-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
             @TenantService.GetNazivFirme()

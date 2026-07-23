@@ -22,6 +22,10 @@ public class MasterDbContext : DbContext
             e.Property(l => l.PIB).HasColumnName("pib").HasMaxLength(50);
             e.Property(l => l.ConnectionString).HasMaxLength(500);
             e.Property(l => l.PorukaKupcu).HasMaxLength(500);
+            e.Property(l => l.BrojLicenci).HasColumnName("brojLicenci");
+            e.Property(l => l.Program).HasColumnName("program").HasMaxLength(50);
+            e.Property(l => l.TipLicence).HasColumnName("tipLicence").HasMaxLength(50);
+            e.Property(l => l.Datum).HasColumnName("datum");
         });
 
         mb.Entity<WebKorisnik>(e =>

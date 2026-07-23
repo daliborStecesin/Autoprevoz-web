@@ -3,10 +3,12 @@
 @using Microsoft.EntityFrameworkCore
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
+@using Transport.Web.Components.Pages.SuperAdmin
 
 @inject ITenantService                     TenantService
 @inject IDbContextFactory<MasterDbContext> MasterDbFactory
 @inject NavigationManager                  Nav
+@inject IDialogService                     Dialog
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -19,6 +21,13 @@
         <MudText Typo="Typo.h6" Class="mr-auto" Style="color:#F3E5F5; font-weight:600;">
             DAK-SOFT — Super admin
         </MudText>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   StartIcon="@Icons.Material.Filled.AddBusiness"
+                   Style="color:#F3E5F5;"
+                   OnClick="OtvoriNovaFirma">
+            Nova firma
+        </MudButton>
         <MudButton Variant="Variant.Text"
                    Color="Color.Inherit"
                    StartIcon="@Icons.Material.Filled.Business"
@@ -84,5 +93,17 @@
         }
 
         _korisnik = korisnik;
+    }
+
+    // Layout ne drži listu licenci (živi u SuperAdmin/Index.razor) — posle uspešnog
+    // kreiranja firme radi se forceLoad na /ds da se lista pouzdano osveži.
+    private async Task OtvoriNovaFirma()
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await Dialog.ShowAsync<NovaFirmaDialog>("Nova firma", opts);
+        var rezultat = await dialog.Result;
+
+        if (!rezultat.Canceled)
+            Nav.NavigateTo("/ds", forceLoad: true);
     }
 }

@@ -4,6 +4,21 @@
 @inject INbsPartnerService NbsService
 @inject ISnackbar          Snackbar
 
+<style>
+    /* table-layout fixed — bez ovoga procenat širine kolone je samo predlog i
+       browser širi kolonu preko procenta kad sadržaj prirodno ne staje. */
+    .nbs-kompanije-table table {
+        table-layout: fixed;
+        width: 100%;
+    }
+    .nbs-kompanije-table .mud-table-row {
+        cursor: pointer;
+    }
+    .nbs-kompanije-table .mud-table-row:hover {
+        background-color: #F5F7FA !important;
+    }
+</style>
+
 <MudDialog>
     <DialogContent>
 
@@ -33,25 +48,34 @@
                     Pronađeno @_rezultati.Count kompanija — kliknite da izaberete
                 </MudText>
 
-                <MudDataGrid T="NbsKompanija"
-                             Items="_rezultati"
-                             Dense="true" Striped="true" Hover="true"
-                             RowClick="@(args => IzaberiKompaniju(args.Item))">
-                    <Columns>
-                        <PropertyColumn Property="x => x.Naziv"       Title="Naziv" />
-                        <PropertyColumn Property="x => x.Pib"         Title="PIB" />
-                        <PropertyColumn Property="x => x.MaticniBroj" Title="Matični broj" />
-                        <PropertyColumn Property="x => x.Adresa"      Title="Adresa" />
-                        <PropertyColumn Property="x => x.Mesto"       Title="Mesto" />
-                        <TemplateColumn Title="Računa">
-                            <CellTemplate>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                                    @context.Item.Racuni.Count
-                                </MudChip>
-                            </CellTemplate>
-                        </TemplateColumn>
-                    </Columns>
-                </MudDataGrid>
+                <div class="nbs-kompanije-table" style="overflow-x:hidden;">
+                    <MudDataGrid T="NbsKompanija"
+                                 Items="_rezultati"
+                                 Dense="true" Striped="true"
+                                 RowClick="@(args => IzaberiKompaniju(args.Item))">
+                        <Columns>
+                            <TemplateColumn Title="Naziv" HeaderStyle="width:40%;" CellStyle="width:40%;">
+                                <CellTemplate>
+                                    <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:0.85rem;"
+                                          title="@context.Item.Naziv">@context.Item.Naziv</span>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <PropertyColumn Property="x => x.Pib"    Title="PIB"    HeaderStyle="width:15%;" CellStyle="width:15%;" />
+                            <PropertyColumn Property="x => x.Adresa" Title="Adresa" HeaderStyle="width:25%;" CellStyle="width:25%;" />
+                            <PropertyColumn Property="x => x.Mesto"  Title="Mesto"  HeaderStyle="width:12%;" CellStyle="width:12%;" />
+                            <TemplateColumn Title="Računa" HeaderStyle="width:8%;" CellStyle="width:8%;">
+                                <CellTemplate>
+                                    <div class="d-flex align-center justify-space-between">
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                                            @context.Item.Racuni.Count
+                                        </MudChip>
+                                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Style="color:rgba(0,0,0,0.4);" />
+                                    </div>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
+                </div>
             }
             else
             {
@@ -78,7 +102,7 @@
                 else
                 {
                     <MudText Typo="Typo.subtitle2" Class="mb-2 mud-text-secondary">
-                        Označite žiro račune koje želite da uvezete:
+                        Označite žiro račune koje želite da uvezete (možete i nijedan).
                     </MudText>
                     @foreach (var racun in _izabranaKompanija.Racuni)
                     {
@@ -177,12 +201,22 @@
         _greska       = odgovor.greska;
         _ucitava      = false;
         _pretrazivano = true;
+
+        // Tačno jedan rezultat (pretraga po PIB-u praktično uvek) — korisnik nema
+        // šta da bira, preskoči korak sa listom i idi pravo na račune.
+        if (_rezultati.Count == 1)
+            IzaberiKompaniju(_rezultati[0]);
+
         StateHasChanged();
     }
 
     private void IzaberiKompaniju(NbsKompanija k)
     {
         _izabranaKompanija = k;
+
+        // Firma sa samo jednim računom — nema alternativu, čekiraj ga unapred.
+        if (k.Racuni.Count == 1)
+            k.Racuni[0].Izabran = true;
     }
 
     private void PotvrdiIzbor()

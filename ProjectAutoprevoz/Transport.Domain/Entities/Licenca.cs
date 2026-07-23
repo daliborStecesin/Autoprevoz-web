@@ -10,4 +10,8 @@ public class Licenca
     public int? WebAktivan { get; set; }
     public DateOnly? DatumLicence { get; set; }
     public string? PorukaKupcu { get; set; }
+    public int? BrojLicenci { get; set; }
+    public string? Program { get; set; }
+    public string? TipLicence { get; set; }
+    public DateOnly? Datum { get; set; }
 }

@@ -1648,16 +1648,33 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- 213 = seed tbl_role (Admin/Operater) — potrebno za dodelu idRole
+--       pri registraciji web korisnika (WebKorisnikRegistracijaDialog)
+-- ================================================================
+IF OBJECT_ID(N'[dbo].[tbl_role]', N'U') IS NOT NULL
+BEGIN
+    SET IDENTITY_INSERT [dbo].[tbl_role] ON;
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Admin')
+        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (1, N'Admin', N'Pun pristup svim modulima', 1);
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Operater')
+        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (2, N'Operater', N'Osnovni operativni pristup', 1);
+    SET IDENTITY_INSERT [dbo].[tbl_role] OFF;
+    PRINT 'Seed tbl_role (Admin/Operater) proveren.';
+END
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
 -- 210 = OpcijaString13 = domacaValuta + OpcijaInt12 = radSaViseMoneta (konfigurabilna domaca valuta, rad sa EUR)
 -- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz)
 -- 212 = DROP trigger brisanjaArtikalatbl_eInvoice (sudar sa EF Core OUTPUT klauzulom)
+-- 213 = seed tbl_role (Admin/Operater)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 212;
-    PRINT 'Verzija baze postavljena na 212.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 213;
+    PRINT 'Verzija baze postavljena na 213.';
 END
 GO
 

@@ -15,78 +15,19 @@
     - transportModulAktivan = 1
 */
 
-USE [master]
-GO
-/****** Object:  Database [Kasa]    Script Date: 8.6.2026. 22:52:58 ******/
-CREATE DATABASE [Kasa]
+-- Skripta pravi SAMO objekte, bez CREATE DATABASE i bez USE.
+-- Bazu kreirati unapred i izabrati je:
+--
+--   CREATE DATABASE [rs123456789];
+--   ALTER DATABASE [rs123456789] SET RECOVERY SIMPLE;
+--   USE [rs123456789];
+--   -- pa pustiti ovu skriptu
+--
+-- NAPOMENA: RECOVERY SIMPLE je namerno (original desktop skripte je imao FULL).
+-- FULL zahteva redovan BACKUP LOG, inače transakcioni log raste bez ograničenja
+-- i puni disk. Za SaaS sa mnogo klijentskih baza koristi SIMPLE + noćni
+-- BACKUP DATABASE. Isto važi i za automatsko kreiranje kroz super admin panel.
 
-ALTER DATABASE [Kasa] SET COMPATIBILITY_LEVEL = 100
-GO
-IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
-begin
-EXEC [Kasa].[dbo].[sp_fulltext_database] @action = 'enable'
-end
-GO
-ALTER DATABASE [Kasa] SET ANSI_NULL_DEFAULT OFF 
-GO
-ALTER DATABASE [Kasa] SET ANSI_NULLS OFF 
-GO
-ALTER DATABASE [Kasa] SET ANSI_PADDING OFF 
-GO
-ALTER DATABASE [Kasa] SET ANSI_WARNINGS OFF 
-GO
-ALTER DATABASE [Kasa] SET ARITHABORT OFF 
-GO
-ALTER DATABASE [Kasa] SET AUTO_CLOSE ON 
-GO
-ALTER DATABASE [Kasa] SET AUTO_CREATE_STATISTICS ON 
-GO
-ALTER DATABASE [Kasa] SET AUTO_SHRINK OFF 
-GO
-ALTER DATABASE [Kasa] SET AUTO_UPDATE_STATISTICS ON 
-GO
-ALTER DATABASE [Kasa] SET CURSOR_CLOSE_ON_COMMIT OFF 
-GO
-ALTER DATABASE [Kasa] SET CURSOR_DEFAULT  GLOBAL 
-GO
-ALTER DATABASE [Kasa] SET CONCAT_NULL_YIELDS_NULL OFF 
-GO
-ALTER DATABASE [Kasa] SET NUMERIC_ROUNDABORT OFF 
-GO
-ALTER DATABASE [Kasa] SET QUOTED_IDENTIFIER OFF 
-GO
-ALTER DATABASE [Kasa] SET RECURSIVE_TRIGGERS OFF 
-GO
-ALTER DATABASE [Kasa] SET  DISABLE_BROKER 
-GO
-ALTER DATABASE [Kasa] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
-GO
-ALTER DATABASE [Kasa] SET DATE_CORRELATION_OPTIMIZATION OFF 
-GO
-ALTER DATABASE [Kasa] SET TRUSTWORTHY OFF 
-GO
-ALTER DATABASE [Kasa] SET ALLOW_SNAPSHOT_ISOLATION OFF 
-GO
-ALTER DATABASE [Kasa] SET PARAMETERIZATION SIMPLE 
-GO
-ALTER DATABASE [Kasa] SET READ_COMMITTED_SNAPSHOT OFF 
-GO
-ALTER DATABASE [Kasa] SET HONOR_BROKER_PRIORITY OFF 
-GO
-ALTER DATABASE [Kasa] SET RECOVERY FULL 
-GO
-ALTER DATABASE [Kasa] SET  MULTI_USER 
-GO
-ALTER DATABASE [Kasa] SET PAGE_VERIFY CHECKSUM  
-GO
-ALTER DATABASE [Kasa] SET DB_CHAINING OFF 
-GO
-ALTER DATABASE [Kasa] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
-GO
-ALTER DATABASE [Kasa] SET TARGET_RECOVERY_TIME = 0 SECONDS 
-GO
-USE [Kasa]
-GO
 /****** Object:  User [DakSoft]    Script Date: 8.6.2026. 22:52:58 ******/
 IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'DakSoft')
    AND NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'DakSoft')
@@ -2737,7 +2678,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((212)),
+	[verzijaBaze] [int] NULL DEFAULT ((213)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -8136,8 +8077,6 @@ EXEC sys.sp_addextendedproperty @name=N'MS_DiagramPaneCount', @value=1 , @level0
 GO
 
 /****** DAK-SOFT default seed data for new database ******/
-USE [Kasa]
-GO
 
 IF OBJECT_ID(N'[dbo].[tbl_sifarnik]', N'U') IS NOT NULL
 BEGIN
@@ -8240,6 +8179,17 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID(N'[dbo].[tbl_role]', N'U') IS NOT NULL
+BEGIN
+    SET IDENTITY_INSERT [dbo].[tbl_role] ON;
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Admin')
+        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (1, N'Admin', N'Pun pristup svim modulima', 1);
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Operater')
+        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (2, N'Operater', N'Osnovni operativni pristup', 1);
+    SET IDENTITY_INSERT [dbo].[tbl_role] OFF;
+END
+GO
+
 IF OBJECT_ID(N'[dbo].[tbl_Podesavanja]', N'U') IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM [dbo].[tbl_Podesavanja])
 BEGIN
@@ -8272,9 +8222,4 @@ BEGIN
         'RSD'
     );
 END
-GO
-
-USE [master]
-GO
-ALTER DATABASE [Kasa] SET  READ_WRITE 
 GO

@@ -101,7 +101,11 @@ Sav UI tekst na srpskom.
 
 ## SQL MIGRACIJE — OBAVEZNO
 Folder: `/sql/`
-- `01_CREATE_kasa_template.sql` — blanko baza za novog klijenta (109 tabela, verzija 200)
+- `01_CREATE_kasa_template.sql` — blanko baza za novog klijenta (109 tabela, verzija 213).
+  NEUTRALAN — ne sadrži `CREATE DATABASE` ni `USE [ime]`, pravi samo objekte
+  (tabele/view/proc/seed) u bazi koja je već izabrana pre pokretanja skripte.
+  Bazu treba napraviti unapred (ručno kroz SSMS ili automatski kroz super
+  admin panel) i izabrati je (`USE`) pre puštanja ove skripte.
 - `02_MIGRACIJA_postojeci_klijent.sql` — ALTER za stare klijente (idempotentno, 4 sekcije)
 
 **PRAVILO: Svaka promena šeme baze MORA da se doda u OBA fajla istovremeno:**
@@ -110,7 +114,7 @@ Folder: `/sql/`
   nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
   novi seed kao `IF NOT EXISTS → INSERT`
 
-`verzijaBaze` u `tbl_Podesavanja` = 210 (Blazor migracija).
+`verzijaBaze` u `tbl_Podesavanja` = 213 (Blazor migracija).
 Svaka buduća migracija inkrementira ovaj broj.
 - 201 = `tbl_plate` dodato `idTure` + `kursEur`
 - 202 = `tbl_plate` dodato `iznosEUR`
@@ -149,6 +153,20 @@ Svaka buduća migracija inkrementira ovaj broj.
   radSaViseMoneta (default 1) — kad je 0, skriva EUR opcije u svim finansijskim
   ekranima (samo UI-nivo, postojeći EUR podaci u bazi ostaju netaknuti).
   `KarticaNovaService.GetDomacaValuta()` kešira per-circuit (Scoped).
+- 211 = `tbl_KarticaNova` dodato `idEfakture` (veza ka `tbl_eFakturaUlaz`,
+  sprečava dupli upis pri akciji "Upiši u karticu" iz ulaznih e-faktura).
+- 212 = DROP trigera `brisanjaArtikalatbl_eInvoice` na `tbl_eInvoice` — trigger
+  na DELETE sudarao se sa EF Core-ovim OUTPUT klauzulom pri brisanju izlaznih
+  e-faktura ("cannot have any enabled triggers if the statement contains an
+  OUTPUT clause without INTO clause"). Legacy funkcija triggera više nije
+  relevantna za ovaj tok.
+- 213 = Seed `tbl_role` (`Admin` idRole=1, `Operater` idRole=2) dodat u OBA SQL
+  fajla — ranije nijedan od fajlova nije punio `tbl_role`, pa je
+  `WebKorisnikRegistracijaDialog` (`Db.Role.FirstOrDefaultAsync(r => r.Naziv
+  == "Admin")`) tiho vraćao `null` i registracija je ostajala bez `idRole`
+  FK (samo legacy `Privilegija` int je dobijao fallback 1). `01_CREATE`
+  takođe očišćen od hardkodovanog imena baze `Kasa` (uklonjen `CREATE
+  DATABASE`/`USE`/`ALTER DATABASE` blok — vidi napomenu uz `01_CREATE` iznad).
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.

@@ -1,14 +1,15 @@
 @page "/podesavanja/podaci-firme"
 
 @using Microsoft.EntityFrameworkCore
+@using Transport.Application.DTOs
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService    TenantService
-@inject NavigationManager Nav
-@inject TransportDbContext Db
-@inject IDialogService    Dialog
-@inject ISnackbar         Snackbar
+@inject ITenantService      TenantService
+@inject NavigationManager   Nav
+@inject TransportDbContext  Db
+@inject IDialogService      Dialog
+@inject ISnackbar           Snackbar
 
 <PageTitle>Podaci firme — Autoprevoz</PageTitle>
 
@@ -46,7 +47,26 @@ else if (_podaci is not null)
                 <MudTextField @bind-Value="_podaci.Mesto"           Label="Mesto"                Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.PosBroj"         Label="Poštanski broj"       Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.Adresa"          Label="Adresa"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
-                <MudTextField @bind-Value="_podaci.PIB"             Label="PIB"                  Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
+                <div class="d-flex align-end mb-3" style="gap:8px;">
+                    <MudTextField @bind-Value="_podaci.PIB" Label="PIB" Variant="Variant.Outlined" ShrinkLabel="true" Style="flex:1;" />
+                    @if (_podaci.Vlasnik == "SRBIJA")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   Disabled="_ucitavaNbs"
+                                   OnClick="OtvoriNbsPretraga"
+                                   Style="height:40px; white-space:nowrap;">
+                            @if (_ucitavaNbs)
+                            {
+                                <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" Class="mr-1" />
+                                <span>Povuci sa NBS-a</span>
+                            }
+                        </MudButton>
+                    }
+                </div>
                 <MudTextField @bind-Value="_podaci.MaticniBroj"     Label="Matični broj"         Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.SifraDelatnosti" Label="Šifra delatnosti"     Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.EpPdv"           Label="EP PDV"               Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
@@ -80,8 +100,6 @@ else if (_podaci is not null)
                 <MudTextField @bind-Value="_podaci.mobilni2"    Label="Mobilni 2"         Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
                 <MudTextField @bind-Value="_podaci.mail"        Label="E-mail"            Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Email" />
                 <MudTextField @bind-Value="_podaci.sajt"        Label="Sajt"              Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" />
-                <MudTextField @bind-Value="_podaci.mailRacuna"  Label="Mail za račune"    Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Email" />
-                <MudTextField @bind-Value="_podaci.sifraMaila"  Label="Šifra maila"       Variant="Variant.Outlined" ShrinkLabel="true" Class="mb-3" InputType="InputType.Password" />
             </MudPaper>
         </MudItem>
 
@@ -176,6 +194,7 @@ else if (_podaci is not null)
     private bool                                    _ucitava      = true;
     private bool                                    _ucitavaBanke = false;
     private bool                                    _noviZapis    = false;
+    private bool                                    _ucitavaNbs   = false;
 
     protected override void OnInitialized()
     {
@@ -244,6 +263,87 @@ else if (_podaci is not null)
         {
             Snackbar.Add($"Greška pri čuvanju: {ex.Message}", Severity.Error);
         }
+    }
+
+    // Koristi POSTOJEĆI NbsPretragaDialog (isti kao PartnerDialog) — dijalog sam
+    // radi pretragu/grešku/loading, ovde se samo popunjava forma i upisuju banke.
+    private async Task OtvoriNbsPretraga()
+    {
+        if (_podaci is null) return;
+
+        _ucitavaNbs = true;
+        StateHasChanged();
+
+        try
+        {
+            var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+            var parameters = new DialogParameters<NbsPretragaDialog>
+            {
+                { x => x.TipPretrage,     "PIB" },
+                { x => x.PocetnaVrednost, _podaci.PIB }
+            };
+            var dialog = await Dialog.ShowAsync<NbsPretragaDialog>("NBS pretraga", parameters, opts);
+            var result = await dialog.Result;
+
+            if (result.Canceled || result.Data is not NbsIzbor izbor)
+                return;
+
+            // Samo popunjava formu — upisuje se tek kad korisnik klikne Sačuvaj
+            // (isti obrazac kao PartnerDialog.OtvoriNbs).
+            _podaci.NazivFirme  = izbor.Kompanija.Naziv;
+            _podaci.PIB         = izbor.Kompanija.Pib;
+            _podaci.MaticniBroj = izbor.Kompanija.MaticniBroj;
+            _podaci.Adresa      = izbor.Kompanija.Adresa;
+            _podaci.Mesto       = izbor.Kompanija.Mesto;
+
+            await DodajBankeIzNbsAsync(izbor.IzabraniRacuni);
+        }
+        finally
+        {
+            _ucitavaNbs = false;
+        }
+    }
+
+    // Banke se upisuju ODMAH (nezavisno od dugmeta Sačuvaj) — nikad ne briše
+    // postojeće, samo preskače račune koji već postoje (po koloni racun).
+    private async Task DodajBankeIzNbsAsync(List<NbsRacun> racuni)
+    {
+        if (racuni.Count == 0) return;
+
+        var dodato     = 0;
+        var preskoceno = 0;
+        var imaDefault = await Db.Banke.AnyAsync(b => b.defaultRacun == 1);
+
+        foreach (var r in racuni)
+        {
+            if (string.IsNullOrWhiteSpace(r.ZiroRacun))
+                continue;
+
+            if (await Db.Banke.AnyAsync(b => b.racun == r.ZiroRacun))
+            {
+                preskoceno++;
+                continue;
+            }
+
+            Db.Banke.Add(new Banka
+            {
+                banka        = r.Banka,
+                racun        = r.ZiroRacun,
+                TipRacuna    = "DOMACI",
+                aktivan      = 1,
+                defaultRacun = imaDefault ? 0 : 1
+            });
+
+            dodato++;
+            imaDefault = true; // samo prva dodata banka dobija default
+        }
+
+        if (dodato > 0)
+            await Db.SaveChangesAsync();
+
+        await UcitajBanke();
+
+        Snackbar.Add($"Dodato {dodato} banaka, {preskoceno} već postojalo.", Severity.Success);
     }
 
     private async Task NovaBanka()

@@ -1,0 +1,239 @@
+@using Transport.Application.Interfaces
+
+@inject IProvisioningService Provisioning
+
+<MudDialog Style="min-width:480px;">
+    <DialogContent>
+        @* Decoy polja — apsorbuju browser autofill umesto stvarnih polja ispod *@
+        <input type="text" name="username" autocomplete="username"
+               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
+               tabindex="-1" aria-hidden="true" />
+        <input type="password" name="password" autocomplete="current-password"
+               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
+               tabindex="-1" aria-hidden="true" />
+
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_pib"
+                              Label="PIB *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true"
+                              HelperText="Tačno 9 cifara"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_nazivFirme"
+                              Label="Naziv firme *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudTextField @bind-Value="_ime"
+                              Label="Ime *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              Required="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudTextField @bind-Value="_prezime"
+                              Label="Prezime"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_email"
+                              Label="Email *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Email"
+                              Required="true"
+                              autocomplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_lozinka"
+                              Label="Lozinka *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Password"
+                              Required="true"
+                              HelperText="Minimum 6 karaktera"
+                              autocomplete="new-password"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_potvrda"
+                              Label="Potvrda lozinke *"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel="true"
+                              InputType="InputType.Password"
+                              Required="true"
+                              autocomplete="new-password"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-bwignore="true"
+                              data-form-type="other"
+                              Disabled="_ucitava" />
+            </MudItem>
+
+            @if (_ucitava)
+            {
+                <MudItem xs="12">
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block" Align="Align.Center">
+                        Kreiram bazu i firmu — ovo može potrajati 30-60 sekundi...
+                    </MudText>
+                </MudItem>
+            }
+
+            @if (_greska is not null)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+                </MudItem>
+            }
+
+            @if (_uspeh is not null)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Success" Dense="true">@_uspeh</MudAlert>
+                </MudItem>
+            }
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.AddBusiness"
+                   OnClick="Kreiraj"
+                   Disabled="@(_ucitava || _uspeh is not null)">
+            @(_ucitava ? "Kreiram..." : "Kreiraj firmu")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="@(() => MudDialog.Close(DialogResult.Ok(_uspeh is not null)))"
+                   Disabled="_ucitava">
+            @(_uspeh is not null ? "Zatvori" : "Odustani")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _pib        = string.Empty;
+    private string _nazivFirme = string.Empty;
+    private string _ime        = string.Empty;
+    private string _prezime    = string.Empty;
+    private string _email      = string.Empty;
+    private string _lozinka    = string.Empty;
+    private string _potvrda    = string.Empty;
+
+    private bool    _ucitava;
+    private string? _greska;
+    private string? _uspeh;
+
+    private async Task Kreiraj()
+    {
+        _greska = null;
+        _uspeh  = null;
+
+        if (string.IsNullOrWhiteSpace(_pib))
+        {
+            _greska = "PIB je obavezan.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_nazivFirme))
+        {
+            _greska = "Naziv firme je obavezan.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_ime))
+        {
+            _greska = "Ime je obavezno.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_email) || !_email.Contains('@') || !_email.Contains('.'))
+        {
+            _greska = "Unesite ispravan email.";
+            return;
+        }
+
+        if (_lozinka.Length < 6)
+        {
+            _greska = "Lozinka mora imati minimum 6 karaktera.";
+            return;
+        }
+
+        if (_lozinka != _potvrda)
+        {
+            _greska = "Lozinke se ne poklapaju.";
+            return;
+        }
+
+        _ucitava = true;
+        StateHasChanged();
+
+        try
+        {
+            var rezultat = await Provisioning.KreirajFirmuAsync(_pib, _nazivFirme, _ime, _prezime, _email, _lozinka);
+
+            if (rezultat.Uspeh)
+                _uspeh = $"{rezultat.Poruka} (baza: {rezultat.NazivBaze})";
+            else
+                _greska = rezultat.Poruka;
+        }
+        catch (Exception ex)
+        {
+            _greska = $"Neočekivana greška: {ex.Message}";
+        }
+        finally
+        {
+            _ucitava = false;
+        }
+    }
+}
