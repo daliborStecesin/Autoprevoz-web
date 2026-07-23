@@ -25,78 +25,95 @@
 
 <MudGrid Spacing="3">
 
-    @* ── LEVA STRANA — Filteri ─────────────────────── *@
+    @* ── LEVA STRANA — Filteri (ručni accordion, isti obrazac kao Izlazne/Ulazne
+       e-fakture — MudExpansionPanels ne pouzdano čuva Expanded stanje po detetu) ── *@
     <MudItem xs="12" md="3">
-        <MudPaper Elevation="1" Class="pa-3">
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Naziv partnera"
-                               Value="@_naziv"
-                               ValueChanged="@(v => _naziv = v ?? string.Empty)"
-                               OnEnter="BrziFilterNaziv" />
-            </div>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj računa"
-                               Value="@_brojRacuna"
-                               ValueChanged="@(v => _brojRacuna = v ?? string.Empty)"
-                               OnEnter="BrziFilterBrojRacuna" />
-            </div>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Vozilo"
-                               Value="@_vozilo"
-                               ValueChanged="@(v => _vozilo = v ?? string.Empty)"
-                               OnEnter="BrziFilterVozilo" />
-            </div>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj naloga"
-                               Value="@_brojNaloga"
-                               ValueChanged="@(v => _brojNaloga = v ?? string.Empty)"
-                               OnEnter="BrziFilterBrojNaloga" />
-            </div>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj CMR"
-                               Value="@_brojCmr"
-                               ValueChanged="@(v => _brojCmr = v ?? string.Empty)"
-                               OnEnter="BrziFilterBrojCmr" />
-            </div>
-
-            <div class="mb-2">
-                <NativniSelect Label="Tip računa" Value="@_tipRacuna"
-                               ValueChanged="@OnTipRacunaChanged">
-                    <option value="SVI">SVI</option>
-                    <option value="IZLAZ">IZLAZ</option>
-                    <option value="INOSTRANI">INOSTRANI</option>
-                    <option value="IZLAZ_BP">IZLAZ_BP</option>
-                </NativniSelect>
-            </div>
-
-            <div class="mb-2">
-                <NativniSelect Label="Tip datuma" Value="@_tipDatuma"
-                               ValueChanged="@OnTipDatumaChanged">
-                    <option value="IZDAVANJA">IZDAVANJA</option>
-                    <option value="PROMETA">PROMETA</option>
-                </NativniSelect>
-            </div>
-
-            <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
-            <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
-
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Search"
-                       OnClick="Izlistaj"
-                       Disabled="_ucitava"
-                       FullWidth="true">
-                @if (_ucitava)
+        <MudPaper Elevation="1" Class="pa-2">
+            <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px;">
+                <div @onclick="OnFilteriPanelToggle"
+                     style="display:flex; align-items:center; justify-content:space-between;
+                            padding:8px 12px; cursor:pointer; user-select:none;
+                            background:#fafafa; border-radius:4px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
+                        Filteri
+                    </div>
+                    <MudIcon Icon="@(_filteriOtvoreni ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                             Size="Size.Small" Style="color:#888;" />
+                </div>
+                @if (_filteriOtvoreni)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                }
-                Izlistaj
-            </MudButton>
+                    <div style="padding:8px 12px 10px;">
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Naziv partnera"
+                                           Value="@_naziv"
+                                           ValueChanged="@(v => _naziv = v ?? string.Empty)"
+                                           OnEnter="BrziFilterNaziv" />
+                        </div>
 
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Broj računa"
+                                           Value="@_brojRacuna"
+                                           ValueChanged="@(v => _brojRacuna = v ?? string.Empty)"
+                                           OnEnter="BrziFilterBrojRacuna" />
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Vozilo"
+                                           Value="@_vozilo"
+                                           ValueChanged="@(v => _vozilo = v ?? string.Empty)"
+                                           OnEnter="BrziFilterVozilo" />
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Broj naloga"
+                                           Value="@_brojNaloga"
+                                           ValueChanged="@(v => _brojNaloga = v ?? string.Empty)"
+                                           OnEnter="BrziFilterBrojNaloga" />
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Broj CMR"
+                                           Value="@_brojCmr"
+                                           ValueChanged="@(v => _brojCmr = v ?? string.Empty)"
+                                           OnEnter="BrziFilterBrojCmr" />
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniSelect Label="Tip računa" Value="@_tipRacuna"
+                                           ValueChanged="@OnTipRacunaChanged">
+                                <option value="SVI">SVI</option>
+                                <option value="IZLAZ">IZLAZ</option>
+                                <option value="INOSTRANI">INOSTRANI</option>
+                                <option value="IZLAZ_BP">IZLAZ_BP</option>
+                            </NativniSelect>
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniSelect Label="Tip datuma" Value="@_tipDatuma"
+                                           ValueChanged="@OnTipDatumaChanged">
+                                <option value="IZDAVANJA">IZDAVANJA</option>
+                                <option value="PROMETA">PROMETA</option>
+                            </NativniSelect>
+                        </div>
+
+                        <div class="mb-2"><DateInput Label="OD" @bind-Value="_od" /></div>
+                        <div class="mb-3"><DateInput Label="DO" @bind-Value="_do" /></div>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Search"
+                                   OnClick="Izlistaj"
+                                   Disabled="_ucitava"
+                                   FullWidth="true">
+                            @if (_ucitava)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            }
+                            Izlistaj
+                        </MudButton>
+                    </div>
+                }
+            </div>
         </MudPaper>
     </MudItem>
 
@@ -232,6 +249,7 @@
 
     private bool _ucitava;
     private bool _pretrazivano;
+    private bool _filteriOtvoreni = true;
 
     private DateTime _poslednjKlik  = DateTime.MinValue;
     private Racun?   _poslednjKlikR;
@@ -245,10 +263,20 @@
             .Select(p => p.OpcijaString13)
             .FirstOrDefaultAsync()) ?? "RSD";
 
+        var uid = TenantService.GetIdKorisnika();
+        var pFilteri = await DefaultValues.GetDefault("fakture", "panel_filteri", uid);
+        if (pFilteri is not null) _filteriOtvoreni = pFilteri == "True";
+
         // Lista faktura UVEK kreće od čistih podrazumevanih filtera (ne učitava
         // zapamćene DefaultValues) — zapamćeni filter (npr. INOSTRANI) je
         // zbunjivao korisnike kad bi nova faktura "nestala" sa liste.
         await UcitajPoslednje20();
+    }
+
+    private async Task OnFilteriPanelToggle()
+    {
+        _filteriOtvoreni = !_filteriOtvoreni;
+        await DefaultValues.SaveDefault("fakture", "panel_filteri", _filteriOtvoreni.ToString(), TenantService.GetIdKorisnika());
     }
 
     // Početni prikaz: poslednjih 20 faktura (bez čekanja na Izlistaj)

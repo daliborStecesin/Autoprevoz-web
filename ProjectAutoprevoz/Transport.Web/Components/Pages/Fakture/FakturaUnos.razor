@@ -19,11 +19,11 @@
 @inject IDialogService          Dialog
 @inject IJSRuntime              JS
 
-<PageTitle>@(Id is null ? "Novi račun" : $"Račun #{Id}") — Autoprevoz</PageTitle>
+<PageTitle>@NaslovForme — Autoprevoz</PageTitle>
 
 <MudText Typo="Typo.h5" Class="mb-3">
     <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" />
-    @(Id is null ? "Novi račun" : $"Račun #{Id}")
+    @NaslovForme
 </MudText>
 
 @if (_ucitava)
@@ -33,7 +33,61 @@
 
 <MudGrid Spacing="3">
 
-    @* ───────────────────────── TOP LEFT — Datumi, CMR, Vozilo/Vozač ───────────────────────── *@
+    @* ───────────────────────── TOP LEFT — Broj računa, Nalog, Partner ───────────────────────── *@
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">Broj i partner</MudText>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj računa (predlog)" Value="@_brojRacunaPreview" Disabled="true" />
+            </div>
+
+            <div class="mb-2">
+                <NativniInput TValue="string" Label="Broj naloga" @bind-Value="_brojNaloga" />
+            </div>
+
+            <MudDivider Class="my-2" />
+
+            @* Partner — autocomplete *@
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Partner:</MudText>
+            <div style="position:relative; margin-bottom:8px; margin-top:4px;"
+                 @onfocusin="OnPartnerFocusin"
+                 @onfocusout="OnPartnerFocusout">
+                <MudTextField Value="_partnerPretraga"
+                              ValueChanged="@((string v) => { _partnerPretraga = v; AzurirajPartnerPredloge(); })"
+                              Variant="Variant.Outlined"
+                              Placeholder="Pretraži partnera..."
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Business"
+                              Immediate="true"
+                              Margin="Margin.Dense"
+                              T="string" />
+                @if (_partnerOpen && _partneriPredlozi.Count > 0)
+                {
+                    <div style="position:absolute; z-index:9999; left:0; right:0;
+                                background:white; border:1px solid #ccc; border-radius:4px;
+                                box-shadow:0 4px 12px rgba(0,0,0,0.15);
+                                max-height:220px; overflow-y:auto;">
+                        @foreach (var p in _partneriPredlozi)
+                        {
+                            var pp = p;
+                            <div @onclick="@(() => IzaberiPartnera(pp))"
+                                 style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                                @pp.Naziv <span style="color:#999;">— @pp.PIB</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="mb-2"><NativniInput TValue="string" Label="Naziv" @bind-Value="_partnerNaziv" /></div>
+            <div class="mb-2"><NativniInput TValue="string" Label="PIB" @bind-Value="_partnerPib" /></div>
+            <div class="mb-2"><NativniInput TValue="string" Label="Adresa" @bind-Value="_partnerAdresa" /></div>
+            <div class="mb-2"><NativniInput TValue="string" Label="Mesto" @bind-Value="_partnerMesto" /></div>
+        </MudPaper>
+    </MudItem>
+
+    @* ───────────────────────── TOP CENTER — Datumi, CMR, Vozilo/Vozač ───────────────────────── *@
     <MudItem xs="12" md="4">
         <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
             <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">Datumi i prevoz</MudText>
@@ -152,60 +206,6 @@
                     </MudPaper>
                 }
             </div>
-        </MudPaper>
-    </MudItem>
-
-    @* ───────────────────────── TOP CENTER — Broj računa, Nalog, Partner ───────────────────────── *@
-    <MudItem xs="12" md="4">
-        <MudPaper Elevation="1" Class="pa-3" Style="height:100%;">
-            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color:#2D3E50; font-weight:600;">Broj i partner</MudText>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj računa (predlog)" Value="@_brojRacunaPreview" Disabled="true" />
-            </div>
-
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Broj naloga" @bind-Value="_brojNaloga" />
-            </div>
-
-            <MudDivider Class="my-2" />
-
-            @* Partner — autocomplete *@
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">Partner:</MudText>
-            <div style="position:relative; margin-bottom:8px; margin-top:4px;"
-                 @onfocusin="OnPartnerFocusin"
-                 @onfocusout="OnPartnerFocusout">
-                <MudTextField Value="_partnerPretraga"
-                              ValueChanged="@((string v) => { _partnerPretraga = v; AzurirajPartnerPredloge(); })"
-                              Variant="Variant.Outlined"
-                              Placeholder="Pretraži partnera..."
-                              Adornment="Adornment.End"
-                              AdornmentIcon="@Icons.Material.Filled.Business"
-                              Immediate="true"
-                              Margin="Margin.Dense"
-                              T="string" />
-                @if (_partnerOpen && _partneriPredlozi.Count > 0)
-                {
-                    <div style="position:absolute; z-index:9999; left:0; right:0;
-                                background:white; border:1px solid #ccc; border-radius:4px;
-                                box-shadow:0 4px 12px rgba(0,0,0,0.15);
-                                max-height:220px; overflow-y:auto;">
-                        @foreach (var p in _partneriPredlozi)
-                        {
-                            var pp = p;
-                            <div @onclick="@(() => IzaberiPartnera(pp))"
-                                 style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
-                                @pp.Naziv <span style="color:#999;">— @pp.PIB</span>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-
-            <div class="mb-2"><NativniInput TValue="string" Label="Naziv" @bind-Value="_partnerNaziv" /></div>
-            <div class="mb-2"><NativniInput TValue="string" Label="PIB" @bind-Value="_partnerPib" /></div>
-            <div class="mb-2"><NativniInput TValue="string" Label="Adresa" @bind-Value="_partnerAdresa" /></div>
-            <div class="mb-2"><NativniInput TValue="string" Label="Mesto" @bind-Value="_partnerMesto" /></div>
         </MudPaper>
     </MudItem>
 
@@ -397,6 +397,14 @@
 @code {
     [SupplyParameterFromQuery(Name = "id")]
     public int? Id { get; set; }
+
+    // Naslov forme — NIKAD interni idRacuna (Broj/PK), korisniku ništa ne znači.
+    // Posle snimanja/pri izmeni prikazuje stvarni broj računa (_brojRacunaPreview
+    // je do tada već ažuriran na sačuvanu vrednost — vidi SacuvajNovi/UcitajPostojeci).
+    // Ako broj iz nekog razloga još nije dostupan, prikazuje se samo "Račun".
+    private string NaslovForme => Id is null
+        ? "Novi račun"
+        : string.IsNullOrWhiteSpace(_brojRacunaPreview) ? "Račun" : $"Račun {_brojRacunaPreview}";
 
     private bool _ucitava = true;
 
@@ -940,6 +948,7 @@
             { x => x.KursEur, _kursEur },
             { x => x.TipRacuna, _tipRacuna },
             { x => x.PdvStopa, _pdvStopa },
+            { x => x.NizaStopaPdv, _podesavanja?.nizaStopaPDV ?? 0 },
             { x => x.Vozilo, _vozilo?.registarskaOznaka },
             { x => x.IdVozila, _vozilo?.VoziloId },
             { x => x.DatumUtovara, _datumUtovara },

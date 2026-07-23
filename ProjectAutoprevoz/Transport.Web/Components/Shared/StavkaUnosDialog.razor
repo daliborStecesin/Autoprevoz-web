@@ -1,4 +1,5 @@
 @using Transport.Domain.Entities
+@using System.Globalization
 
 @inject ISnackbar Snackbar
 
@@ -29,7 +30,23 @@
         </div>
 
         <MudGrid Spacing="2" Class="mb-1">
-            <MudItem xs="4"><NativniInput TValue="string" Label="JM" @bind-Value="_jm" /></MudItem>
+            <MudItem xs="4">
+                <NativniSelect Label="JM" Value="@_jm" ValueChanged="@(v => _jm = v ?? "kom")">
+                    <option value="kom">kom</option>
+                    <option value="kg">kg</option>
+                    <option value="km">km</option>
+                    <option value="t">t</option>
+                    <option value="m">m</option>
+                    <option value="g">g</option>
+                    <option value="L">L</option>
+                    <option value="m2">m2</option>
+                    <option value="m3">m3</option>
+                    <option value="min">min</option>
+                    <option value="h">h</option>
+                    <option value="d">d</option>
+                    <option value="kwh">kwh</option>
+                </NativniSelect>
+            </MudItem>
             <MudItem xs="4">
                 <NativniInput TValue="decimal" Label="Količina" Value="@_kolicina" Format="0.##"
                               ValueChanged="@((decimal v) => { _kolicina = v; Izracunaj(); })" />
@@ -56,8 +73,12 @@
 
         <MudGrid Spacing="2" Class="mb-2">
             <MudItem xs="4">
-                <NativniInput TValue="decimal" Label="PDV %" Value="@_stopaPdv" Format="0.##"
-                              ValueChanged="@((decimal v) => { _stopaPdv = v; Izracunaj(); })" />
+                <NativniSelect Label="PDV %" Value="@_stopaPdv.ToString("0.##", CultureInfo.InvariantCulture)"
+                               ValueChanged="@(v => { _stopaPdv = ParsirajStopu(v); Izracunaj(); })">
+                    <option value="0">Bez PDV (0%)</option>
+                    <option value="@NizaStopaPdv.ToString("0.##", CultureInfo.InvariantCulture)">@NizaStopaPdv.ToString("0.##", CultureInfo.InvariantCulture)%</option>
+                    <option value="@PdvStopa.ToString("0.##", CultureInfo.InvariantCulture)">@PdvStopa.ToString("0.##", CultureInfo.InvariantCulture)%</option>
+                </NativniSelect>
             </MudItem>
         </MudGrid>
 
@@ -94,6 +115,7 @@
     [Parameter] public decimal KursEur { get; set; }
     [Parameter] public string TipRacuna { get; set; } = "IZLAZ";
     [Parameter] public decimal PdvStopa { get; set; }
+    [Parameter] public decimal NizaStopaPdv { get; set; }
     [Parameter] public string? Vozilo { get; set; }
     [Parameter] public int? IdVozila { get; set; }
     [Parameter] public string DatumUtovara { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
@@ -163,6 +185,11 @@
         _cenaEur = KursEur > 0 ? Math.Round(v / KursEur, 4) : 0;
         Izracunaj();
     }
+
+    // PDV % je sad zatvoren padajući (0 / niža / viša stopa iz podešavanja) —
+    // parsiranje i dalje ide preko decimal-a, ista logika obračuna kao pre.
+    private static decimal ParsirajStopu(string? v) =>
+        decimal.TryParse(v, NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? n : 0;
 
     // ── Obračun reda (Rabat je procenat) ─────────────────────────────────
     private void Izracunaj()
