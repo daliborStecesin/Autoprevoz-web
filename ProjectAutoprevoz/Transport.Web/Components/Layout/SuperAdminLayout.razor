@@ -1,0 +1,88 @@
+@inherits LayoutComponentBase
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService                     TenantService
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
+@inject NavigationManager                  Nav
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Style="background:#7B1FA2; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Class="mr-2" />
+        <MudText Typo="Typo.h6" Class="mr-auto" Style="color:#F3E5F5; font-weight:600;">
+            DAK-SOFT — Super admin
+        </MudText>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   StartIcon="@Icons.Material.Filled.Business"
+                   Style="color:#F3E5F5;"
+                   Disabled="@(_korisnik?.IdLicence is null)"
+                   OnClick="@(() => Nav.NavigateTo($"/api/superadmin/udji?id={_korisnik!.IdLicence}", forceLoad: true))">
+            Nastavi na svoju aplikaciju
+        </MudButton>
+        @if (_korisnik?.IdLicence is null)
+        {
+            <MudText Typo="Typo.caption" Class="mx-2" Style="color:rgba(243,229,245,0.85);">
+                Nije podešena matična licenca
+            </MudText>
+        }
+        <MudText Typo="Typo.body2" Class="mx-2" Style="color:rgba(243,229,245,0.85);">
+            @TenantService.GetImeKorisnika()
+        </MudText>
+        <MudButton Variant="Variant.Text"
+                   Href="/api/auth/logout"
+                   StartIcon="@Icons.Material.Filled.Logout"
+                   Style="color:#F3E5F5;">
+            Odjava
+        </MudButton>
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-5 pt-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private WebKorisnik? _korisnik;
+
+    // Guard NE veruje cookie-ju ap_priv — pri svakom otvaranju panela proverava
+    // stvarno stanje u master bazi (WebKorisnik.Aktivan/Privilegija), pošto je
+    // ap_priv samo klijentski kolačić koji korisnik teorijski može izmeniti.
+    // Bez TransportDbContext-a bilo gde ovde — superadmin nema tenant bazu.
+    //
+    // Kratkotrajan, izolovan MasterDbContext preko IDbContextFactory (ne deljeni
+    // scoped) — layout i /ds stranica se inicijalizuju preklapajuće u istom
+    // Blazor circuit-u, pa bi deljena scoped instanca izazvala
+    // "A second operation was started on this context instance...".
+    protected override async Task OnInitializedAsync()
+    {
+        var idKorisnika = TenantService.GetIdKorisnika();
+        if (idKorisnika <= 0)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+        var korisnik = await db.WebKorisnici.AsNoTracking()
+            .FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+
+        if (korisnik is null || korisnik.Aktivan != 1 || korisnik.Privilegija != 9)
+        {
+            // Bez poruke o grešci — ne otkrivaj da panel postoji.
+            Nav.NavigateTo("/", forceLoad: true);
+            return;
+        }
+
+        _korisnik = korisnik;
+    }
+}

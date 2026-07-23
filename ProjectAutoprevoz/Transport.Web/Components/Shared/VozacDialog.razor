@@ -261,11 +261,11 @@
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
-                   OnClick="@(async () => await Sacuvaj())">
+                   OnClick="@(async () => await SacuvajDugme())">
             Sačuvaj
         </MudButton>
 
-        @if (VozacId > 0)
+        @if (EfektivniVozacId > 0)
         {
             @if (_webKorisnik is null)
             {
@@ -318,6 +318,11 @@
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
     [Parameter]          public int        VozacId  { get; set; }
+
+    // VozacId ([Parameter]) ostaje 0 za nov unos i ne menja se kad Sačuvaj popuni
+    // _entitet.Broj — efektivni ID prati stvarno stanje bez potrebe da se dijalog
+    // zatvori i ponovo otvori.
+    private int EfektivniVozacId => VozacId > 0 ? VozacId : (_entitet?.Broj ?? 0);
 
     private Vozac?      _entitet;
     private WebKorisnik? _webKorisnik;
@@ -412,7 +417,7 @@
         var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
         var prms = new DialogParameters<WebKorisnikRegistracijaDialog>
         {
-            { x => x.VozacId,       _entitet.Broj },
+            { x => x.VozacId,       EfektivniVozacId },
             { x => x.ImeZaposlenog, imeZaposlenog }
         };
         var dialog = await Dialog.ShowAsync<WebKorisnikRegistracijaDialog>("Registruj kao korisnika", prms, opts);
@@ -440,6 +445,15 @@
             await UcitajWebKorisnika();
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    // Dugme "Sačuvaj" u DialogActions: prvo čuvanje NOVOG zaposlenog ostavlja dijalog
+    // otvorenim (da se odmah pojavi dugme "Registruj kao korisnika"); svako sledeće
+    // čuvanje (izmena postojećeg) zatvara dijalog kao i do sad.
+    private async Task SacuvajDugme()
+    {
+        var jeNov = _entitet is null || _entitet.Broj == 0;
+        await Sacuvaj(closeDialog: !jeNov);
     }
 
     private async Task<bool> Sacuvaj(bool closeDialog = true)

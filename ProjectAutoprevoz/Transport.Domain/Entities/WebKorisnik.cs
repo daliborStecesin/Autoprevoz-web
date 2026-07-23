@@ -3,7 +3,9 @@ namespace Transport.Domain.Entities;
 public class WebKorisnik
 {
     public int IdKorisnika { get; set; }
-    public int IdLicence { get; set; }
+
+    // NULL za superadmin (Privilegija=9) — nema tenant licencu/bazu.
+    public int? IdLicence { get; set; }
     public int? IdZaposlenog { get; set; }
     public string? Ime { get; set; }
     public string? Email { get; set; }

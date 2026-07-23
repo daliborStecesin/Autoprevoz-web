@@ -14,6 +14,7 @@ public class TenantService : ITenantService
     private string? _cachedIme;
     private int?    _cachedUserId;
     private int?    _cachedLicenceId;
+    private bool?   _cachedImpersonate;
 
     public TenantService(IHttpContextAccessor http, MasterDbContext master)
     {
@@ -98,6 +99,17 @@ public class TenantService : ITenantService
         return val == "1"; // default: neaktivan (0); 1 = aktivan
     }
 
+    public bool JeImpersonacija()
+    {
+        // Keširano po istom obrascu kao ap_firma/ap_user/ap_licence/ap_ime — HttpContext
+        // je NULL posle prerendera u interaktivnom Blazor Server circuit-u, pa se mora
+        // pročitati i upamtiti pri prvom (SSR) čitanju, inače uvek vraća false.
+        if (_cachedImpersonate.HasValue) return _cachedImpersonate.Value;
+        var val = _http.HttpContext?.Request.Cookies["ap_impersonate"] ?? "0";
+        _cachedImpersonate = val == "1";
+        return _cachedImpersonate.Value;
+    }
+
     public bool IsAuthenticated() => !string.IsNullOrEmpty(GetConnectionString());
 
     public void Logout()
@@ -107,5 +119,6 @@ public class TenantService : ITenantService
         _cachedIme       = string.Empty;
         _cachedUserId    = 0;
         _cachedLicenceId = 0;
+        _cachedImpersonate = false;
     }
 }

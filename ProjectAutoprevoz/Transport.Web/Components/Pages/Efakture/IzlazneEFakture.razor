@@ -273,7 +273,7 @@
                     </TemplateColumn>
                     <TemplateColumn Title="Status" SortBy="x => x.statusDokumenta" HeaderStyle="width:6%; max-width:70px;">
                         <CellTemplate Context="red">
-                            <MudChip T="string" Size="Size.Small" Color="@BojaStatusa(red.Item.statusDokumenta)"
+                            <MudChip T="string" Size="Size.Small" Color="@EFakturaStatusUi.BojaStatusa(red.Item.statusDokumenta)"
                                      Style="font-weight:600;">
                                 @red.Item.statusDokumenta
                             </MudChip>
@@ -880,14 +880,8 @@
         _                         => tip ?? ""
     };
 
-    // Boja statusnog čipa — ista grupacija kao ranije bojenje celog reda:
-    // Prihvaceno=zeleno, Odbijeno/Stornirano=crveno, sve ostalo (u toku)=žuto.
-    private static Color BojaStatusa(string? status) => status switch
-    {
-        "Prihvaceno"                => Color.Success,
-        "Odbijeno" or "Stornirano"  => Color.Error,
-        _                           => Color.Warning
-    };
+    // Boja statusnog čipa — deljeno sa kolonom "SEF-Status" na /fakture,
+    // vidi EFakturaStatusUi.BojaStatusa (Transport.Web/Components/Shared).
 
     // Bojenje celog reda je uklonjeno (boju sad nosi statusni čip) — ovde ostaje
     // samo vizuelno isticanje selektovanog reda.

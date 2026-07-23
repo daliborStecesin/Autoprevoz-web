@@ -58,6 +58,16 @@ builder.Services.AddDbContextFactory<TransportDbContext>((sp, options) =>
 builder.Services.AddDbContext<MasterDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Master")));
 
+// IDbContextFactory — isti razlog kao za TransportDbContext iznad: stranice/layouti
+// koji moraju da otvore kratkotrajan, izolovan kontekst po operaciji (SuperAdminLayout
+// guard + /ds stranica inicijalizuju se preklapajuće u istom Blazor circuit-u, pa bi
+// deljeni scoped MasterDbContext izazvao "A second operation was started...").
+// MORA biti ServiceLifetime.Scoped (ne default Singleton) — DbContextOptions<MasterDbContext>
+// je već registrovan kao Scoped preko AddDbContext iznad, a Singleton ne sme da zavisi
+// od Scoped servisa (isti razlog kao TransportDbContext factory ispod).
+builder.Services.AddDbContextFactory<MasterDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Master")), ServiceLifetime.Scoped);
+
 // ============================================================================
 // APPLICATION SERVICES
 // ============================================================================
@@ -138,6 +148,30 @@ async Task<LoginRezultatInterno> PrijaviKorisnikaAsync(string email, string pass
     var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", password);
     if (verResult == PasswordVerificationResult.Failed)
         return new LoginRezultatInterno(false, "Pogrešan email ili lozinka.", null, null, 0, 0);
+
+    var optsSuperAdmin = new CookieOptions
+    {
+        HttpOnly  = true,
+        Secure    = false,
+        SameSite  = SameSiteMode.Lax,
+        Path      = "/",
+        Expires   = DateTimeOffset.UtcNow.AddHours(8)
+    };
+
+    // Superadmin (Privilegija=9) nema IdLicence/tenant bazu — preskače proveru
+    // licence i oba raw ADO upita na tenant tbl_Podesavanja ispod. Dobija SAMO
+    // ap_user/ap_ime/ap_priv, bez ap_licence/ap_firma/ap_transport/ap_efaktura.
+    if (korisnik.Privilegija == 9)
+    {
+        korisnik.ZadnjaPrijava = DateTime.Now;
+        await db.SaveChangesAsync();
+
+        ctx.Response.Cookies.Append("ap_user", korisnik.IdKorisnika.ToString(), optsSuperAdmin);
+        ctx.Response.Cookies.Append("ap_ime",  korisnik.Ime ?? string.Empty,    optsSuperAdmin);
+        ctx.Response.Cookies.Append("ap_priv", korisnik.Privilegija.ToString(), optsSuperAdmin);
+
+        return new LoginRezultatInterno(true, null, null, null, korisnik.IdKorisnika, korisnik.Privilegija);
+    }
 
     var licenca = korisnik.Licenca;
 
@@ -248,7 +282,7 @@ app.MapPost("/api/auth/login-form", async (HttpContext ctx, MasterDbContext db) 
     if (!rez.Success)
         return Results.Redirect($"/login?greska={Uri.EscapeDataString(rez.Poruka ?? "Greška pri prijavljivanju.")}");
 
-    return Results.Redirect("/dashboard");
+    return Results.Redirect(rez.Privilegija == 9 ? "/ds" : "/dashboard");
 });
 
 // ============================================================================
@@ -266,6 +300,105 @@ app.MapGet("/api/auth/logout", (HttpContext ctx) =>
     ctx.Response.Cookies.Delete("ap_efaktura",  deleteOpts);
     ctx.Response.Cookies.Delete("ap_licence",   deleteOpts);
     return Results.Redirect("/login");
+});
+
+// ============================================================================
+// API — Superadmin: uđi u firmu (impersonacija) / vrati se u panel
+// ============================================================================
+// Kolačići se ne mogu postaviti iz Blazor interaktivne komponente (odgovor je već
+// poslat), zato sve ide preko HTTP endpointa + forceLoad navigacije (isti razlog
+// kao kod /api/auth/login-form).
+app.MapGet("/api/superadmin/udji", async (int id, HttpContext ctx, MasterDbContext db) =>
+{
+    // SIGURNOSNA PROVERA — ne veruj kolačiću ap_priv, proveri stvarno stanje u master bazi.
+    var idKorisnika = int.TryParse(ctx.Request.Cookies["ap_user"], out var uid) ? uid : 0;
+
+    var korisnik = await db.WebKorisnici.AsNoTracking()
+        .FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+
+    if (korisnik is null || korisnik.Aktivan != 1 || korisnik.Privilegija != 9)
+        return Results.Redirect("/login");
+
+    var licenca = await db.Licence.AsNoTracking()
+        .FirstOrDefaultAsync(l => l.IdLicence == id);
+
+    if (licenca is null || string.IsNullOrEmpty(licenca.ConnectionString))
+        return Results.Redirect("/ds?greska=" + Uri.EscapeDataString("Licenca nema connection string"));
+
+    var opts = new CookieOptions
+    {
+        HttpOnly  = true,
+        Secure    = false,
+        SameSite  = SameSiteMode.Lax,
+        Path      = "/",
+        Expires   = DateTimeOffset.UtcNow.AddHours(8)
+    };
+
+    ctx.Response.Cookies.Append("ap_licence",     id.ToString(),                 opts);
+    ctx.Response.Cookies.Append("ap_firma",       licenca.Naziv ?? string.Empty, opts);
+    ctx.Response.Cookies.Append("ap_priv",        "1",                           opts); // ap_user/ap_ime se NE diraju — aplikacija se ponaša kao normalna prijava
+    ctx.Response.Cookies.Append("ap_impersonate", "1",                           opts);
+
+    // Isti raw ADO upiti na tenant tbl_Podesavanja kao u PrijaviKorisnikaAsync.
+    // Ako upit pukne, oba idu na "0" — ulazak u firmu se ne ruši zbog toga.
+    int transportAktivan = 0;
+    int eFakturaAktivna  = 0;
+    try
+    {
+        var tenantCsb = new SqlConnectionStringBuilder(licenca.ConnectionString ?? string.Empty)
+        {
+            TrustServerCertificate = true,
+            Encrypt = false
+        };
+        using var conn = new SqlConnection(tenantCsb.ConnectionString);
+        await conn.OpenAsync();
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT TOP 1 transportModulAktivan FROM tbl_Podesavanja WHERE Broj = 1";
+            var val = await cmd.ExecuteScalarAsync();
+            transportAktivan = (val is DBNull or null) ? 0 : Convert.ToInt32(val);
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT TOP 1 OpcijaInt13 FROM tbl_Podesavanja WHERE Broj = 1";
+            var val = await cmd.ExecuteScalarAsync();
+            eFakturaAktivna = (val is DBNull or null) ? 0 : Convert.ToInt32(val);
+        }
+    }
+    catch
+    {
+        transportAktivan = 0;
+        eFakturaAktivna  = 0;
+    }
+
+    ctx.Response.Cookies.Append("ap_transport", transportAktivan.ToString(), opts);
+    ctx.Response.Cookies.Append("ap_efaktura",  eFakturaAktivna.ToString(),  opts);
+
+    return Results.Redirect("/dashboard");
+});
+
+app.MapGet("/api/superadmin/izadji", (HttpContext ctx) =>
+{
+    var deleteOpts = new CookieOptions { Path = "/" };
+    ctx.Response.Cookies.Delete("ap_licence",     deleteOpts);
+    ctx.Response.Cookies.Delete("ap_firma",       deleteOpts);
+    ctx.Response.Cookies.Delete("ap_impersonate", deleteOpts);
+    ctx.Response.Cookies.Delete("ap_transport",   deleteOpts);
+    ctx.Response.Cookies.Delete("ap_efaktura",    deleteOpts);
+
+    var opts = new CookieOptions
+    {
+        HttpOnly  = true,
+        Secure    = false,
+        SameSite  = SameSiteMode.Lax,
+        Path      = "/",
+        Expires   = DateTimeOffset.UtcNow.AddHours(8)
+    };
+    ctx.Response.Cookies.Append("ap_priv", "9", opts);
+
+    return Results.Redirect("/ds");
 });
 
 app.MapStaticAssets();

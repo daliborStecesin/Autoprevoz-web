@@ -165,6 +165,28 @@
                              : string.Empty)">
                 <Columns>
                     <PropertyColumn Property="x => x.BrojRacuna" Title="Br. računa" HeaderStyle="width:9%;" />
+                    @if (_eFakturaAktivna)
+                    {
+                        <TemplateColumn Title="SEF-Status" HeaderStyle="width:9%;">
+                            <CellTemplate>
+                                @{
+                                    var eFaktura = _sefStatusPoRacunu.GetValueOrDefault(context.Item.Broj);
+                                }
+                                @if (eFaktura is null)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="font-weight:600;">
+                                        Nije poslato
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="@EFakturaStatusUi.BojaStatusa(eFaktura.statusDokumenta)" Style="font-weight:600;">
+                                        @eFaktura.statusDokumenta
+                                    </MudChip>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
                     <TemplateColumn Title="Datum" SortBy="x => x.DatumRacuna" HeaderStyle="width:9%;">
                         <CellTemplate>@context.Item.DatumRacuna?.ToString("dd.MM.yyyy")</CellTemplate>
                     </TemplateColumn>
@@ -243,6 +265,12 @@
     private List<Racun> _rezultati = [];
     private Racun?      _selektovani;
 
+    // Kolona "SEF-Status" — samo kad je e-faktura uključena za tenanta (isti
+    // prekidač kao dugme "E-faktura" na /fakture/unos). Batch lookup po idRacuna
+    // (Broj), ne N+1 — jedan upit posle svakog učitavanja _rezultati.
+    private bool _eFakturaAktivna;
+    private Dictionary<int, EInvoice> _sefStatusPoRacunu = [];
+
     private decimal _ukupnoOsnovica;
     private decimal _ukupnoPDV;
     private decimal _ukupnoSumaRacuna;
@@ -262,6 +290,8 @@
         _domacaValuta = (await Db.Podesavanja.AsNoTracking()
             .Select(p => p.OpcijaString13)
             .FirstOrDefaultAsync()) ?? "RSD";
+
+        _eFakturaAktivna = TenantService.GetEFakturaAktivna();
 
         var uid = TenantService.GetIdKorisnika();
         var pFilteri = await DefaultValues.GetDefault("fakture", "panel_filteri", uid);
@@ -296,6 +326,8 @@
             _ukupnoPDV        = _rezultati.Sum(r => r.SumaPDV    ?? 0);
             _ukupnoSumaRacuna = _rezultati.Sum(r => r.SumaRacuna ?? 0);
 
+            await UcitajSefStatuse();
+
             _pretrazivano = true;
         }
         catch (Exception ex)
@@ -308,6 +340,39 @@
             _ucitava = false;
             StateHasChanged();
         }
+    }
+
+    // Batch lookup (jedan upit za sve prikazane redove, ne N+1) — najnovija
+    // e-faktura po računu, preko istog idRacuna povezivanja koje koristi i
+    // "E-faktura" dugme/prefill na /fakture/unos. Najnovija = najveći idEfakture
+    // (PK, raste sa unosom — isto kao insertion-order za i poslate i sinhronizovane redove).
+    private async Task UcitajSefStatuse()
+    {
+        if (!_eFakturaAktivna)
+        {
+            _sefStatusPoRacunu = [];
+            return;
+        }
+
+        var brojevi = _rezultati.Select(r => r.Broj).ToHashSet();
+        if (brojevi.Count == 0)
+        {
+            _sefStatusPoRacunu = [];
+            return;
+        }
+
+        // NE filtrirati sa .Contains() nad listom iz memorije u EF upitu — EF Core 8
+        // to prevodi u OPENJSON(...) WITH (...), što ovaj SQL Server (niži compatibility
+        // level) ne podržava ("Incorrect syntax near '$'", isti poznati problem kao u
+        // SinhronizujAsync dedup logici). Filtriranje po idRacuna ide u memoriji.
+        var sveEFakture = await Db.EInvoices.AsNoTracking()
+            .Where(e => e.idRacuna != null)
+            .ToListAsync();
+
+        _sefStatusPoRacunu = sveEFakture
+            .Where(e => brojevi.Contains(e.idRacuna!.Value))
+            .GroupBy(e => e.idRacuna!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.idEfakture).First());
     }
 
     private async Task OnTipRacunaChanged(string? value)
@@ -402,6 +467,8 @@
             _ukupnoOsnovica   = _rezultati.Sum(r => r.Osnovica   ?? 0);
             _ukupnoPDV        = _rezultati.Sum(r => r.SumaPDV    ?? 0);
             _ukupnoSumaRacuna = _rezultati.Sum(r => r.SumaRacuna ?? 0);
+
+            await UcitajSefStatuse();
 
             _pretrazivano = true;
         }

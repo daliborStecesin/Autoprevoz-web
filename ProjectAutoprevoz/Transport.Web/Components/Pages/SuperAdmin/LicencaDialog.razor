@@ -1,0 +1,292 @@
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
+@inject ISnackbar                          Snackbar
+@inject IConfiguration                     Config
+
+<MudDialog Style="min-width:520px;">
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12" sm="6">
+                <NativniInput TValue="string" Label="Naziv" Value="@_naziv" Disabled="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <NativniInput TValue="string" Label="PIB" Value="@_pib" Disabled="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_datum" Label="Datum licence" Editable="true" />
+            </MudItem>
+
+            @if (_sablonDostupan)
+            {
+                <MudItem xs="12">
+                    <MudRadioGroup T="string" Value="_rezim"
+                                   ValueChanged="@((string v) => { _rezim = v; AzurirajGenerisaniConnectionString(); })">
+                        <MudRadio T="string" Value="@(RezimSablon)" Color="Color.Primary">Iz šablona</MudRadio>
+                        <MudRadio T="string" Value="@(RezimRucno)"  Color="Color.Primary">Ručno</MudRadio>
+                    </MudRadioGroup>
+                </MudItem>
+
+                @if (_rezim == RezimSablon)
+                {
+                    <MudItem xs="12">
+                        <NativniInput TValue="string" Label="Naziv baze" Value="@_nazivBaze"
+                                      ValueChanged="@((string? v) => { _nazivBaze = v ?? string.Empty; AzurirajGenerisaniConnectionString(); })" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                                   OnClick="PredloziNazivBaze">
+                            Predloži
+                        </MudButton>
+                    </MudItem>
+                }
+            }
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_connectionString"
+                              Label="Connection string"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              ReadOnly="@(_rezim == RezimSablon)"
+                              Style="font-family:monospace; font-size:0.8rem;" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Wifi"
+                           OnClick="TestirajKonekciju"
+                           Disabled="_testUcitava">
+                    @(_testUcitava ? "Testiram..." : "Testiraj konekciju")
+                </MudButton>
+            </MudItem>
+
+            @if (_testGreska is not null)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Error" Dense="true">@_testGreska</MudAlert>
+                    @if (_testGreskaSavet is not null)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-1">@_testGreskaSavet</MudText>
+                    }
+                </MudItem>
+            }
+
+            @if (_testProsao)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Success" Dense="true">
+                        Konekcija OK — verzija baze: @_verzijaBaze
+                    </MudAlert>
+                </MudItem>
+
+                @if (_verzijaBaze is < 211)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            PAŽNJA: baza nije migrirana na v211. Pokreni 02_MIGRACIJA_postojeci_klijent.sql
+                            pre nego što pustiš korisnike.
+                        </MudAlert>
+                    </MudItem>
+                }
+            }
+
+            <MudItem xs="12">
+                <MudSwitch T="bool" @bind-Value="_webAktivan"
+                           Color="Color.Success"
+                           Label="Web aktivan"
+                           Disabled="@(!_webAktivan && !_testProsao)" />
+                @if (!_webAktivan && !_testProsao)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                        Prvo testiraj konekciju.
+                    </MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_porukaKupcu"
+                              Label="Poruka kupcu"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Sacuvaj"
+                   Disabled="_cuva">
+            @(_cuva ? "Čuvanje..." : "Sačuvaj")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int IdLicence { get; set; }
+
+    private string   _naziv            = string.Empty;
+    private string   _pib              = string.Empty;
+    private DateTime? _datum;
+    private string   _connectionString = string.Empty;
+    private bool     _webAktivan;
+    private string   _porukaKupcu      = string.Empty;
+
+    // Test konekcije mora proći BAR JEDNOM u ovoj sesiji dijaloga pre nego što se
+    // "Web aktivan" sme upaliti — sprečava puštanje korisnika na bazu koja ne radi.
+    private bool  _testUcitava;
+    private bool  _testProsao;
+    private int?  _verzijaBaze;
+    private string? _testGreska;
+    private string? _testGreskaSavet;
+
+    private bool _cuva;
+
+    // Generisanje connection stringa iz šablona (appsettings.json: SuperAdmin:SablonConnectionString,
+    // rezervisana reč {BAZA}). "Ručno" ostaje podrazumevano za postojeće klijente — ne diramo
+    // njihov već upisan connection string.
+    private const string RezimSablon = "SABLON";
+    private const string RezimRucno  = "RUCNO";
+
+    private string _sablonConnectionString = string.Empty;
+    private bool   _sablonDostupan;
+    private string _rezim     = RezimRucno;
+    private string _nazivBaze = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+        var licenca = await db.Licence.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.IdLicence == IdLicence);
+
+        if (licenca is not null)
+        {
+            _naziv            = licenca.Naziv ?? string.Empty;
+            _pib              = licenca.PIB   ?? string.Empty;
+            _datum            = licenca.DatumLicence.HasValue
+                ? licenca.DatumLicence.Value.ToDateTime(TimeOnly.MinValue)
+                : null;
+            _connectionString = licenca.ConnectionString ?? string.Empty;
+            _webAktivan       = licenca.WebAktivan == 1;
+            _porukaKupcu      = licenca.PorukaKupcu ?? string.Empty;
+        }
+
+        _sablonConnectionString = Config["SuperAdmin:SablonConnectionString"] ?? string.Empty;
+        _sablonDostupan = !string.IsNullOrWhiteSpace(_sablonConnectionString)
+                           && _sablonConnectionString.Contains("{BAZA}");
+
+        // "Iz šablona" samo ako je šablon upotrebljiv I connection string još prazan
+        // (nov klijent) — u suprotnom "Ručno", da se ne dira već upisan string.
+        _rezim = (_sablonDostupan && string.IsNullOrEmpty(_connectionString))
+            ? RezimSablon
+            : RezimRucno;
+    }
+
+    private void AzurirajGenerisaniConnectionString()
+    {
+        if (_rezim == RezimSablon)
+            _connectionString = _sablonConnectionString.Replace("{BAZA}", _nazivBaze.Trim());
+    }
+
+    private void PredloziNazivBaze()
+    {
+        _nazivBaze = "rs" + (_pib ?? string.Empty).Replace(" ", "");
+        AzurirajGenerisaniConnectionString();
+    }
+
+    private async Task TestirajKonekciju()
+    {
+        _testGreska      = null;
+        _testGreskaSavet = null;
+        _verzijaBaze     = null;
+        _testProsao      = false;
+        _testUcitava     = true;
+        StateHasChanged();
+
+        try
+        {
+            var csb = new SqlConnectionStringBuilder(_connectionString ?? string.Empty)
+            {
+                TrustServerCertificate = true,
+                Encrypt        = false,
+                ConnectTimeout = 10
+            };
+
+            using var conn = new SqlConnection(csb.ConnectionString);
+            await conn.OpenAsync();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText    = "SELECT TOP 1 verzijaBaze FROM tbl_Podesavanja";
+            cmd.CommandTimeout = 10;
+            var val = await cmd.ExecuteScalarAsync();
+
+            _verzijaBaze = (val is DBNull or null) ? (int?)null : Convert.ToInt32(val);
+            _testProsao  = true;
+        }
+        catch (Exception ex)
+        {
+            _testGreska = ex.Message;
+            _testProsao = false;
+
+            if (_testGreska.Contains("Cannot open database", StringComparison.OrdinalIgnoreCase) ||
+                _testGreska.Contains("Login failed", StringComparison.OrdinalIgnoreCase))
+            {
+                _testGreskaSavet = "Proveri da li baza postoji na serveru i da li SQL nalog iz šablona ima pristup.";
+            }
+        }
+        finally
+        {
+            _testUcitava = false;
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        _cuva = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_webAktivan && _datum.HasValue &&
+                DateOnly.FromDateTime(_datum.Value) < DateOnly.FromDateTime(DateTime.Today))
+            {
+                Snackbar.Add("Licenca je istekla — korisnici se neće moći ulogovati.", Severity.Warning);
+            }
+
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+            var licenca = await db.Licence.FirstOrDefaultAsync(l => l.IdLicence == IdLicence);
+
+            if (licenca is null)
+            {
+                Snackbar.Add("Licenca nije pronađena.", Severity.Error);
+                return;
+            }
+
+            licenca.DatumLicence     = _datum.HasValue ? DateOnly.FromDateTime(_datum.Value) : null;
+            licenca.ConnectionString = _connectionString;
+            licenca.WebAktivan       = _webAktivan ? 1 : 0;
+            licenca.PorukaKupcu      = _porukaKupcu;
+
+            await db.SaveChangesAsync();
+
+            Snackbar.Add("Licenca sačuvana.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _cuva = false;
+        }
+    }
+}

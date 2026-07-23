@@ -3,6 +3,7 @@
 @inject IJSRuntime    JS
 @inject ITenantService TenantService
 @inject NavigationManager Nav
+@inject IHttpContextAccessor Http
 
 <MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
@@ -93,6 +94,21 @@
     </style>
 </HeadContent>
 
+@if (TenantService.JeImpersonacija())
+{
+    @* position:sticky + z-index veći od MudAppBar-a — inače je fixed AppBar prekriva
+       (AppBar je position:fixed pa se renderuje preko normalnog flow-a bez obzira
+       na redosled u markup-u). *@
+    <div style="position:sticky; top:0; z-index:1300; width:100%; background:#7B1FA2; color:#fff;
+                display:flex; align-items:center; justify-content:space-between;
+                padding:6px 16px; font-size:0.85rem; gap:12px;">
+        <span>SUPER ADMIN — radiš u firmi: @TenantService.GetNazivFirme()</span>
+        <a href="/api/superadmin/izadji" style="color:#fff; font-weight:600; text-decoration:underline; white-space:nowrap;">
+            Vrati se u panel
+        </a>
+    </div>
+}
+
 <MudLayout>
     <MudAppBar Elevation="0" Style="background:#2D3E50; border-bottom:1px solid rgba(255,255,255,0.08);">
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
@@ -146,6 +162,17 @@
     {
         if (!TenantService.IsAuthenticated())
             Nav.NavigateTo("/login", forceLoad: true);
+
+        // PRIVREMENA DIJAGNOSTIKA impersonacije — ukloniti posle provere.
+        if (!TenantService.JeImpersonacija() && TenantService.GetIdLicence() > 0)
+        {
+            var cookies = Http.HttpContext?.Request.Cookies;
+            Console.WriteLine(
+                $"[DEBUG impersonacija] HttpContext={(Http.HttpContext is null ? "NULL" : "OK")} " +
+                $"ap_impersonate={cookies?["ap_impersonate"] ?? "(nema)"} " +
+                $"ap_licence={cookies?["ap_licence"] ?? "(nema)"} " +
+                $"ap_priv={cookies?["ap_priv"] ?? "(nema)"}");
+        }
     }
 
     private readonly MudTheme _theme = new()

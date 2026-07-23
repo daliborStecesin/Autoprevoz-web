@@ -177,6 +177,10 @@
                 .FirstOrDefaultAsync(r => r.Naziv == "Admin");
             int privilegija = adminRole?.IdRole ?? 1;
 
+            // 9 = DAK-SOFT SuperAdmin — dodeljuje se ISKLJUČIVO ručno kroz SQL, nikad iz aplikacije
+            if (privilegija >= 9 || privilegija <= 0)
+                privilegija = 1;
+
             var hasher = new PasswordHasher<object>();
             var hash   = hasher.HashPassword(new object(), _lozinka);
 

@@ -19,7 +19,9 @@ public class MasterDbContext : DbContext
             e.ToTable("tbl_licence");
             e.HasKey(l => l.IdLicence);
             e.Property(l => l.Naziv).HasMaxLength(200);
+            e.Property(l => l.PIB).HasColumnName("pib").HasMaxLength(50);
             e.Property(l => l.ConnectionString).HasMaxLength(500);
+            e.Property(l => l.PorukaKupcu).HasMaxLength(500);
         });
 
         mb.Entity<WebKorisnik>(e =>

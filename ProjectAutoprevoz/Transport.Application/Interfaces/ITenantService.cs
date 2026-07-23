@@ -11,6 +11,7 @@ public interface ITenantService
     string GetImeKorisnika();
     bool GetTransportModulAktivan();
     bool GetEFakturaAktivna();
+    bool JeImpersonacija();
     bool IsAuthenticated();
     void Logout();
 }
