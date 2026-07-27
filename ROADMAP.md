@@ -1,5 +1,5 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Jul 2026 — verzija baze 211*
+*Poslednje ažuriranje: Jul 2026 — verzija baze 213*
 
 Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
 Rewrite WinForms aplikacije. Multi-tenant: master `daksoft` + klijentske baze.
@@ -10,6 +10,27 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 
 ## ✅ ZAVRŠENO
 
+### Super admin panel (DAK-SOFT) — FAZE 1 i 2 ZAVRŠENE
+- Privilegija 9 = SuperAdmin (dodeljuje se ISKLJUČIVO ručno kroz SQL;
+  registracioni dijalog tvrdo spušta svaku vrednost >= 9 na 1)
+- /ds + SuperAdminLayout, guard čita privilegiju IZ BAZE (ne iz kolačića)
+- Liste licenci i web korisnika, pretraga, filteri, klik na licencu
+  filtrira njene korisnike
+- Impersonacija "Uđi u firmu" + čip u AppBar-u + povratak
+- LicencaDialog: datum, connection string (ručno ili iz šablona sa {BAZA}),
+  test konekcije sa proverom verzijaBaze, Web aktivan tek posle testa
+- ProvisioningService: kompletno kreiranje firme jednim klikom
+  (baza + skripta + licenca + zaposleni + korisnik), rollback pri grešci
+- Registracija korisnika za postojeću firmu radi kroz impersonaciju
+  (postojeći dijalog, IdLicence iz ap_licence — bez novog koda)
+
+### v213
+- Seed tbl_role (Admin=1, Operater=2) — nova baza do sad nikad nije
+  imala Admin rolu
+- 01_CREATE_kasa_template.sql je NEUTRALAN: bez CREATE DATABASE, bez USE,
+  bez ALTER DATABASE bloka. Pravi samo objekte, pa se može pustiti nad
+  bazom bilo kog imena. Ugrađen u Transport.Web kao embedded resource.
+- RECOVERY SIMPLE umesto originalnog FULL (FULL bez backup-a loga puni disk)
 ### Osnova / Sistem
 - Infrastruktura, Login, Multi-tenant, Dashboard
 - NBS Kurs servis + IKursService (po datumu, fallback, strane firme) + Kursna lista
@@ -33,6 +54,17 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 - Unos računa: glava+stavke (dialog), EUR/RSD konverzija, rabat %, PDV po tipu, broj na Save, edit
 - Tipovi IZLAZ/IZLAZ_BP/INOSTRANI, napomene po tip×uvozIzvoz, izbor banke (idBanke)
 - Štampa 3 varijante: domaća RSD srpski / EUR srpski (+kurs/RSD) / EUR engleski (+OpcijaText1/2)
+- Lista računa: filteri prebačeni u kolapsibilni panel (isti pattern/servis kao
+  liste e-faktura), stanje pamti IDefaultValuesService
+- Lista računa: kolona "SEF-Status" (uslovna, samo kad je e-faktura uključena) —
+  status povezane e-fakture ili "Nije poslato", reuse status-prevoda sa liste e-faktura
+- Unos računa: reorganizacija panela — "Osnovni podaci" (uvek vidljiv, partner/broj/datumi
+  prvi panel) + "Tip, kurs i akcije" (nepromenjeno) + NOVI "Nalog i transport"
+  (kolapsibilan, zatvoren po default-u: broj naloga, datum istovara/prometa,
+  CMR/otpremnica, vozilo, vozač); naslov forme posle snimanja prikazuje broj
+  računa, ne interni idRacuna
+- Dijalog "Unos stavke": JM i PDV % su NativniSelect (JM: kom/kg/km/t/m/g/L/m2/m3/
+  min/h/d/kwh, default kom; PDV: 0 + niža/viša stopa iz podešavanja)
 
 ### STARE Finansije/Kartice (tbl_Kartica — zadržane kao read-only istorija)
 - Dužnici/dugovanja, kartica partnera, unos finansija, vezivanje, van valute — SVE na staroj tabeli
@@ -198,7 +230,7 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
       (sakriva Upiši u karticu) — ručna ispravka test-po-test, masovni backfill otvoren
 
 ### Sledeće u modulu (nije započeto)
-- [ ] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
+- [x] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
       (faktura/avans/dok. smanjenja/povećanja), forma + stavke + porezi, pa XML, pa slanje.
 - [ ] Statistika e-faktura
 - [ ] Slanje — deo Unosa dokumenta (XML generisanje)
@@ -208,7 +240,27 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
 ---
 
 ## 📋 PREOSTALO (ostali moduli)
+### ⚠️ BEZBEDNOST (pre prvih pravih klijenata)
+- [ ] Kolačići nisu potpisani — korisnik može ručno poslati tuđi ap_licence
+      i videti tuđe podatke. Rešenje: IDataProtectionProvider.
 
+### ⚠️ PDV NAPOMENE — moguća poreska greška (PROVERITI)
+- [ ] Mapiranje kolona ne poklapa se sa labelama: pod "Domaća IZVOZ" stoji
+      čl. 24(1)(8) koji je UVOZ, pod "Inostrana IZVOZ" stoji čl. 24(1)(1)
+      koji je domaći izvoz. CLAUDE.md dokumentuje obrnuto od koda.
+      TEST: odštampati domaću fakturu za izvozni transport i videti koja
+      se napomena pojavi. Zatim v214: ispravka + seed vrednosti u oba SQL fajla.
+
+### Super admin — FAZA 3
+- [ ] Javna self-service registracija (isti servis, ali anoniman endpoint
+      traži ograničenje po IP/vremenu — meta za zloupotrebu)
+- [ ] Reset lozinke / deaktivacija korisnika iz panela
+- [ ] Log akcija superadmina (ko, kad, šta, nad kojom licencom)
+- [ ] Duplikati u tbl_licence: jedna firma ima više redova (desktop model,
+      mac/glavniKomp = po računaru). Odlučiti koji red nosi web licencu
+- [ ] 01_CREATE: ~3400 od 8280 linija su SSMS sp_addextendedproperty
+      (XML dijagrama). Čišćenje bi smanjilo fajl sa 242 KB na ~90 KB
+- [ ] 01_CREATE nema seed za tbl_banka (klijent unosi sam, NBS pomaže)
 ### Zaostalo (zakonsko)
 - [ ] Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja). Mesta: sidebar dnevnica, "Dodaj dnevnice vozaču", "Dodaj u troškove ture", modul Dnevnice.
 
@@ -285,10 +337,14 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
   (neke su čiste reference bez fajla). Do 3 priloga, max 15MB svaki (SEF limit).
 
 ### Migracije / verzija baze
-- Verzija baze: **211**
+- Verzija baze: **213**
   - 208 = tbl_log_brisanja
   - 209 = tbl_KarticaNova
   - 210 = domacaValuta (OpcijaString13) + radSaViseMoneta (OpcijaInt12)
   - 211 = tbl_KarticaNova.idEfakture (e-fakture dedupe za "Upiši u karticu")
+  - 212 = DROP trigera brisanjaArtikalatbl_eInvoice (sudar sa EF Core OUTPUT
+    klauzulom pri brisanju izlaznih e-faktura)
+  - 213 = seed tbl_role (Admin/Operater, potrebno za idRole pri registraciji
+    web korisnika)
 - **v211 idEfakture MORA se pokrenuti na SVAKOJ postojećoj bazi pri deploy-u** (02_MIGRACIJA_postojeci_klijent.sql) — inače "Upiši u karticu" puca sa "Invalid column name 'idEfakture'". Migracija ima IF COL_LENGTH guard (bezbedno višekratno pokretanje).
 - Svaka schema promena → OBA SQL fajla (nova instalacija + migracija) istovremeno. Vidi CLAUDE.md.

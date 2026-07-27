@@ -61,6 +61,10 @@ Sav UI tekst na srpskom.
 - Dijalozi: `MudDialog` + `MudDialogInstance MudDialog`
 - Custom dropdown/autocomplete: ručni `position:absolute; z-index:9999` div iznad inputa (NE MudAutocomplete). `@onfocusin` otvori sve, `@onfocusout` 150ms delay zatvori, filter `Contains OrdinalIgnoreCase`
 - Collapsible sekcije forme: `MudExpansionPanels`, stanje panela pamti se po korisniku (DefaultValues)
+- Collapsible filter panel na listama: RUČNI accordion (div + `@onclick` toggle), NE
+  `MudExpansionPanels` (ne pouzdano čuva Expanded stanje po detetu) — pattern
+  uspostavljen na e-fakturama, sad i na `/fakture` (lista računa), stanje pamti
+  `IDefaultValuesService`
 
 ## PRAVILA (obavezno)
 1. NIKAD ne menjati šemu postojećih tabela bez dogovora
@@ -408,3 +412,20 @@ Racun, GotovinskiRacun, Otpremnica, Ponuda, Artikal,
 ObavestenjePP, VatDeductionRecord (imaju polja ali ne IAuditable).
 Partner: DatumUnosa/DatumIzmene su [NotMapped] — nisu u bazi
 (dodati kolone + mapiranje ako zatreba audit za partnere).
+## SUPER ADMIN (DAK-SOFT)
+- Privilegija = 9 u tbl_web_korisnici. Dodeljuje se ISKLJUČIVO ručno kroz SQL.
+  WebKorisnikRegistracijaDialog tvrdo spušta svaku vrednost >= 9 na 1.
+- Superadmin ima IdLicence svoje matične firme (za dugme "Nastavi na svoju
+  aplikaciju"), ali login za Privilegija=9 preskače sve provere licence.
+- Guard (SuperAdminLayout) čita privilegiju IZ MASTER BAZE po ap_user —
+  NIKAD iz kolačića ap_priv (kolačići nisu potpisani).
+- Impersonacija: /api/superadmin/udji?id= postavlja ap_licence + ap_impersonate,
+  /izadji vraća. ap_impersonate se briše pri svakoj prijavi i odjavi.
+- ap_conn je MRTAV — connection string se ne čuva u kolačiću, učitava se iz
+  master baze preko ap_licence pri svakom requestu (keširano po circuit-u).
+
+## PROVISIONING
+- 01_CREATE_kasa_template.sql je NEUTRALAN (bez CREATE DATABASE/USE) i ugrađen
+  kao embedded resource. Ime baze se bira spolja: rs{PIB}.
+- Ručno: CREATE DATABASE [rs...]; ALTER ... SET RECOVERY SIMPLE; USE; pa skripta.
+- Nova baza: verzijaBaze 213, tbl_role seeded, tbl_Podaci upisuje provisioning.

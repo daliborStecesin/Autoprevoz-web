@@ -868,8 +868,8 @@
         {
             ("IZLAZ", _)           => _firma?.NapomenaPDV ?? "",
             ("IZLAZ_BP", "IZVOZ")  => _firma?.NapomenaBezPdvIzvoz ?? "",
-            ("IZLAZ_BP", "UVOZ")   => _firma?.NapomenaInoPdvIzvoz ?? "",
-            ("INOSTRANI", "IZVOZ") => _firma?.NapomenaBezPdvUvoz ?? "",
+            ("IZLAZ_BP", "UVOZ") => _firma?.NapomenaBezPdvUvoz ?? "",/**/
+            ("INOSTRANI", "IZVOZ") => _firma?.NapomenaInoPdvIzvoz ?? "",
             ("INOSTRANI", "UVOZ")  => _firma?.NapomenaInoPdvUvoz ?? "",
             _                      => _komentar2,
         };
