@@ -381,6 +381,20 @@ public class EFaktureUlazService : IEFaktureUlazService
         }
     }
 
+    // ── PDF (poseban binarni endpoint purchase-invoice/pdf, invoiceId kao query) ──
+    public async Task<byte[]?> PreuzmiProsireniPdfAsync(string invoiceId)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+        return await _api.GetPdfBytesAsync(apiKey, tipServera, $"purchase-invoice/pdf?invoiceId={invoiceId}");
+    }
+
+    // ── PDF istorije statusa (invoiceId kao path segment, ne query) ────────────
+    public async Task<byte[]?> PreuzmiStatusHistoryPdfAsync(string invoiceId)
+    {
+        var (apiKey, tipServera) = await GetSettings();
+        return await _api.GetPdfBytesAsync(apiKey, tipServera, $"purchase-invoice/status-history/{invoiceId}/pdf");
+    }
+
     // ── XML (ceo envelope, bez izdvajanja) ────────────────────────────────────
     public async Task<string?> PreuzmiXmlAsync(string invoiceId)
     {

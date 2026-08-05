@@ -54,10 +54,20 @@
                                Disabled="@(_selektovan is null)" OnClick="OsveziStatus" />
             </span>
         </MudTooltip>
-        <MudTooltip Text="Preuzmi PDF" ShowOnHover="true" Placement="Placement.Top">
+        <MudTooltip Text="@_tipPdf" ShowOnHover="true" Placement="Placement.Top">
             <span>
-                <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
-                               Disabled="@(_selektovan is null)" OnClick="PreuzmiPdf" />
+                <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                    <MudButton StartIcon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
+                               Disabled="@(_selektovan is null)" OnClick="PreuzmiPdfPoTipu">
+                        @_tipPdf
+                    </MudButton>
+                    <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small"
+                             Disabled="@(_selektovan is null)">
+                        <MudMenuItem OnClick="@(() => _tipPdf = "PDF SAZETAK")">PDF SAZETAK</MudMenuItem>
+                        <MudMenuItem OnClick="@(() => _tipPdf = "PREUZMI PDF")">PREUZMI PDF</MudMenuItem>
+                        <MudMenuItem OnClick="@(() => _tipPdf = "PROMENE STATUSA")">PROMENE STATUSA</MudMenuItem>
+                    </MudMenu>
+                </MudButtonGroup>
             </span>
         </MudTooltip>
         <MudTooltip Text="Pregled - otvori PDF u novom tabu" ShowOnHover="true" Placement="Placement.Top">
@@ -343,6 +353,10 @@
 
     private List<EInvoice> _lista = [];
     private EInvoice?      _selektovan;
+
+    // Izabran tip PDF-a za split-button "Preuzmi PDF" — bira izvor bajtova
+    // (PreuzmiPdfPoTipu/Pregled) i sufiks naziva fajla pri preuzimanju.
+    private string _tipPdf = "PDF SAZETAK";
 
     private bool _ucitava;
     private bool _filteriOtvoreni       = true;
@@ -637,13 +651,28 @@
     private static string OcistiNazivFajla(string? brojDokumenta) =>
         (brojDokumenta ?? "dokument").Replace("/", "").Replace("\\", "");
 
-    private async Task PreuzmiPdf()
+    // Bira izvor bajtova prema izabranom tipu iz split-button menija.
+    private async Task<byte[]?> UcitajPdfPoTipuAsync(string invoiceId) => _tipPdf switch
+    {
+        "PREUZMI PDF"     => await EFaktureService.PreuzmiProsireniPdfAsync(invoiceId),
+        "PROMENE STATUSA" => await EFaktureService.PreuzmiStatusHistoryPdfAsync(invoiceId),
+        _                 => await EFaktureService.PreuzmiPdfAsync(invoiceId) // "PDF SAZETAK"
+    };
+
+    private string SufiksZaTipPdf() => _tipPdf switch
+    {
+        "PREUZMI PDF"     => "_prosireni",
+        "PROMENE STATUSA" => "_promene_statusa",
+        _                 => ""
+    };
+
+    private async Task PreuzmiPdfPoTipu()
     {
         if (_selektovan?.salesInvoiceID is null) return;
 
         try
         {
-            var bytes = await EFaktureService.PreuzmiPdfAsync(_selektovan.salesInvoiceID);
+            var bytes = await UcitajPdfPoTipuAsync(_selektovan.salesInvoiceID);
             if (bytes is null)
             {
                 Snackbar.Add(
@@ -652,7 +681,7 @@
                 return;
             }
 
-            var naziv = $"Racun_{OcistiNazivFajla(_selektovan.brojDokumenta)}.pdf";
+            var naziv = $"Racun_{OcistiNazivFajla(_selektovan.brojDokumenta)}{SufiksZaTipPdf()}.pdf";
             var b64   = Convert.ToBase64String(bytes);
             await JS.InvokeVoidAsync("downloadFilePdf", naziv, b64);
         }
@@ -668,7 +697,7 @@
 
         try
         {
-            var bytes = await EFaktureService.PreuzmiPdfAsync(_selektovan.salesInvoiceID);
+            var bytes = await UcitajPdfPoTipuAsync(_selektovan.salesInvoiceID);
             if (bytes is null)
             {
                 Snackbar.Add(

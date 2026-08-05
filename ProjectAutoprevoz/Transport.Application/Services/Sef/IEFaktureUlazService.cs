@@ -32,6 +32,14 @@ public interface IEFaktureUlazService
     /// Vraća null ako element ne postoji/nema sadržaj (PDF nije generisan za dokument).
     Task<byte[]?> PreuzmiPdfAsync(string invoiceId);
 
+    /// Prošireni PDF preko posebnog SEF endpointa (purchase-invoice/pdf, binarni odgovor).
+    /// Vraća null ako SEF umesto PDF-a vrati poruku da se dokument još generiše.
+    Task<byte[]?> PreuzmiProsireniPdfAsync(string invoiceId);
+
+    /// PDF istorije statusa dokumenta (purchase-invoice/status-history/{invoiceId}/pdf).
+    /// Vraća null ako SEF umesto PDF-a vrati poruku da se dokument još generiše.
+    Task<byte[]?> PreuzmiStatusHistoryPdfAsync(string invoiceId);
+
     /// Ceo envelope XML sa SEF-a, bez izdvajanja (isto kao stari btnPreuzmiXML_Click).
     Task<string?> PreuzmiXmlAsync(string invoiceId);
 

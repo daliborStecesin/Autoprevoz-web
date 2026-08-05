@@ -86,6 +86,25 @@ public class SefApiClient
         return await response.Content.ReadAsByteArrayAsync();
     }
 
+    /// Binarni PDF odgovor gde SEF, umesto gotovog fajla, ume da vrati JSON poruku
+    /// (npr. "PDF se generiše, pokušajte kasnije") — tu situaciju prepoznajemo preko
+    /// Content-Type i vraćamo null umesto da tu poruku pokušamo dekodirati kao PDF.
+    /// Neuspešan status kod i dalje baca izuzetak (isto kao GetStringAsync/EnsureSuccess).
+    public async Task<byte[]?> GetPdfBytesAsync(string apiKey, string tipServera, string endpoint)
+    {
+        var client = BuildClient(apiKey);
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
+
+        var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.GetAsync(url);
+        await EnsureSuccess(response);
+
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+        if (!contentType.Contains("pdf", StringComparison.OrdinalIgnoreCase)) return null;
+
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
     /// Vraća sirov tekst odgovora (npr. XML endpoint koji nije JSON).
     public async Task<string> GetStringAsync(string apiKey, string tipServera, string endpoint)
     {

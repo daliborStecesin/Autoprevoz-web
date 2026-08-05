@@ -1,5 +1,5 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Jul 2026 — verzija baze 213*
+*Poslednje ažuriranje: Avgust 2026 — verzija baze 213*
 
 Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
 Rewrite WinForms aplikacije. Multi-tenant: master `daksoft` + klijentske baze.
@@ -204,6 +204,12 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
 - [x] Faza C+D: Osveži sve/Osveži status, Storno, Otkaži, Preuzmi PDF/XML, Pregled,
       Brisanje — TESTIRANO, rade (Storno/Otkaži i dalje čekaju realan test na SEF dokumentu)
 - [x] Prateći dokumenti (attachment) — RADI (dijalog, do 3 priloga, Pregled/Preuzmi)
+- [x] PDF preuzimanje — split-button (SEF stil): PDF SAZETAK (iz XML envelope-a) /
+      PREUZMI PDF (prošireni, sales-invoice/pdf?invoiceId, query) / PROMENE STATUSA
+      (sales-invoice/status-history/{id}/pdf, path). Default SAZETAK. Prošireni PDF
+      SEF generiše asinhrono → prvi poziv vrati JSON poruku (Content-Type nije pdf) →
+      servis vraća null → Snackbar "još nije formiran, pokušaj kasnije". Isti izbor tipa
+      poštuje i "Pregled" (openPdfPreview). SefApiClient.GetBytesAsync (binarni odgovor).
 - [x] Faza E: Upiši u karticu / Unos finansija — TESTIRANO, radi. Samo za fakture bez
       idRacun veze (onboarding scenario; regularne fakture već idu kroz
       KarticaNovaService.UpisiIzRacuna)
@@ -228,7 +234,9 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
 - [x] Prateći dokumenti (attachment) — RADI (isti dijalog kao Izlazne)
 - [ ] Napomena: redovi uvezeni PRE fix-a XML parsera imaju prazan tipDokumenta
       (sakriva Upiši u karticu) — ručna ispravka test-po-test, masovni backfill otvoren
-
+- [x] PDF preuzimanje — split-button, identično izlaznima ali purchase-invoice/*
+      (purchase-invoice/pdf?invoiceId query, purchase-invoice/status-history/{id}/pdf path).
+      SAZETAK iz env:DocumentPdf, prošireni preko GetBytesAsync. Default SAZETAK.
 ### Sledeće u modulu (nije započeto)
 - [x] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
       (faktura/avans/dok. smanjenja/povećanja), forma + stavke + porezi, pa XML, pa slanje.
@@ -318,8 +326,13 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
 - **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
 
 ### E-fakture — ključno naučeno
-- **SEF API version split:** v1 (`/api/publicApi/`) za većinu, v2 (`/api/v2/publicApi/`) SAMO za Pojedinačnu/Zbirnu evidenciju PDV. Na Swagger-u se bira "Public Api V2" iz dropdown-a.
-- **PDF ulaznih/izlaznih faktura NIJE poseban endpoint** — izvlači se iz XML envelope-a (`env:DocumentHeader > env:DocumentPdf`, Base64). PDF obaveštenja/evidencija JESTE poseban endpoint (ali trenutno ne radi na SEF strani).
+- **PDF faktura — DVA izvora:** (1) SAŽETAK PDF je ugrađen u XML envelope
+  (`env:DocumentHeader > env:DocumentPdf`, Base64) — ne troši poseban poziv, uvek dostupan;
+  (2) PROŠIRENI PDF i PDF PROMENA STATUSA JESU posebni endpointi
+  (`sales-invoice/pdf?invoiceId=` query, `sales-invoice/status-history/{id}/pdf` path;
+  isto za purchase-invoice). Prošireni SEF generiše asinhrono — prvi poziv vrati JSON
+  poruku umesto PDF-a; prepoznaje se po Content-Type (nije "pdf"). PDF obaveštenja/
+  evidencija PDV JESTE poseban endpoint, ali trenutno ne radi na SEF strani.
 - **Status prevodi se razlikuju:** izlazne (statusPrevod: New→Novi, Approved→Prihvaceno...) vs ulazne (PurchaseInvoiceStatusPrevod: New→Novo, Approved→Odobreno...) — različiti setovi, ne mešati.
 - **Bojenje statusa:** izlazne — samo Odbijeno/Stornirano crveno (NE Otkazano); ulazne — Odbijeno/Stornirano/Otkazano crveno. Odobreno/Prihvaceno zeleno, ostalo žuto.
 - **Terminologija:** za NOVE upise koristi DOKUMENT O SMANJENJU/POVEĆANJU (ne KNJIZNO ODOBRENJE/ZADUZENJE); filteri toleriraju obe (stari podaci u bazi imaju staru terminologiju).
