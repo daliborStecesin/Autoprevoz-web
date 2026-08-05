@@ -50,11 +50,47 @@
 
 <MudGrid Spacing="3">
 
-    @* ── LEVA STRANA — Filteri (ručni accordion, isti obrazac kao
+    @* ── LEVA STRANA — Učitaj sa SEF-a + Filteri (ručni accordion, isti obrazac kao
        IzlazneEFakture.razor) ── *@
     <MudItem xs="12" md="3">
         <MudPaper Elevation="1" Class="pa-2">
+
+            @* Panel: Učitaj sa SEF-a — SAMO VIZUELNO za sad, čeka Fazu B (SEF v2). *@
             <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px;">
+                <div @onclick="OnUcitajPanelToggle"
+                     style="display:flex; align-items:center; justify-content:space-between;
+                            padding:8px 12px; cursor:pointer; user-select:none;
+                            background:#fafafa; border-radius:4px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                        <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" />
+                        Učitaj sa SEF-a
+                    </div>
+                    <MudIcon Icon="@(_ucitajSekcijaOtvorena ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                             Size="Size.Small" Style="color:#888;" />
+                </div>
+                @if (_ucitajSekcijaOtvorena)
+                {
+                    <div style="padding:8px 12px 10px;">
+                        <div class="mb-2"><DateInput Label="Datum OD" @bind-Value="_sinhOd" /></div>
+                        <div class="mb-3"><DateInput Label="Datum DO" @bind-Value="_sinhDo" /></div>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.CloudDownload"
+                                   OnClick="UcitajNoveZaPeriod"
+                                   Disabled="_sinhronizujem"
+                                   FullWidth="true">
+                            @if (_sinhronizujem)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            }
+                            Učitaj sa SEF-a
+                        </MudButton>
+                    </div>
+                }
+            </div>
+
+            @* Panel: Filteri *@
+            <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px; margin-top:10px;">
                 <div @onclick="OnFilteriPanelToggle"
                      style="display:flex; align-items:center; justify-content:space-between;
                             padding:8px 12px; cursor:pointer; user-select:none;
@@ -180,23 +216,64 @@
     private GroupVatRecord?      _selektovan;
 
     private bool _ucitava;
-    private bool _filteriOtvoreni = true;
+    private bool _filteriOtvoreni       = true;
+    private bool _ucitajSekcijaOtvorena = false;
+
+    // ── Učitaj sa SEF-a — SAMO VIZUELNO za sad (SEF v2 sinhronizacija je Faza B,
+    // nije još implementirana). Datumi kao string, isto kao IzlazneEFakture.razor
+    // (DateInput.Value je string, ne DateTime?). ──────────────────────────────
+    private string _sinhOd = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
+    private string _sinhDo = DateTime.Today.ToString("yyyy-MM-dd");
+    private bool   _sinhronizujem;
 
     protected override async Task OnInitializedAsync()
     {
         if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
 
         var uid      = TenantService.GetIdKorisnika();
+        var pUcitaj  = await DefaultValues.GetDefault("ZbirnaEvidencija", "panel_ucitaj",  uid);
         var pFilteri = await DefaultValues.GetDefault("ZbirnaEvidencija", "panel_filteri", uid);
-        if (pFilteri is not null) _filteriOtvoreni = pFilteri == "True";
+        if (pUcitaj  is not null) _ucitajSekcijaOtvorena = pUcitaj  == "True";
+        if (pFilteri is not null) _filteriOtvoreni       = pFilteri == "True";
 
         await Ucitaj(primeniFiltere: false);
+    }
+
+    private async Task OnUcitajPanelToggle()
+    {
+        _ucitajSekcijaOtvorena = !_ucitajSekcijaOtvorena;
+        await DefaultValues.SaveDefault("ZbirnaEvidencija", "panel_ucitaj", _ucitajSekcijaOtvorena.ToString(), TenantService.GetIdKorisnika());
     }
 
     private async Task OnFilteriPanelToggle()
     {
         _filteriOtvoreni = !_filteriOtvoreni;
         await DefaultValues.SaveDefault("ZbirnaEvidencija", "panel_filteri", _filteriOtvoreni.ToString(), TenantService.GetIdKorisnika());
+    }
+
+    private async Task UcitajNoveZaPeriod()
+    {
+        if (!DateTime.TryParse(_sinhOd, out var od) || !DateTime.TryParse(_sinhDo, out var doDatum))
+        {
+            Snackbar.Add("Unesite ispravan period.", Severity.Warning);
+            return;
+        }
+
+        _sinhronizujem = true; StateHasChanged();
+        try
+        {
+            var (upisano, azurirano) = await EvidencijaService.SinhronizujSaSefaAsync(od, doDatum);
+            Snackbar.Add($"Učitano: {upisano} novih, {azurirano} ažurirano.", Severity.Success);
+            await Ucitaj(primeniFiltere: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška pri učitavanju sa SEF-a: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _sinhronizujem = false;
+        }
     }
 
     private Task Izlistaj()    => Ucitaj(primeniFiltere: true);

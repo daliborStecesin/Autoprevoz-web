@@ -32,6 +32,13 @@ public class SefApiClient
             ? _config["ApiKeys:SEF:ProdUrl"] ?? "https://efaktura.mfin.gov.rs/api/publicApi"
             : _config["ApiKeys:SEF:DemoUrl"] ?? "https://demoefaktura.mfin.gov.rs/api/publicApi";
 
+    // Public API v2 — koristi ga SAMO Pojedinačna/Zbirna evidencija PDV (Faza B),
+    // odvojen base URL od v1 (ostatak modula e-faktura). Paralelan ResolveBaseUrl-u.
+    private string ResolveBaseUrlV2(string tipServera) =>
+        tipServera.Equals("PRODUKCIONI", StringComparison.OrdinalIgnoreCase)
+            ? _config["ApiKeys:SEF:ProdUrlV2"] ?? "https://efaktura.mfin.gov.rs/api/v2/publicApi"
+            : _config["ApiKeys:SEF:DemoUrlV2"] ?? "https://demoefaktura.mfin.gov.rs/api/v2/publicApi";
+
     private HttpClient BuildClient(string apiKey)
     {
         var client = _factory.CreateClient("SEF");
@@ -110,6 +117,17 @@ public class SefApiClient
     {
         var client   = BuildClient(apiKey);
         var url      = $"{ResolveBaseUrl(tipServera)}/{endpoint}";
+        var response = await client.GetAsync(url);
+        await EnsureSuccess(response);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    /// Isto kao GetStringAsync, samo preko SEF Public API v2 (ResolveBaseUrlV2) —
+    /// koriste ga isključivo Pojedinačna/Zbirna evidencija PDV (Faza B).
+    public async Task<string> GetStringAsyncV2(string apiKey, string tipServera, string endpoint)
+    {
+        var client   = BuildClient(apiKey);
+        var url      = $"{ResolveBaseUrlV2(tipServera)}/{endpoint}";
         var response = await client.GetAsync(url);
         await EnsureSuccess(response);
         return await response.Content.ReadAsStringAsync();

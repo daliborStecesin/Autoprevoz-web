@@ -237,9 +237,10 @@ modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
 - [x] PDF preuzimanje — split-button, identično izlaznima ali purchase-invoice/*
       (purchase-invoice/pdf?invoiceId query, purchase-invoice/status-history/{id}/pdf path).
       SAZETAK iz env:DocumentPdf, prošireni preko GetBytesAsync. Default SAZETAK.
-### Sledeće u modulu (nije započeto)
-- [x] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
+      - [x] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
       (faktura/avans/dok. smanjenja/povećanja), forma + stavke + porezi, pa XML, pa slanje.
+
+### Sledeće u modulu (nije započeto)
 - [ ] Statistika e-faktura
 - [ ] Slanje — deo Unosa dokumenta (XML generisanje)
 - [ ] Realan test Storno/Otkaži na SEF dokumentu (Izlazne)
