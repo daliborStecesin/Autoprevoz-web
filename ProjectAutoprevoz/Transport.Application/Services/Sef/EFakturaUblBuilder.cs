@@ -394,6 +394,7 @@ public class EFakturaUblBuilder : IEFakturaUblBuilder
             Amount(Cbc + "TaxInclusiveAmount", ukupnoSaPdv),
             Amount(Cbc + "AllowanceTotalAmount", 0m),
             Amount(Cbc + "PrepaidAmount", prepaidAmount),
+            Amount(Cbc + "PayableRoundingAmount", 0m),
             Amount(Cbc + "PayableAmount", ukupnoSaPdv - prepaidAmount));
 
     // Slovo iz panela Avans-1 ("S20"/"S10"/slovo oslobođenja) -> TaxCategory ID,
