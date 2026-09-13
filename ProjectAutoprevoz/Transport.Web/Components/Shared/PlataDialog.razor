@@ -2,11 +2,13 @@
 @using Microsoft.EntityFrameworkCore
 @using Transport.Application.Interfaces
 @using Transport.Domain.Entities
+@using Transport.Infrastructure
 @using Transport.Infrastructure.Data
 
 @implements IDisposable
 @inject IConfiguration Configuration
 @inject ITenantService TenantService
+@inject ICurrentUser   CurrentUser
 @inject IKursService KursService
 @inject ISnackbar Snackbar
 
@@ -491,10 +493,10 @@
         };
 
         var opts = new DbContextOptionsBuilder<TransportDbContext>()
-            .UseSqlServer(csb.ConnectionString)
+            .UseSqlServer(csb.ConnectionString, sql => sql.UseCompatibilityLevel(120))
             .Options;
 
-        return new TransportDbContext(opts);
+        return new TransportDbContext(opts, CurrentUser);
     }
 
     public void Dispose()

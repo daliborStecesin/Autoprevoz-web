@@ -1,18 +1,61 @@
 namespace Transport.Application.Interfaces;
 
-/// <summary>
-/// Rezultat kreiranja nove klijentske firme (baze + licence + prvog web korisnika).
-/// </summary>
-public record ProvisioningRezultat(bool Uspeh, string Poruka, int? IdLicence, string NazivBaze);
+/// <summary>Ulazni podaci za kreiranje nove WEB firme (tbl_web_licence + tbl_web_clanstvo).</summary>
+public record NovaWebFirmaZahtev(
+    string Zemlja,
+    string KodDrzave,
+    string Pib,
+    string Naziv,
+    string? MaticniBroj,
+    string? Adresa,
+    string? Mesto,
+    string? PostanskiBroj,
+    string TipPrograma,
+    bool ModulTure,
+    bool ModulRadniNalozi,
+    bool ModulLager,
+    string TipLicence,
+    DateTime? DatumOd,
+    DateTime? DatumDo,
+    int? MaxKorisnika,
+    string ImeVlasnika,
+    string EmailVlasnika,
+    string? Telefon,
+    bool BazaVecPostoji,
+    string? ConnectionString,
+    // Kad bazaVecPostoji i tbl_Podaci u toj bazi nema PIB (ne može se provjeriti
+    // poklapanje sa formom) — samo tada ova potvrda propušta nastavak. NE važi za
+    // stvaran PIB mismatch (tbl_Podaci ima PIB koji se ne poklapa) — to je uvijek
+    // hard stop, bez izuzetka.
+    bool PotvrdjenoNepoklapanje = false,
+    // Ključ iz appsettings.json "SqlServeri" sekcije — koji server dobija NOVU bazu.
+    // Relevantno samo kad BazaVecPostoji=false. Null/prazno -> prvi server u sekciji
+    // (ili stari fallback ako sekcija ne postoji, vidi KreirajWebFirmuAsync).
+    string? SqlServer = null);
 
 /// <summary>
-/// Kreira novu klijentsku firmu: bazu rs{PIB} (iz 01_CREATE_kasa_template.sql),
-/// red u master tbl_licence, prvog zaposlenog (tbl_imenik) i prvog web korisnika
-/// (tbl_web_korisnici, Privilegija=1). Faza 1 — poziva se isključivo iz super
-/// admin panela.
+/// Rezultat kreiranja nove web firme. GenerisanaLozinka je NULL ako je korisnik
+/// (po emailu) već postojao — u tom slučaju KorisnikVecPostojao je true i lozinka
+/// se ne dira. Plain-text lozinka se NIGDE ne čuva osim u ovom povratnom objektu.
+///
+/// PotrebnaPotvrda=true znači: bazaVecPostoji, ali tbl_Podaci u toj bazi nema PIB,
+/// pa se ne može automatski provjeriti da je to tačna firma — PronadjenNaziv je
+/// naziv pronađen u toj bazi (može biti null/prazno). Ništa nije upisano; UI treba
+/// da pita korisnika i, na potvrdu, ponovi poziv sa PotvrdjenoNepoklapanje=true.
 /// </summary>
+public record NovaWebFirmaRezultat(
+    bool Uspeh, string Poruka, int? IdWebLicence, string? ImeBaze,
+    string? Email, string? GenerisanaLozinka, bool KorisnikVecPostojao,
+    bool PotrebnaPotvrda = false, string? PronadjenNaziv = null);
+
 public interface IProvisioningService
 {
-    Task<ProvisioningRezultat> KreirajFirmuAsync(
-        string pib, string nazivFirme, string ime, string prezime, string email, string lozinka);
+    /// <summary>
+    /// Kreira novu WEB firmu — bazu (ili koristi postojeću), tbl_Podaci/tbl_zaposleni
+    /// u klijentskoj bazi, i tbl_web_licence/tbl_web_korisnici/tbl_web_clanstvo u master
+    /// bazi. Logička transakcija — rollback (DROP DATABASE ako je kreirana u ovom pozivu,
+    /// poništaj upise u masteru) pri bilo kojoj grešci. Ako bazaVecPostoji, baza se NIKAD
+    /// ne dira (ni pri uspehu ni pri neuspehu).
+    /// </summary>
+    Task<NovaWebFirmaRezultat> KreirajWebFirmuAsync(NovaWebFirmaZahtev zahtev);
 }

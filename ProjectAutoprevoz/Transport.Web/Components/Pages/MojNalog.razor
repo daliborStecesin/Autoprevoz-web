@@ -1,0 +1,276 @@
+@page "/moj-nalog"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+
+@inject ITenantService                     TenantService
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
+@inject ISnackbar                          Snackbar
+@inject NavigationManager                  Nav
+
+<PageTitle>Moj nalog — Autoprevoz</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Class="mr-2" />
+    Moj nalog
+</MudText>
+
+@if (_ucitava)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_korisnik is null)
+{
+    <MudAlert Severity="Severity.Error">Korisnik nije pronađen.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight:600;">Podaci o nalogu</MudText>
+
+                <MudTextField @bind-Value="_ime" Label="Ime" Variant="Variant.Outlined"
+                              ShrinkLabel="true" Class="mb-3" autocomplete="off" />
+
+                <MudTextField Value="@_email" Label="Email" Variant="Variant.Outlined" ShrinkLabel="true"
+                              ReadOnly="true" Disabled="true" Class="mb-1" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">
+                    Email menja samo DAK-SOFT — vezan je za sva vaša članstva.
+                </MudText>
+
+                @if (_greskaIme is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_greskaIme</MudAlert>
+                }
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           OnClick="SacuvajImeAsync" Disabled="_cuvaIme">
+                    @(_cuvaIme ? "Čuvanje..." : "Sačuvaj ime")
+                </MudButton>
+            </MudPaper>
+
+            <MudPaper Elevation="1" Class="pa-4 mt-3">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600;">Promena lozinke</MudText>
+
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                    Preporučujemo da promenite lozinku koju ste dobili od DAK-SOFT-a.
+                </MudAlert>
+
+                <MudTextField @bind-Value="_lozinkaTrenutna" Label="Trenutna lozinka" Variant="Variant.Outlined"
+                              InputType="InputType.Password" ShrinkLabel="true" Class="mb-2"
+                              autocomplete="new-password" />
+                <MudTextField @bind-Value="_lozinkaNova" Label="Nova lozinka" Variant="Variant.Outlined"
+                              InputType="InputType.Password" ShrinkLabel="true" Class="mb-2"
+                              HelperText="Minimum 6 karaktera" autocomplete="new-password" />
+                <MudTextField @bind-Value="_lozinkaPotvrda" Label="Potvrda nove lozinke" Variant="Variant.Outlined"
+                              InputType="InputType.Password" ShrinkLabel="true" Class="mb-3"
+                              autocomplete="new-password" />
+
+                @if (_greskaLozinka is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_greskaLozinka</MudAlert>
+                }
+                @if (_lozinkaPromenjena)
+                {
+                    <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">Lozinka je promenjena.</MudAlert>
+                }
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           OnClick="PromeniLozinkuAsync" Disabled="_cuvaLozinka">
+                    @(_cuvaLozinka ? "Čuvanje..." : "Promeni lozinku")
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600;">Moje firme</MudText>
+
+                @if (_firme.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Nemate aktivnih članstava.</MudText>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Style="overflow-x:auto;">
+                        <thead>
+                            <tr><th>Firma</th><th>Rola</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in _firme)
+                            {
+                                <tr>
+                                    <td>@f.NazivFirme</td>
+                                    <td>
+                                        @f.Rola
+                                        @if (f.JeVlasnik)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Class="ml-2">Vlasnik</MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private record FirmaRed(string NazivFirme, string Rola, bool JeVlasnik);
+
+    private WebKorisnik? _korisnik;
+    private string _ime   = string.Empty;
+    private string _email = string.Empty;
+
+    private List<FirmaRed> _firme = [];
+
+    private string _lozinkaTrenutna = string.Empty;
+    private string _lozinkaNova     = string.Empty;
+    private string _lozinkaPotvrda  = string.Empty;
+    private bool   _lozinkaPromenjena;
+
+    private bool    _ucitava = true;
+    private bool    _cuvaIme;
+    private bool    _cuvaLozinka;
+    private string? _greskaIme;
+    private string? _greskaLozinka;
+
+    protected override async Task OnInitializedAsync() => await UcitajAsync();
+
+    private async Task UcitajAsync()
+    {
+        _ucitava = true;
+
+        var idKorisnika = TenantService.GetIdKorisnika();
+
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        _korisnik = await db.WebKorisnici.AsNoTracking().FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+        if (_korisnik is null)
+        {
+            _ucitava = false;
+            return;
+        }
+
+        _ime   = _korisnik.Ime   ?? string.Empty;
+        _email = _korisnik.Email ?? string.Empty;
+
+        _firme = await db.WebClanstva.AsNoTracking()
+            .Include(c => c.Licenca)
+            .Include(c => c.Rola)
+            .Where(c => c.IdKorisnika == idKorisnika && c.Aktivan)
+            .OrderBy(c => c.Licenca!.Naziv)
+            .Select(c => new FirmaRed(c.Licenca!.Naziv ?? "—", c.Rola!.Naziv ?? "—", c.JeVlasnik))
+            .ToListAsync();
+
+        _ucitava = false;
+    }
+
+    private async Task SacuvajImeAsync()
+    {
+        _greskaIme = null;
+
+        var novoIme = (_ime ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(novoIme))
+        {
+            _greskaIme = "Ime je obavezno.";
+            return;
+        }
+
+        _cuvaIme = true;
+        StateHasChanged();
+
+        try
+        {
+            var idKorisnika = TenantService.GetIdKorisnika();
+
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+            var korisnik = await db.WebKorisnici.FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+            if (korisnik is null)
+            {
+                _greskaIme = "Korisnik nije pronađen.";
+                return;
+            }
+
+            korisnik.Ime = novoIme;
+            await db.SaveChangesAsync();
+
+            // ap_ime kolačić (koristi se i za "Obračunao"/"Sastavio" na štampama) ne može
+            // da se izmeni direktno iz interaktivne Blazor komponente (odgovor je već
+            // poslat) — ista prepreka kao kod login/impersonacije, zato ide preko HTTP
+            // endpointa + forceLoad. Endpoint čita ime IZ BAZE (ne iz query stringa) i
+            // samo sinhronizuje kolačić — sesija/prijava ostaju netaknuti (nije odjava).
+            Nav.NavigateTo("/api/auth/azuriraj-ime", forceLoad: true);
+        }
+        finally
+        {
+            _cuvaIme = false;
+        }
+    }
+
+    private async Task PromeniLozinkuAsync()
+    {
+        _greskaLozinka = null;
+        _lozinkaPromenjena = false;
+
+        if (string.IsNullOrEmpty(_lozinkaTrenutna) || string.IsNullOrEmpty(_lozinkaNova) || string.IsNullOrEmpty(_lozinkaPotvrda))
+        {
+            _greskaLozinka = "Popunite sva polja.";
+            return;
+        }
+        if (_lozinkaNova.Length < 6)
+        {
+            _greskaLozinka = "Nova lozinka mora imati najmanje 6 znakova.";
+            return;
+        }
+        if (_lozinkaNova != _lozinkaPotvrda)
+        {
+            _greskaLozinka = "Nova lozinka i potvrda se ne poklapaju.";
+            return;
+        }
+
+        _cuvaLozinka = true;
+        StateHasChanged();
+
+        try
+        {
+            var idKorisnika = TenantService.GetIdKorisnika();
+
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+            var korisnik = await db.WebKorisnici.FirstOrDefaultAsync(k => k.IdKorisnika == idKorisnika);
+            if (korisnik is null)
+            {
+                _greskaLozinka = "Korisnik nije pronađen.";
+                return;
+            }
+
+            var hasher = new PasswordHasher<object>();
+            var verResult = hasher.VerifyHashedPassword(new object(), korisnik.LozinkaHash ?? "", _lozinkaTrenutna);
+            if (verResult == PasswordVerificationResult.Failed)
+            {
+                _greskaLozinka = "Trenutna lozinka nije ispravna.";
+                return;
+            }
+
+            korisnik.LozinkaHash = hasher.HashPassword(new object(), _lozinkaNova);
+            await db.SaveChangesAsync();
+
+            _lozinkaTrenutna   = string.Empty;
+            _lozinkaNova       = string.Empty;
+            _lozinkaPotvrda    = string.Empty;
+            _lozinkaPromenjena = true;
+            Snackbar.Add("Lozinka je promenjena.", Severity.Success);
+        }
+        finally
+        {
+            _cuvaLozinka = false;
+        }
+    }
+}

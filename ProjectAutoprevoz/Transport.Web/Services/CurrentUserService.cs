@@ -8,4 +8,5 @@ public class CurrentUserService : ICurrentUser
     private readonly ITenantService _tenant;
     public CurrentUserService(ITenantService tenant) => _tenant = tenant;
     public int GetIdKorisnika() => _tenant.GetIdKorisnika();
+    public Task<bool> JeSamoCitanje() => _tenant.JeSamoCitanje();
 }

@@ -267,42 +267,73 @@
 
         @if (EfektivniVozacId > 0)
         {
-            @if (_webKorisnik is null)
+            @* Upravljanje web pristupom (registracija/aktivacija naloga) — samo vlasnik firme
+               ili superadmin (v215). Skrivanje dugmeta nije zaštita — server-side provera je
+               u Registruj()/Sacuvaj() unutar odgovarajućih dijaloga. *@
+            @if (_jeVlasnik)
             {
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.PersonAdd"
-                           OnClick="OtvoriRegistraciju">
-                    Registruj kao korisnika
-                </MudButton>
-            }
-            else
-            {
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.ManageAccounts"
-                           OnClick="OtvoriUpravljanje">
-                    Upravljaj pristupom
-                </MudButton>
+                @if (_webKorisnik is null)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PersonAdd"
+                               OnClick="OtvoriRegistraciju">
+                        Registruj kao korisnika
+                    </MudButton>
+                }
+                else
+                {
+                    @if (_clanstvo?.Aktivan == false)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Style="margin:0;">Pristup deaktiviran</MudChip>
+                    }
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.ManageAccounts"
+                               OnClick="OtvoriUpravljanje">
+                        Upravljaj pristupom
+                    </MudButton>
+                }
             }
 
-            @if (_entitet?.aktivan == 1)
+            @* Aktivacija/deaktivacija ZAPOSLENOG (HR akcija) — Vlasnik/Administrator, NE Operater.
+               Kaskada na web pristup (ispod, u Deaktiviraj()) ima sopstvene, dodatne provere. *@
+            @if (_smeHrAkcije)
             {
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Error"
-                           StartIcon="@Icons.Material.Filled.PersonOff"
-                           OnClick="Deaktiviraj">
-                    Deaktiviraj
-                </MudButton>
-            }
-            else
-            {
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Success"
-                           StartIcon="@Icons.Material.Filled.PersonAdd"
-                           OnClick="Aktiviraj">
-                    Aktiviraj
-                </MudButton>
+                @if (_entitet?.aktivan == 1)
+                {
+                    @if (RazlogZabraneDeaktivacije is { } razlogZabrane)
+                    {
+                        <MudTooltip Text="@razlogZabrane">
+                            <span>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Error"
+                                           StartIcon="@Icons.Material.Filled.PersonOff"
+                                           Disabled="true">
+                                    Deaktiviraj
+                                </MudButton>
+                            </span>
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.PersonOff"
+                                   OnClick="Deaktiviraj">
+                            Deaktiviraj
+                        </MudButton>
+                    }
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.PersonAdd"
+                               OnClick="Aktiviraj">
+                        Reaktiviraj
+                    </MudButton>
+                }
             }
         }
 
@@ -326,6 +357,9 @@
 
     private Vozac?      _entitet;
     private WebKorisnik? _webKorisnik;
+    private WebClanstvo? _clanstvo;
+    private bool         _jeVlasnik;
+    private bool         _smeHrAkcije;
     private bool         _disposed;
 
     // Tab 1
@@ -357,6 +391,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var rola     = await TenantService.RolaTrenutneFirme();
+        _jeVlasnik   = rola == 1;
+        _smeHrAkcije = rola == 1 || rola == 2; // Vlasnik/Administrator — Operater (3) nema HR akcije
+
         if (VozacId > 0)
         {
             _entitet = await Db.Vozaci.IgnoreQueryFilters()
@@ -394,11 +432,51 @@
             await UcitajWebKorisnika();
     }
 
+    // IdZaposlenog je PER-FIRMA polje na tbl_web_clanstvo (isti web korisnik može imati
+    // različit Broj zaposlenog u različitim klijentskim bazama, jedno po članstvu) —
+    // zato se traži OVDE, ne na WebKorisnik.IdZaposlenog. Taj je globalan (jedna vrednost
+    // za CELOG korisnika, kroz sve firme) i ProvisioningService (novi vlasnik pri kreiranju
+    // firme) ga ne popunjava — samo WebKorisnikRegistracijaDialog. Bez ove izmene, vlasnik
+    // dobijen kroz "Nova firma" panel je zaveden kao neregistrovan (VozacDialog nudi
+    // "Registruj kao korisnika" umesto "Upravljaj pristupom").
     private async Task UcitajWebKorisnika()
     {
-        var idLicence = TenantService.GetIdLicence();
-        _webKorisnik = await MasterDb.WebKorisnici
-            .FirstOrDefaultAsync(k => k.IdZaposlenog == VozacId && k.IdLicence == idLicence);
+        // Bez filtera po Aktivan — mora naći i deaktivirano članstvo, inače "Upravljaj
+        // pristupom"/reaktivacija ne bi bila moguća (vidi VozacDialog čip "Pristup deaktiviran").
+        var idFirme = TenantService.GetIdFirme();
+        var red = await (from c in MasterDb.WebClanstva
+                          join k in MasterDb.WebKorisnici on c.IdKorisnika equals k.IdKorisnika
+                          where c.IdWebLicence == idFirme && c.IdZaposlenog == VozacId
+                          select new { Korisnik = k, Clanstvo = c })
+                         .FirstOrDefaultAsync();
+
+        // Fallback za redove kod kojih je veza "izgubljena" (IdZaposlenog na članstvu je
+        // NULL — stariji podaci od pre ove izmene): ako u OVOJ firmi već postoji web
+        // korisnik sa ISTIM email-om kao ovaj zaposleni, poveži ih sada (upiši IdZaposlenog)
+        // umesto da dijalog ponudi novu registraciju za već postojećeg korisnika.
+        if (red is null && !string.IsNullOrWhiteSpace(_mail))
+        {
+            var email = _mail.Trim().ToLowerInvariant();
+            red = await (from c in MasterDb.WebClanstva
+                         join k in MasterDb.WebKorisnici on c.IdKorisnika equals k.IdKorisnika
+                         where c.IdWebLicence == idFirme && c.IdZaposlenog == null
+                            && k.Email != null && k.Email.ToLower() == email
+                         select new { Korisnik = k, Clanstvo = c })
+                        .FirstOrDefaultAsync();
+
+            if (red is not null)
+            {
+                var clanstvo = await MasterDb.WebClanstva.FirstOrDefaultAsync(c => c.IdClanstva == red.Clanstvo.IdClanstva);
+                if (clanstvo is not null)
+                {
+                    clanstvo.IdZaposlenog = VozacId;
+                    await MasterDb.SaveChangesAsync();
+                }
+            }
+        }
+
+        _webKorisnik = red?.Korisnik;
+        _clanstvo    = red?.Clanstvo;
     }
 
     private async Task OtvoriRegistraciju()
@@ -587,12 +665,55 @@
         await UcitajRacune();
     }
 
+    // Kaskada iz Deaktiviraj() gasi članstvo SAMO ako je izvršilac vlasnik trenutne firme
+    // (ili superadmin — _jeVlasnik već obuhvata oba, vidi JeVlasnikTrenutneFirme). Pristupom
+    // upravlja isključivo vlasnik, bez obzira kojim putem se do promene dolazi — HR akcija
+    // (deaktivacija zaposlenog) ne sme da bude zaobilazni put. Ni tako, kaskada nikad ne gasi
+    // vlasničko ni sopstveno članstvo — firma mora uvek imati bar jedno aktivno JeVlasnik=1.
+    private bool KaskadaSmeDaGasiClanstvo()
+        => _jeVlasnik
+        && _clanstvo is not null
+        && _clanstvo.Aktivan
+        && !_clanstvo.JeVlasnik
+        && _clanstvo.IdKorisnika != TenantService.GetIdKorisnika();
+
+    // HR akcija (deaktivacija ZAPOSLENOG) je odvojena od kaskade na članstvo iznad — bez
+    // ovoga, izvršilac je mogao ugasiti sopstveni zaposleni red (aktivan=0) čak i kad
+    // kaskada ispravno štiti njegovo/vlasničko ČLANSTVO (web pristup), pošto ta provera
+    // nikad nije doticala samu HR akciju. _clanstvo je već po TRENUTNOJ firmi (učitano u
+    // UcitajWebKorisnika preko WebClanstvo.IdZaposlenog za ovog zaposlenog).
+    private string? RazlogZabraneDeaktivacije
+    {
+        get
+        {
+            if (_clanstvo is null) return null;
+            if (_clanstvo.IdKorisnika == TenantService.GetIdKorisnika())
+                return "Ne možete deaktivirati sopstveni nalog.";
+            if (_clanstvo.JeVlasnik)
+                return "Zaposleni je vlasnik firme — ne može se deaktivirati.";
+            return null;
+        }
+    }
+
     private async Task Deaktiviraj()
     {
         if (_disposed || _entitet is null) return;
 
-        var poruka = _webKorisnik?.Aktivan == 1
-            ? "Da li ste sigurni? Zaposleni neće biti obrisan, samo deaktiviran. Njegov web pristup će takođe biti deaktiviran."
+        // Server-side provera — skrivanje/disable dugmeta NIJE zaštita.
+        if (!_smeHrAkcije)
+        {
+            Snackbar.Add("Nemate ovlašćenje za ovu radnju.", Severity.Error);
+            return;
+        }
+
+        if (RazlogZabraneDeaktivacije is { } razlog)
+        {
+            Snackbar.Add(razlog, Severity.Error);
+            return;
+        }
+
+        var poruka = KaskadaSmeDaGasiClanstvo()
+            ? "Da li ste sigurni? Zaposleni neće biti obrisan, samo deaktiviran. Njegov web pristup za ovu firmu će takođe biti deaktiviran."
             : "Da li ste sigurni? Zaposleni neće biti obrisan, samo deaktiviran.";
 
         var potvrda = await Dialog.ShowMessageBox(
@@ -607,11 +728,17 @@
         await Db.SaveChangesAsync();
         if (_disposed) return;
 
-        // Kaskadna deaktivacija: deaktiviran zaposleni ne može da se loguje
-        if (_webKorisnik is not null && _webKorisnik.Aktivan == 1)
+        // Kaskadna deaktivacija: gasi ČLANSTVO za ovu firmu (ne korisnika globalno —
+        // ista osoba može biti zaposlena i imati web pristup u više firmi istovremeno).
+        // Vlasničko članstvo (JeVlasnik=1) i sopstveno članstvo se NIKAD ne gase ovim putem.
+        if (KaskadaSmeDaGasiClanstvo())
         {
-            _webKorisnik.Aktivan = 0;
+            _clanstvo!.Aktivan = false;
             await MasterDb.SaveChangesAsync();
+        }
+        else if (_clanstvo is not null && _clanstvo.Aktivan)
+        {
+            Snackbar.Add("Zaposleni je deaktiviran. Web pristup nije ukinut — to može samo vlasnik firme.", Severity.Warning);
         }
 
         Snackbar.Add("Zaposleni deaktiviran.", Severity.Info);
@@ -622,10 +749,17 @@
     {
         if (_disposed || _entitet is null) return;
 
+        // Server-side provera — skrivanje dugmeta NIJE zaštita.
+        if (!_smeHrAkcije)
+        {
+            Snackbar.Add("Nemate ovlašćenje za ovu radnju.", Severity.Error);
+            return;
+        }
+
         var potvrda = await Dialog.ShowMessageBox(
-            "Potvrda aktivacije",
-            "Da li ste sigurni da želite da aktivirate ovog zaposlenog?",
-            yesText: "Da, aktiviraj",
+            "Potvrda reaktivacije",
+            "Da li ste sigurni da želite da reaktivirate ovog zaposlenog? Web pristup (ako je postojao) se ne vraća automatski — to se radi zasebno kroz \"Upravljaj pristupom\".",
+            yesText: "Da, reaktiviraj",
             cancelText: "Odustani");
 
         if (_disposed || potvrda != true) return;
@@ -634,7 +768,7 @@
         await Db.SaveChangesAsync();
         if (_disposed) return;
 
-        Snackbar.Add("Zaposleni aktiviran.", Severity.Success);
+        Snackbar.Add("Zaposleni reaktiviran.", Severity.Success);
         MudDialog.Close(DialogResult.Ok(true));
     }
 

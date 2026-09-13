@@ -1,5 +1,5 @@
 # ROADMAP — Autoprevoz Web Aplikacija
-*Poslednje ažuriranje: Avgust 2026 — verzija baze 213*
+*Poslednje ažuriranje: Septembar 2026 — klijentska baza v213, master v214*
 
 Blazor Server (.NET 9) + MudBlazor 7 SaaS za transport firme (Srbija/region).
 Rewrite WinForms aplikacije. Multi-tenant: master `daksoft` + klijentske baze.
@@ -10,355 +10,292 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 
 ## ✅ ZAVRŠENO
 
-### Super admin panel (DAK-SOFT) — FAZE 1 i 2 ZAVRŠENE
-- Privilegija 9 = SuperAdmin (dodeljuje se ISKLJUČIVO ručno kroz SQL;
-  registracioni dijalog tvrdo spušta svaku vrednost >= 9 na 1)
-- /ds + SuperAdminLayout, guard čita privilegiju IZ BAZE (ne iz kolačića)
-- Liste licenci i web korisnika, pretraga, filteri, klik na licencu
-  filtrira njene korisnike
-- Impersonacija "Uđi u firmu" + čip u AppBar-u + povratak
-- LicencaDialog: datum, connection string (ručno ili iz šablona sa {BAZA}),
-  test konekcije sa proverom verzijaBaze, Web aktivan tek posle testa
-- ProvisioningService: kompletno kreiranje firme jednim klikom
-  (baza + skripta + licenca + zaposleni + korisnik), rollback pri grešci
-- Registracija korisnika za postojeću firmu radi kroz impersonaciju
-  (postojeći dijalog, IdLicence iz ap_licence — bez novog koda)
+### LICENCIRANJE I PRISTUP (v214) — ZAVRŠEN CEO KRUG
 
-### v213
-- Seed tbl_role (Admin=1, Operater=2) — nova baza do sad nikad nije
-  imala Admin rolu
-- 01_CREATE_kasa_template.sql je NEUTRALAN: bez CREATE DATABASE, bez USE,
-  bez ALTER DATABASE bloka. Pravi samo objekte, pa se može pustiti nad
-  bazom bilo kog imena. Ugrađen u Transport.Web kao embedded resource.
-- RECOVERY SIMPLE umesto originalnog FULL (FULL bez backup-a loga puni disk)
+**Strateška odluka:** desktop licence (`tbl_licence`) se NE DIRAJU. Napravljene su
+nove master tabele za web — isti pristup koji se već isplatio kod
+`tbl_KarticaNova` (novo pored starog, staro netaknuto).
+
+**Nove tabele u masteru (`03_MASTER_daksoft_v214.sql`):**
+- `tbl_web_licence` — firma + licenca + zemlja + moduli + `SamoCitanje`
+- `tbl_web_clanstvo` — **M:N korisnik ↔ firma**, rola i `IdZaposlenog` po firmi
+- `tbl_web_role` — Vlasnik (1) / Administrator (2) / Operater (3)
+- `vw_web_pristup` — view za login i brzu proveru
+
+**Multi-firma model:**
+- [x] Jedan mejl = jedan korisnik = jedna lozinka; više firmi = više članstava
+- [x] `WebKorisnik.IdLicence` i `WebKorisnik.IdZaposlenog` **uklonjeni iz entiteta**
+      (kolone u bazi ostaju do v215) — bili su izvor tihih grešaka jer su globalni,
+      a oba pojma su po firmi
+- [x] Kolačić `ap_idfirme` = `IdWebLicence`, jednoznačan u svim granama
+      uključujući impersonaciju
+- [x] `TenantService.GetConnectionString()` proverava AKTIVNO ČLANSTVO pri svakom
+      razrešavanju — bez toga je promena kolačića vodila u tuđu bazu
+- [ ] Ekran izbora firme kad korisnik ima 2+ članstava (za sad uzima prvo, TODO u kodu)
+
+**Role i zaštite:**
+- [x] `RolaTrenutneFirme()` / `JeVlasnikTrenutneFirme()` — čita se iz baze, ne iz kolačića
+- [x] Samo Vlasnik: registracija korisnika, upravljanje pristupom
+- [x] Vlasnik + Administrator: deaktivacija/reaktivacija zaposlenog
+- [x] Operater: samo rad
+- [x] Nepromenljivo: ne može se ugasiti sopstveno ni vlasničko članstvo, ni
+      sopstveni ni vlasnikov zaposleni; uvek ostaje bar jedan aktivni vlasnik
+- [x] Deaktivacija gasi ČLANSTVO za tu firmu, ne korisnika globalno
+- [x] Kaskadu sme da pokrene samo vlasnik
+- [x] **Reset lozinke vlasnik NE MOŽE** — samo superadmin ili korisnik sam sebi
+      (inače bi admin firme B preuzeo nalog knjigovođe i ušao u firmu A)
+- [x] Prikaz i reaktivacija neaktivnih zaposlenih (ranije nestali bez povratka)
+
+**Moduli:**
+- [x] `IModulService` (`JeDozvoljen`, `DozvoljeniModuli`) — bit kolone se čitaju
+      SAMO kroz servis, da prelazak na pravu tabelu ostane izmena jedne metode
+- [x] Fail-closed (nema reda ili bit=0 → nije dozvoljen), važi i za superadmina
+- [x] `<ZahtevaModul Kod="TURE">` guard na 8 ruta modula TURE + auto-print zaštita
+- [x] Sidebar: modul AND postojeći `OpcijaInt2`
+
+**Read-only režim:**
+- [x] `JeSamoCitanje()` = `SamoCitanje=1` ILI `DatumDo < danas`
+- [x] Sprovodi se **centralno u `TransportDbContext.SaveChangesAsync`** — jedan blok
+      pokriva ceo program; `tbl_DefaultValues` izuzet
+- [x] Žuta traka (read-only) i narandžasta (ističe za ≤7 dana) u `MainLayout`
+- [x] Štampe i Excel izvoz rade normalno
+- [x] Usput nađeno i popravljeno: `PlataDialog` je pravio `TransportDbContext` bez
+      `ICurrentUser` → plate su se upisivale **bez audita** (`Izmenio`/`DatumIzmene`
+      prazni) i zaobilazile bi read-only
+
+**Bezbednost kolačića:**
+- [x] `KolacicService` + `IDataProtectionProvider` — jedino mesto za rad sa kolačićima
+- [x] Svi `ap_*` zaštićeni, `HttpOnly`, `SameSite=Lax`, `Secure = IsHttps`
+- [x] Trajanje 30 dana (`Kolacici:TrajanjeDana`) — ranije 8h, korisnik je izletao
+      usred radnog dana nasred otvorene forme
+- [x] `PersistKeysToFileSystem` (`DataProtection:PutanjaKljuceva`) — bez toga se svi
+      odjave pri svakom restartu
+- [x] Neuspelo dešifrovanje = „nije prijavljen", nikad izuzetak
+- [x] Stari `ap_licence` / `ap_conn` se brišu pri prijavi i odjavi
+
+**Super admin panel:**
+- [x] Dva taba — *Web licence* (`tbl_web_licence`) i *Desktop licence* (`tbl_licence`,
+      samo pregled + produženje; kreiranje radi desktop program sam)
+- [x] Klik na red web licence filtrira listu korisnika (naslov + čip sa ✕ + obojen red)
+- [x] Web korisnici u dva režima: po korisniku (kolona „Firme") / po članstvu (sa filterom)
+- [x] `WebLicencaDialog` — zemlja (padajući, postavlja kod države), tip programa,
+      tip licence, datumi, moduli, `SamoCitanje`, connection string
+- [x] `WebKorisnikDialog` — ime, email, globalni „Nalog aktivan", **Resetuj lozinku**,
+      tabela članstava sa rolom, **+ Dodaj u firmu**
+- [x] Impersonacija prelazi na `tbl_web_licence`; `/mojafirma` je odvojen endpoint
+      (superadmin u svoju matičnu firmu, bez `ap_impersonate`)
+- [x] Sve mutacije proveravaju `Privilegija >= 9` sveže iz baze
+
+**Provisioning — „Nova firma" jednim dugmetom:**
+- [x] `KreirajWebFirmuAsync`: CREATE DATABASE (`kodDrzave`+PIB) + `01_CREATE` +
+      `tbl_Podaci` (sa ZEMLJOM — bez nje puca kurs za firme van Srbije) +
+      prvi zaposleni + licenca + korisnik + članstvo Vlasnik, sve sa rollback-om
+- [x] Opcija „Baza već postoji" (stari klijent) + **obavezna provera poklapanja PIB-a**
+      sa `tbl_Podaci` — jedina brana od vezivanja licence za pogrešnu bazu
+- [x] NBS pretraga samo za Srbiju, ručni unos za ostale zemlje
+- [x] Izbor SQL servera iz `appsettings.json` → `SqlServeri`
+- [x] Ekran uspeha: link + korisnik + **generisana lozinka** (`LozinkaHelper`),
+      dugme „Kopiraj sve" za slanje na Viber; lozinka se prikazuje samo jednom
+- [x] `AdresaAplikacije` iz konfiguracije (inače klijent dobije `localhost` link)
+- [x] Stara `KreirajFirmuAsync` (desktop) obrisana u celosti
+
+**Moj nalog:**
+- [x] `/moj-nalog` — izmena imena, **promena sopstvene lozinke** (provera trenutne,
+      min 6 znakova, potvrda), spisak firmi sa rolom
+- [x] Sinhronizacija `ap_ime` posle promene (koristi se i za „Obračunao" na štampama)
+
+**Usput popravljeno:**
+- [x] EF Core 8 `OPENJSON` na bazama sa compatibility level < 130 → `UseCompatibilityLevel(120)`
+- [x] `NavigationException` iz layout-a — auth redirect i DB upiti premešteni u
+      `OnAfterRenderAsync`, `IDbContextFactory` umesto deljenog konteksta
+      (`MainLayout` i `SuperAdminLayout`)
+- [x] `RowClick` na `MudTable` ne postoji — ispravno je `OnRowClick`; `UserAttributes`
+      je tiho gutao pogrešan naziv, build je prolazio a funkcija bila mrtva
+
 ### Osnova / Sistem
-- Infrastruktura, Login, Multi-tenant, Dashboard
-- NBS Kurs servis + IKursService (po datumu, fallback, strane firme) + Kursna lista
-- Multi-korisnik (registracija/login/aktivacija/kaskada), Audit (automatski)
-- BrojDokumentaService, SEF osnova, Centralni log brisanja (tbl_log_brisanja v208)
+- Infrastruktura, Login, Dashboard
+- NBS Kurs servis + IKursService + Kursna lista
+- Audit (automatski), BrojDokumentaService, SEF osnova
+- Centralni log brisanja (`tbl_log_brisanja`, v208)
 
 ### Moduli (osnova)
-- Partneri + NBS SOAP + žiro računi, Zaposleni + registracija korisnika
-- Vozila + Važni datumi, Podsetnici, Podaci firme + Banke
-- Troškovi, Dnevnice, Plate (4 metode), Šifarnici, Dozvole MUP, Podešavanja (4 taba)
+- Partneri + NBS SOAP + žiro računi, Zaposleni, Vozila + Važni datumi
+- Podsetnici, Podaci firme + Banke, Troškovi, Dnevnice, Plate (4 metode)
+- Šifarnici, Dozvole MUP, Podešavanja
 
 ### Transport (CORE — završen)
 - Ture (agencijski/sopstveni), Nalozi (forma/lista/Excel/template)
-- Štampa naloga + putnog naloga, Troškovi ture (konverzija, zarada EUR)
-- Dnevnice na turi + Dnevnice→Plate (desktop model), Štampa troškovnika
+- Štampa naloga + putnog naloga + troškovnika
+- Troškovi ture (konverzija, zarada EUR), Dnevnice na turi → Plate
 - Kilometraža panel, Agencijska tura svedena, NativniSelect/NativniInput
 
 ### Fakturisanje (završeno)
-- Lista/arhiva (/fakture): filteri, sort DatumRacuna+Broj DESC
-- Detaljna statistika: padajući filteri, Excel, štampa, dom/ino zbirovi
-- Unos računa: glava+stavke (dialog), EUR/RSD konverzija, rabat %, PDV po tipu, broj na Save, edit
-- Tipovi IZLAZ/IZLAZ_BP/INOSTRANI, napomene po tip×uvozIzvoz, izbor banke (idBanke)
-- Štampa 3 varijante: domaća RSD srpski / EUR srpski (+kurs/RSD) / EUR engleski (+OpcijaText1/2)
-- Lista računa: filteri prebačeni u kolapsibilni panel (isti pattern/servis kao
-  liste e-faktura), stanje pamti IDefaultValuesService
-- Lista računa: kolona "SEF-Status" (uslovna, samo kad je e-faktura uključena) —
-  status povezane e-fakture ili "Nije poslato", reuse status-prevoda sa liste e-faktura
-- Unos računa: reorganizacija panela — "Osnovni podaci" (uvek vidljiv, partner/broj/datumi
-  prvi panel) + "Tip, kurs i akcije" (nepromenjeno) + NOVI "Nalog i transport"
-  (kolapsibilan, zatvoren po default-u: broj naloga, datum istovara/prometa,
-  CMR/otpremnica, vozilo, vozač); naslov forme posle snimanja prikazuje broj
-  računa, ne interni idRacuna
-- Dijalog "Unos stavke": JM i PDV % su NativniSelect (JM: kom/kg/km/t/m/g/L/m2/m3/
-  min/h/d/kwh, default kom; PDV: 0 + niža/viša stopa iz podešavanja)
+- Lista/arhiva, detaljna statistika, unos (glava + stavke), edit
+- Tipovi IZLAZ/IZLAZ_BP/INOSTRANI, napomene po tip×uvozIzvoz, izbor banke
+- Štampa 3 varijante (domaća RSD / EUR srpski / EUR engleski)
+- Kolona „SEF-Status", kolapsibilni filter panel
 
-### STARE Finansije/Kartice (tbl_Kartica — zadržane kao read-only istorija)
-- Dužnici/dugovanja, kartica partnera, unos finansija, vezivanje, van valute — SVE na staroj tabeli
-- Ostaju u meniju kao "Kartice (staro)" / "Dužnici (staro)" za kontrolu/referencu starih klijenata
-- NE diraju se više nikako (ni provere ni brisanje) — čista arhiva
-- BIĆE UKLONJENE kad se novi model potvrdi u produkciji
+### NOVI FINANSIJSKI MODEL — `tbl_KarticaNova` (v209) — ZAVRŠEN
+- Duguje/Potrazuje/Saldo, `preostalo` prava kolona, `partnerUloga`, `tipDokumenta`,
+  valuta kao kolona, 3 datuma, `idRacun` / `idStavkeVeza` / `idEfakture`
+- Van valute = stavka-bazirano, **strogo `datumValute < danas`**
+- Vezivanje + cepanje preplate, Odveži, brisanje reotvara zaduženje
+- Blokada brisanja računa sa vezanom uplatom
+- Knjižna odobrenja/zaduženja, štampa kartice + IOS
+- Domaća valuta (OpcijaString13) i rad sa više moneta (OpcijaInt12), v210
+- Stari `tbl_Kartica` = READ-ONLY arhiva, NE DIRA SE
 
-### NOVI FINANSIJSKI MODEL — tbl_KarticaNova (v209) — ZAVRŠEN
-**Strateška odluka:** umesto migracije starih podataka (koja je lomila desktop — desktop
-računa Preostalo kao SUM(Saldo) uživo i filtrira Preostalo<>0, pa diranje Uplata razbija saldo),
-napravljena je POTPUNO NOVA tabela za superiorni model. Stari klijenti ostaju na staroj
-kartici (read-only istorija); novi klijenti + napredni stari koriste novi model.
-
-**Dizajn (knjigovodstveni pristup):**
-- Duguje / Potrazuje / Saldo (Saldo = Duguje - Potrazuje, sa znakom)
-- preostalo = PRAVA kolona (ne computed)
-- partnerUloga (KUPAC/DOBAVLJAC), tipDokumenta (RACUN/UPLATA/ISPLATA/
-  KNJIZNO_ODOBRENJE/KNJIZNO_ZADUZENJE/POCETNO), valuta kao KOLONA
-- 3 datuma: datumDokumenta / datumPrometa / datumValute (dospeće)
-- idRacun (veza tbl_racuni, NULL za ručne unose) + idStavkeVeza (uplata → koju stavku zatvara)
-  + idEfakture (veza ka e-fakturi, NULL za ostalo — v211)
-- Grupisanje po PIB, fizičko brisanje + log (bez kolone brisano)
-
-**Matrica upisa (potvrđena, testirana kroz softver):**
-- RACUN kupac → duguje, saldo +   | UPLATA kupac → potrazuje, saldo -
-- RACUN dobavljač → potrazuje, saldo -   | ISPLATA dobavljač → duguje, saldo +
-- KNJIZNO_ODOBRENJE (KUPAC: potrazuje/DOBAVLJAC: duguje) | KNJIZNO_ZADUZENJE (obrnuto)
-- POCETNO po ulozi
-- Ručni "Račun" (bez idRacun) — predznak iz partnerUloga, slobodan broj dokumenta,
-  obavezan datumValute (za van valute obračun)
-
-**Van valute (stavka-model, TESTIRANO):**
-- van valute = SUM(preostalo) zaduženja gde (datumValute < danas + preostalo>0)
-- Strogo `<` (ne `<=`) — dospeva DANAS ne ulazi u van valute (knjigovodstvena konvencija:
-  docnja počinje sledećeg dana)
-- Nevezana uplata NE umanjuje van valute (rešava 5 žalbi iz desktopa)
-- Vezana uplata umanjuje preostalo → van valute automatski tačan
-- Odveži/brisanje uplate → van valute se vraća gore (preostalo raste nazad)
-
-**Gotovo:**
-- [x] tbl_KarticaNova (CREATE + oba SQL fajla, v209) + entitet + DbSet
-- [x] KarticaNovaService (ApplyMatrix, DodajStavku, UpisiIzRacuna, ObrisiIzRacuna, SaldoPartnera)
-- [x] Upis iz računa (paralelno sa starom tabelom, atomično, kurs za EUR)
-- [x] Unos finansija na novom modelu (UPLATA/ISPLATA/POCETNO/RACUN ručni, 4 salda panel)
-- [x] Ekran Kartica nova (/finansije/kartica-nova): filteri, boje, kontekstualna dugmad, van valute
-- [x] Ekran Dužnici novi (/finansije/duznici-novi): 2 taba, po valuti, van valute stavka-model
-- [x] Označi plaćeno/neplaćeno na novom modelu
-- [x] Vezivanje uplate + cepanje (idStavkeVeza, NERASPOREDJENO ostatak)
-- [x] Kolona VEZA na ekranu (prikaz broja dokumenta zaduženja preko idStavkeVeza)
-- [x] Odveži uplatu (OdveziUplatu — preostalo raste, kapa na original, saldo partnera nepromenjen)
-- [x] Brisanje uplate reotvara zaduženje (ObrisiUplatuNova — preostalo raste, saldo partnera SE menja)
-- [x] Blokada brisanja računa sa vezanom uplatom (ProveriUplateZaRacun) + fizičko
-      brisanje RACUN stavke iz kartice pri brisanju računa
-- [x] Ručni unos tipa "Račun" u finansije/unos (van automatskog fakturisanja)
-- [x] Knjižna odobrenja/zaduženja — UI u finansije/unos, oba tipa, toggle "Vezano za
-      račun" (slobodno ili vezano), ručni broj dokumenta, KNJIZNO_ZADUZENJE ponaša
-      se kao puno zaduženje (vezivanje/van valute/blokada brisanja), KNJIZNO_ODOBRENJE
-      odmah izmiren
-- [x] Meni: nove stavke (Kartica/Dužnici) + stare preimenovane u "(staro)"
-- [x] Redirect posle unosa finansija → nova kartica (bio bug, vodio na staru)
-- [x] **Štampa kartice** (/finansije/kartica-nova/stampa) — klasičan knjigovodstveni
-      format (Duguje/Potražuje/Saldo running), preneseno stanje, kolona VEZA odvojena
-      od Br.dokumenta (fix: štampa je ranije mešala broj vezanog zaduženja sa
-      sopstvenim brojem uplate), filter identičan ekranu za sve uloge uključujući
-      SVE (fix: ranije gubila DOBAVLJAC redove kad je uloga=SVE)
-- [x] **IOS** (dugme na /finansije/kartica-nova) — ista štampa, samoOtvorene=true,
-      bez preneseno stanje, samo preostalo>0/izmiren=false, dospele stavke označene
-- [x] Detaljni testovi kroz softver: preplata/cepanje, više parcijalnih uplata, van
-      valute granica, brisanje uplate sa zatvorenog računa, blokada brisanja računa,
-      štampa/IOS poklapanje sa ekranom (SVE/KUPAC/DOBAVLJAC uloge)
-- [x] Domaća valuta kao podešavanje po klijentu (OpcijaString13, v210) — RSD/BAM/DEN/...
-      konfiguriše se u Podešavanjima, zamenjuje hardkodovani "RSD" u svim finansijskim
-      ekranima; EUR strana nikad ne menja; cache per-circuit u KarticaNovaService
-- [x] Podešavanje "rad sa više moneta" (OpcijaInt12, v210) — checkbox u Podešavanjima;
-      kad je isključeno, skriva EUR opcije u unos/kartica/dužnici/štampa (čisto UI,
-      postojeći EUR podaci u bazi ostaju netaknuti)
-
----
-
-## 🎯 SLEDEĆE (novi finansijski model)
-- [ ] Ino EUR pun test prolaz na novom modelu (paralelan set A1-A5, EUR partner)
-
----
-
-## 📋 E-FAKTURE (aktivan rad — sve LISTE završene, ostaje Unos/Statistika/Slanje)
-
-**Napomena:** rad namerno van redosleda iz opšteg plana — E-fakture pomerene napred
-da bi klijenti imali funkcionalan softver ranije. Sesija posvećena isključivo ovom
-modulu (poseban chat/kontekst od glavnog transport/fakturisanje razvoja).
-
-### Osnova (završeno)
-- [x] E-FAKTURE dropdown meni (uslovljen OpcijaInt13), sve stavke povezane
-- [x] SefApiClient dopune: fix PRODUKCIJA/PRODUKCIONI mismatch, GetBytesAsync,
-      GetStringAsync, PostStringAsync
-- [x] Prevod SEF error kodova (greskeEFakture.json, 328/475 prevedeno, ostatak su
-      Baltic auth kodovi/nepoznati interni kodovi — ostavljeni namerno na engleskom),
-      IGreskaEfakturaPrevodService
-- [x] Pojedinačna/Zbirna evidencija PDV rade na SEF **Public API v2** (potvrđeno u
-      dokumentaciji), različito od ostatka modula (v1)
-
-### Zajednički vizuelni standard za liste (USPOSTAVLJEN i PRENET NA SVE LISTE)
-- [x] Kompaktna gusta tabela (Dense, fiksni header, unutrašnji scroll, sve kolone
-      staju bez horizontalnog scroll-a na 1600px+; paginacija fiksna na dnu)
-- [x] Status kao obojeni MudChip (zeleno/crveno/žuto) umesto bojenja celog reda
-- [x] Skraćeni tip dokumenta (DOK. SMANJENJA / DOK. POVEĆANJA) + tooltip pun naziv
-- [x] Toolbar u jednom redu, grupisan (primarne tekst, sekundarne ikone, destruktivne odvojene)
-- [x] Sidebar sa nezavisno kolapsibilnim sekcijama (Učitaj sa SEF-a / Filteri),
-      collapse stanje pamćeno preko IDefaultValuesService (tbl_DefaultValues,
-      FormName/ControlName/UserId — isti pattern kao TuraDetalj/unos naloga)
-- [x] Tooltip na ikoničnim dugmadima — REŠENO (span-wrapper oko dugmeta, jer MudBlazor
-      ne prikazuje tooltip na disabled elementu; radi na svim listama)
-
-### Obaveštenje o prethodnom porezu (`/efakture/obavestenje-prethodnog-poreza`) — ZAVRŠENO
-- [x] Entitet ObavestenjePP (mapiran na postojeću tbl_ObavestenjaPP), IObavestenjaPPService
-      (import primljenih/poslatih, slanje sa UI→API mapiranjem + validacija kombinacija,
-      broj preko postojeće Broj_Otpis kolone)
-- [x] Lista (toggle Primljena/Poslata, filteri, Učitaj za period) + forma za unos/slanje
-- [x] Redizajn na novi vizuelni standard PRIMENJEN (Pregled/Preuzmi PDF prebačeni u
-      toolbar sa selekcijom reda umesto kao kolona)
-- [ ] PDF Pregled/Preuzmi — NE RADI, potvrđeno da ne radi ni direktno na SEF/Swagger
-      (problem na SEF strani, ne kod nas) — čeka se stabilizacija SEF demo servera
-
-### Pojedinačna i Zbirna evidencija PDV — SAMO Faza A (read-only lista)
-- [x] Entiteti IndividualVatRecord/GroupVatRecord, read-only servisi, liste sa filterima
-      (`/efakture/pojedinacna-evidencija`, `/efakture/zbirna-evidencija`)
-- [x] Fix filtera: tolerancija stare/nove terminologije (KNJIZNO ODOBRENJE/ZADUŽENJE
-      ↔ DOKUMENT O SMANJENJU/POVEĆANJU)
-- [x] Redizajn na novi vizuelni standard PRIMENJEN (obe liste)
-- [ ] Faza B (SEF sinhronizacija preko Public API v2, kreiranje, otkazivanje) — NIJE ZAPOČETO
-
-### Izlazne e-fakture (`/efakture/izlazne`) — ZAVRŠENO (redizajn + funkcionalnost)
-- [x] Faza A: entitet EInvoice, lista + filteri (Otkazano NIJE crveno ovde, samo
-      Odbijeno/Stornirano — razlika od Ulaznih) + "Komentar odbijanja" panel
-      (vidljiv samo kad status=Odbijeno, live osvežen sa SEF-a pri Osveži status)
-- [x] Faza B: SEF sinhronizacija (sales-invoice/ids, cac:AccountingCustomerParty,
-      status prevod preko Class_eFakturaPrevodi.statusPrevod — različit set od Ulaznih)
-- [x] Faza C+D: Osveži sve/Osveži status, Storno, Otkaži, Preuzmi PDF/XML, Pregled,
-      Brisanje — TESTIRANO, rade (Storno/Otkaži i dalje čekaju realan test na SEF dokumentu)
-- [x] Prateći dokumenti (attachment) — RADI (dijalog, do 3 priloga, Pregled/Preuzmi)
-- [x] PDF preuzimanje — split-button (SEF stil): PDF SAZETAK (iz XML envelope-a) /
-      PREUZMI PDF (prošireni, sales-invoice/pdf?invoiceId, query) / PROMENE STATUSA
-      (sales-invoice/status-history/{id}/pdf, path). Default SAZETAK. Prošireni PDF
-      SEF generiše asinhrono → prvi poziv vrati JSON poruku (Content-Type nije pdf) →
-      servis vraća null → Snackbar "još nije formiran, pokušaj kasnije". Isti izbor tipa
-      poštuje i "Pregled" (openPdfPreview). SefApiClient.GetBytesAsync (binarni odgovor).
-- [x] Faza E: Upiši u karticu / Unos finansija — TESTIRANO, radi. Samo za fakture bez
-      idRacun veze (onboarding scenario; regularne fakture već idu kroz
-      KarticaNovaService.UpisiIzRacuna)
-- [x] "Brisanje dokumenata u pripremi" — uklonjeno kao dugme, sad se izvršava
-      automatski tiho pri ulasku u formu (Draft/New, sa zaštitom ako SEF nedostupan)
-- [x] Redizajn PRIMENJEN (kolone: Tip | Broj | Status | Partner | Datum valute |
-      Datum prometa | Vrednost — uklonjeni Osnovica, PDV, Datum slanja)
-- [x] Tooltip na ikoničnim dugmadima — REŠENO
-- [ ] Prateći dokumenti (attachment) — implementacija te akcije još nije rađena
-
-### Ulazne e-fakture (`/efakture/ulazne`) — ZAVRŠENO (redizajn + funkcionalnost)
-- [x] Entitet EFakturaUlaz, lista + SEF sinhronizacija (XML parsiranje, upozorenje
-      za partnera koji ne postoji u imeniku, bez auto-insert preko NBS-a)
-- [x] Osveži status / Prihvati / Odbij (sa proverom svežine statusa pre Kreiraj obaveštenje)
-- [x] Preuzmi PDF / Preuzmi XML (iz env:DocumentPdf envelope-a) + Pregled
-- [x] Kreiraj obaveštenje (veza ka ObavestenjaPPService, source=ULAZNI)
-- [x] tbl_KarticaNova.idEfakture kolona (nullable, v211) — dedupe veza
-- [x] Upiši u karticu + Unos finansija (predpopunjena forma /finansije/unos) — TESTIRANO,
-      radi (i direktan upis i preko forme). Zahteva v211 idEfakture kolonu.
-- [x] Redizajn PRIMENJEN (Dobavljač kolona, Otkazano=crveno, Prihvati/Odbij/Kreiraj
-      obaveštenje dugmad, kolapsibilni sidebar sa perzistencijom)
-- [x] Prateći dokumenti (attachment) — RADI (isti dijalog kao Izlazne)
-- [ ] Napomena: redovi uvezeni PRE fix-a XML parsera imaju prazan tipDokumenta
-      (sakriva Upiši u karticu) — ručna ispravka test-po-test, masovni backfill otvoren
-- [x] PDF preuzimanje — split-button, identično izlaznima ali purchase-invoice/*
-      (purchase-invoice/pdf?invoiceId query, purchase-invoice/status-history/{id}/pdf path).
-      SAZETAK iz env:DocumentPdf, prošireni preko GetBytesAsync. Default SAZETAK.
-      - [x] Unos dokumenta — SLEDEĆI VELIKI KORAK (poseban chat). Ručni unos svih tipova
-      (faktura/avans/dok. smanjenja/povećanja), forma + stavke + porezi, pa XML, pa slanje.
-
-### Sledeće u modulu (nije započeto)
+### E-FAKTURE
+- Sve liste završene (izlazne, ulazne, obaveštenje PP, pojedinačna/zbirna evidencija)
+- SEF sinhronizacija, statusi, PDF split-button, prateći dokumenti
+- „Upiši u karticu" iz ulaznih i izlaznih
+- [ ] Unos dokumenta (ručni) + slanje — SLEDEĆI VELIKI KORAK, poseban chat
 - [ ] Statistika e-faktura
-- [ ] Slanje — deo Unosa dokumenta (XML generisanje)
-- [ ] Realan test Storno/Otkaži na SEF dokumentu (Izlazne)
-- [ ] Pojedinačna/Zbirna Faza B (SEF sinhronizacija v2) — kad se demo stabilizuje
+- [ ] Pojedinačna/Zbirna Faza B (SEF v2) — čeka stabilizaciju demo servera
+- [ ] PDF obaveštenja PP ne radi ni na SEF strani
 
 ---
 
-## 📋 PREOSTALO (ostali moduli)
-### ⚠️ BEZBEDNOST (pre prvih pravih klijenata)
-- [ ] Kolačići nisu potpisani — korisnik može ručno poslati tuđi ap_licence
-      i videti tuđe podatke. Rešenje: IDataProtectionProvider.
+## 🎯 SLEDEĆE — pre prvih pravih klijenata
 
-### ⚠️ PDV NAPOMENE — moguća poreska greška (PROVERITI)
-- [ ] Mapiranje kolona ne poklapa se sa labelama: pod "Domaća IZVOZ" stoji
-      čl. 24(1)(8) koji je UVOZ, pod "Inostrana IZVOZ" stoji čl. 24(1)(1)
-      koji je domaći izvoz. CLAUDE.md dokumentuje obrnuto od koda.
-      TEST: odštampati domaću fakturu za izvozni transport i videti koja
-      se napomena pojavi. Zatim v214: ispravka + seed vrednosti u oba SQL fajla.
+### 1. Domen + HTTPS ⚠ NAJVAŽNIJE
+Test server radi na `http://95.211.62.35`. **Kolačić putuje mrežom nešifrovan** —
+ko je na istoj mreži može da ga pročita i uđe kao taj korisnik. Sva ostala
+zaštita (potpisani kolačići, članstva, role) pada na tome.
+Rešenje: domen (~15€/god) + Let's Encrypt (besplatno).
 
-### Super admin — FAZA 3
-- [ ] Javna self-service registracija (isti servis, ali anoniman endpoint
-      traži ograničenje po IP/vremenu — meta za zloupotrebu)
-- [ ] Reset lozinke / deaktivacija korisnika iz panela
-- [ ] Log akcija superadmina (ko, kad, šta, nad kojom licencom)
-- [ ] Duplikati u tbl_licence: jedna firma ima više redova (desktop model,
-      mac/glavniKomp = po računaru). Odlučiti koji red nosi web licencu
-- [ ] 01_CREATE: ~3400 od 8280 linija su SSMS sp_addextendedproperty
-      (XML dijagrama). Čišćenje bi smanjilo fajl sa 242 KB na ~90 KB
-- [ ] 01_CREATE nema seed za tbl_banka (klijent unosi sam, NBS pomaže)
+### 2. Zaključavanje naloga posle 5 promašaja
+Lozinka se sad može pogađati neograničeno. Zaključavanje na 15 minuta.
+
+### 3. Test kod 5-6 firmi
+Otvaranje firme je sad jedno dugme (~2 minuta po klijentu).
+
+---
+
+## 📋 TEHNIČKI DUG (radi, počistiti kad bude mirnije)
+
+- [ ] **48 stranica sa `NavigateTo` u `OnInitialized(Async)`** — isti obrazac koji je
+      obarao layout-e; na stranicama Blazor ga hvata, ali je tehnički pogrešno
+- [ ] **Duplirana read-only logika** — `MainLayout` radi sopstveni upit umesto
+      `TenantService.JeSamoCitanje()` (izbegnut deljeni scoped kontekst).
+      Ako se pravilo promeni, mora na oba mesta
+- [ ] **v215** — DROP kolona `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`
+      (EF ih više ne mapira)
+- [ ] **Link „Putni nalozi"** u meniju vodi na rutu `/transport/putni-nalozi`
+      koja ne postoji
+- [ ] **Provera MudBlazor parametara** — `UserAttributes` tiho guta pogrešne nazive;
+      proći `MudTable`/`MudChip`/`MudDialog` i uporediti sa `MudBlazor.xml`
+- [ ] Connection stringovi u čistom tekstu (master + appsettings) — enkripcija
+- [ ] `sa` nalog za kreiranje baza — zameniti loginom sa rolom `dbcreator`
+- [ ] Log akcija superadmina (ko, kad, šta, nad kojom firmom)
+- [ ] Duplikati u `tbl_licence` (desktop, red po računaru) — ne smeta webu, ali smeta pregledu
+- [ ] `01_CREATE`: ~3400 od 8280 linija su SSMS `sp_addextendedproperty`
+
+### ⚠ PDV NAPOMENE — moguća poreska greška (PROVERITI)
+Mapiranje kolona ne poklapa se sa labelama: pod „Domaća IZVOZ" stoji čl. 24(1)(8)
+koji je UVOZ, pod „Inostrana IZVOZ" stoji čl. 24(1)(1) koji je domaći izvoz.
+TEST: odštampati domaću fakturu za izvozni transport i videti koja se napomena
+pojavi. Zatim ispravka + seed u oba klijentska SQL fajla.
+
 ### Zaostalo (zakonsko)
-- [ ] Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja). Mesta: sidebar dnevnica, "Dodaj dnevnice vozaču", "Dodaj u troškove ture", modul Dnevnice.
-
-### Transport (dovršiti)
-- [ ] Statistika tura / naloga — POSTOJI, NIJE TESTIRANA
-- [ ] CMR dokumenti — nije započeto
-
-### Predračuni
-- [ ] Predračuni dom+ino (pattern fakture, lakši)
-
-### Laki moduli (nije započeto)
-- [ ] Gorivo, Servisi/Održavanje
-
-### Skenirani dokumenti
-- [ ] Upload (PDF/JPG), vezivanje, čuvanje (baza/server/cloud — odlučiti)
-
-### Admin ekrani
-- [ ] Pregled loga brisanja (tbl_log_brisanja — read-only)
-- [ ] Arhiva/reaktivacija (soft-obrisani partneri/vozači/vozila → vrati aktivne)
-
-### Privilegije (odloženo — svi Admin)
-- [ ] tbl_role + tbl_role_moduli
+- [ ] Dnevnice — kurs na **DAN POVRATKA** (poslednji datum putovanja).
+      Mesta: sidebar dnevnica, „Dodaj dnevnice vozaču", „Dodaj u troškove ture", modul Dnevnice
 
 ---
 
-## 🚀 STRATEŠKE FAZE (posle stabilnog transporta + prvih klijenata)
+## 📋 PREOSTALI MODULI
 
-### FAZA 8 — Self-Service Onboarding
-- [ ] Landing → registracija (email/lozinka/zemlja/PIB), NBS povlačenje
-- [ ] ProvisioningService: baza = prefiks zemlje + PIB, INSERT licence/korisnik, seed
-- [ ] Demo → plaćeni: reset, migracija na localhost, cloud premium
+- [ ] Ino EUR pun test prolaz na novom finansijskom modelu
+- [ ] Predračuni dom+ino (pattern fakture, lakši)
+- [ ] Statistika tura / naloga — POSTOJI, NIJE TESTIRANA
+- [ ] CMR dokumenti
+- [ ] Gorivo, Servisi/Održavanje
+- [ ] Skenirani dokumenti (upload, vezivanje, čuvanje — odlučiti gde)
+- [ ] Pregled loga brisanja (read-only ekran)
+- [ ] Arhiva/reaktivacija za partnere/vozila (za zaposlene je rešeno)
+- [ ] Ekran izbora firme (kad neko stvarno ima 2+ članstava)
 
-### ADMIN PANEL — DAK-SOFT super-admin
-- [ ] Licence (status/istek/produženje/ConnectionString/moduli), klijenti (pregled/aktivnost)
-- [ ] Ručni onboarding (CREATE DB + seed), reset, migracija
+---
 
-### FAZA 9 — Licenciranje (mesečna naplata)
-- [ ] Datum licence u master, keširanje lokalno, produženje uz fakturu
+## 🚀 STRATEŠKE FAZE
 
-### FAZA 10 — Modularnost + Lager modul
-- [ ] Lager/kalkulacije/ulaz-izlaz, deljenje koda sa softverom za trgovinu
-- [ ] Pali/gasi modul po licenci (tbl_moduli)
-- [ ] "Iz Šifarnika" autocomplete u stavkama fakture čeka Lager (tbl_lager)
+### Samouslužna registracija sa sajta
+Traži domen i SMTP. Zamišljeno: PIB (NBS provera) + mejl verifikacija → tek na
+potvrdu se pravi baza. **Namerno odloženo** — `ProvisioningService` već pravi firmu
+jednim klikom, za 5-6 klijenata self-service je nedelja posla za problem koji ne postoji.
+
+### Trgovina (profil TRGOVINA)
+Baza je izvorno bila trgovinska (`Kasa`), pa je nadograđena transportom — šema je
+već zajednička. Treba:
+- [ ] prava `tbl_lager` tabela (ne preopterećivati `tbl_sifarnik`, koji se sad
+      koristi za sačuvane ture)
+- [ ] `tbl_artikli_racuna.idArtikla` (nullable, NULL za transport)
+- [ ] panel „Nalog i transport" se u trgovini ne prikazuje; umesto njega izbor
+      artikla iz lagera
+- [ ] labeli po profilu (tura → opis) — rečnik, ne dupli Razor
+- [ ] **JEDAN `01_CREATE` template** za oba profila; trgovinski klijent ima prazne
+      transportne tabele
+
+### Licenciranje / naplata
+- [ ] Mesečna naplata, produženje uz fakturu
+- [ ] `MaxKorisnika` se upisuje ali se još ne proverava pri registraciji
+- [ ] Prava tabela modula kad ih bude ~8 (sad su bit kolone iza `IModulService`)
 
 ---
 
 ## ⚠️ KLJUČNO NAUČENO
-- **NOVI model = tbl_KarticaNova** (Duguje/Potrazuje/Saldo, valuta kolona, preostalo prava kolona). Stari = tbl_Kartica (read-only istorija, ne dira se više nikako).
-- **Zašto nema migracije starih podataka:** desktop računa Preostalo kao SUM(Saldo) uživo + filtrira fizičku kolonu Preostalo<>0. Diranje Uplata (Uplata=Dug) postavlja Preostalo=0 → desktop filter izbacuje te redove → saldo razbijen. ZATO nova tabela umesto migracije.
-- **Van valute novi = stavka-bazirano**, strogo `datumValute < danas` (ne `<=`) — knjigovodstvena konvencija, docnja počinje sutradan. Nevezana uplata ne umanjuje. Precizniji od desktop saldo-modela.
-- **Vezivanje preko idStavkeVeza** (int, pokazuje na Id stavke), ne preko broja računa. Radi za račune, početno, knjižna, ručne unose.
-- **Odveži vs Briši uplatu:** odveži ne menja saldo partnera (novac ostaje, samo raspoređivanje); brisanje uplate MENJA saldo partnera (novac nestaje) — oba reotvaraju zaduženje (preostalo raste, kapa na original).
-- **Blokada brisanja računa:** samo novi model se proverava (ProveriUplateZaRacun); stari model (tbl_Kartica) se ne proverava niti ažurira nikad — čista arhiva.
-- **Štampa mora koristiti IDENTIČAN filter kao ekran** — bio je bug gde je štampa gubila DOBAVLJAC redove kad je uloga=SVE, i mešala broj vezanog zaduženja sa sopstvenim brojem dokumenta uplate (sad rešeno kolonom VEZA odvojenom od Br.dok.). Svaka buduća print stranica mora se testirati poređenjem broj-redova + footer totala protiv ekrana, za sve kombinacije filtera (posebno uloga=SVE).
-- **Grupisanje po PIB**, **RSD/EUR nikad zajedno**, **fizičko brisanje + log**.
 
-### E-fakture — ključno naučeno
-- **PDF faktura — DVA izvora:** (1) SAŽETAK PDF je ugrađen u XML envelope
-  (`env:DocumentHeader > env:DocumentPdf`, Base64) — ne troši poseban poziv, uvek dostupan;
-  (2) PROŠIRENI PDF i PDF PROMENA STATUSA JESU posebni endpointi
-  (`sales-invoice/pdf?invoiceId=` query, `sales-invoice/status-history/{id}/pdf` path;
-  isto za purchase-invoice). Prošireni SEF generiše asinhrono — prvi poziv vrati JSON
-  poruku umesto PDF-a; prepoznaje se po Content-Type (nije "pdf"). PDF obaveštenja/
-  evidencija PDV JESTE poseban endpoint, ali trenutno ne radi na SEF strani.
-- **Status prevodi se razlikuju:** izlazne (statusPrevod: New→Novi, Approved→Prihvaceno...) vs ulazne (PurchaseInvoiceStatusPrevod: New→Novo, Approved→Odobreno...) — različiti setovi, ne mešati.
-- **Bojenje statusa:** izlazne — samo Odbijeno/Stornirano crveno (NE Otkazano); ulazne — Odbijeno/Stornirano/Otkazano crveno. Odobreno/Prihvaceno zeleno, ostalo žuto.
-- **Terminologija:** za NOVE upise koristi DOKUMENT O SMANJENJU/POVEĆANJU (ne KNJIZNO ODOBRENJE/ZADUZENJE); filteri toleriraju obe (stari podaci u bazi imaju staru terminologiju).
-- **XML parsiranje UBL** — uvek fallback sa `cac:`/`cbc:` prefiksom pa bez prefiksa; ulazne čitaju cac:AccountingSupplierParty, izlazne cac:AccountingCustomerParty.
-- **NBS SOAP lookup partnera** — koristi se postojeći servis, BEZ auto-insert; kad partner ne postoji u imeniku pri sinhronizaciji, prikazuje se upozorenje (ne insertuje tiho).
-- **MudBlazor tooltip ne radi na disabled dugmadima** — rešenje je span-wrapper OKO dugmeta (span hvata hover i kad je dugme disabled).
-- **Collapse stanje panela** — perzistira se preko IDefaultValuesService (tbl_DefaultValues, keyed FormName/ControlName/UserId), postojeći mehanizam, ne praviti nov.
-- **ID za izlazne SEF pozive = salesInvoiceID** (NE invoiceID/invoiceIDint). sales-invoice/ids
-  vraća salesInvoiceID; taj isti ID ide u kolonu salesInvoiceID pri sinhronizaciji i koristi
-  se za SVE sales-invoice pozive (status, xml, pdf, storno, otkaži, prateći dokumenti).
-  Ulazne koriste svoj purchase-invoice ID (radi ispravno). Mešanje ID-jeva daje
-  "SalesInvoiceNotFound".
-- **Prateći dokumenti (prilozi)** iz cac:AdditionalDocumentReference > cac:Attachment >
-  cbc:EmbeddedDocumentBinaryObject (Base64). Uzimati SAMO reference sa embed sadržajem
-  (neke su čiste reference bez fajla). Do 3 priloga, max 15MB svaki (SEF limit).
+### Licence i pristup
+- **Novo pored starog, staro netaknuto** — `tbl_web_licence` pored `tbl_licence`,
+  isto kao `tbl_KarticaNova` pored `tbl_Kartica`. Dvaput se isplatilo.
+- **Sve što je „po firmi" mora da živi na članstvu**, ne na korisniku.
+  `IdLicence` i `IdZaposlenog` na globalnom korisniku su proizveli dve tihe greške
+  (Marko je izgledao neregistrovan iako je sve u bazi bilo tačno).
+- **Skrivanje dugmeta nije zaštita.** Svaka provera ide i server-side, u samoj akciji.
+- **Privilegija se čita iz baze, nikad iz kolačića** — i kad su kolačići potpisani.
+- **Fail-closed za module.** Fail-open bi tiho poklanjao plaćene module svakoj
+  loše podešenoj firmi.
+- **Read-only u `SaveChangesAsync`** — jedan `if` pokriva ceo program, umesto
+  obilaska 40 ekrana sa disable-om dugmadi.
 
-### Migracije / verzija baze
-- Verzija baze: **213**
-  - 208 = tbl_log_brisanja
-  - 209 = tbl_KarticaNova
-  - 210 = domacaValuta (OpcijaString13) + radSaViseMoneta (OpcijaInt12)
-  - 211 = tbl_KarticaNova.idEfakture (e-fakture dedupe za "Upiši u karticu")
-  - 212 = DROP trigera brisanjaArtikalatbl_eInvoice (sudar sa EF Core OUTPUT
-    klauzulom pri brisanju izlaznih e-faktura)
-  - 213 = seed tbl_role (Admin/Operater, potrebno za idRole pri registraciji
-    web korisnika)
-- **v211 idEfakture MORA se pokrenuti na SVAKOJ postojećoj bazi pri deploy-u** (02_MIGRACIJA_postojeci_klijent.sql) — inače "Upiši u karticu" puca sa "Invalid column name 'idEfakture'". Migracija ima IF COL_LENGTH guard (bezbedno višekratno pokretanje).
-- Svaka schema promena → OBA SQL fajla (nova instalacija + migracija) istovremeno. Vidi CLAUDE.md.
+### Blazor / MudBlazor
+- **`NavigateTo` u `OnInitializedAsync` baca `NavigationException` tokom prerendera.**
+  Na stranici Blazor to hvata; u LAYOUT-u obara ceo prikaz. Layout mora sve raditi
+  u `OnAfterRenderAsync(firstRender)` i koristiti `IDbContextFactory`.
+- **`UserAttributes` tiho guta pogrešan naziv parametra** — build prolazi, funkcija
+  je mrtva (`RowClick` umesto `OnRowClick`). Kad nešto „radi ali ne reaguje",
+  prvo proveri naziv u `MudBlazor.xml`.
+- **Tooltip ne radi na disabled dugmetu** — span-wrapper OKO dugmeta.
+- **`IgnoreQueryFilters()` gasi SVE globalne filtere** u tom upitu, ne samo jedan.
+
+### EF Core / SQL
+- **EF Core 8 prevodi `Contains` nad listom u `OPENJSON`** — puca na bazama sa
+  compatibility level < 130. Rešenje je `UseCompatibilityLevel(120)` na SVIM
+  kontekstima, ne dizanje kompatibilnosti baze.
+- **`new TransportDbContext(opts)` bez `ICurrentUser` zaobilazi audit i read-only.**
+- **Triggeri se sudaraju sa EF Core `OUTPUT` klauzulom** (v207, v212) — logika ide
+  u aplikaciju, ne u triger. Zato je i `tbl_web_clanstvo` čist FK, bez trigera.
+
+### Finansije (ranije naučeno, i dalje važi)
+- Van valute = stavka-bazirano, strogo `datumValute < danas`
+- Vezivanje preko `idStavkeVeza`, ne preko broja računa
+- Odveži ne menja saldo partnera; brisanje uplate MENJA
+- Štampa mora koristiti IDENTIČAN filter kao ekran — testirati broj redova i totale
+- Grupisanje po PIB, RSD/EUR nikad zajedno, fizičko brisanje + log
+
+### E-fakture
+- PDF: sažetak je u XML envelope-u, prošireni je poseban endpoint (asinhron)
+- `salesInvoiceID` za izlazne, `purchase-invoice` ID za ulazne — ne mešati
+- Status prevodi se razlikuju za ulazne i izlazne
+- UBL parsiranje: uvek fallback sa `cac:`/`cbc:` prefiksom pa bez njega
+
+---
+
+## Verzije
+- **Klijentska baza (`verzijaBaze` u `tbl_Podesavanja`) = 213** — v214 je MASTER
+  skripta i NE menja klijentsku verziju
+- **Master = 214** (`03_MASTER_daksoft_v214.sql`)
+- **215 planirano** — DROP `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`
+
+Svaka promena šeme KLIJENTSKE baze → OBA klijentska SQL fajla istovremeno.
+Izmene mastera → isključivo `03_MASTER`.

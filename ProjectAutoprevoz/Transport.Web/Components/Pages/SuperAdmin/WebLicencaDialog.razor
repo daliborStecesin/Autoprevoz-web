@@ -1,0 +1,221 @@
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Domain.Helpers
+@using Transport.Infrastructure.Data
+
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
+@inject ISnackbar                          Snackbar
+
+<MudDialog Style="min-width:560px;">
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mt-1">
+
+            <MudItem xs="12" sm="6">
+                <NativniInput TValue="string" Label="Naziv" Value="@_naziv" Disabled="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <NativniInput TValue="string" Label="PIB" Value="@_pib" Disabled="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <NativniSelect Label="Zemlja" Value="@_zemlja" ValueChanged="@(v => OnZemljaChanged(v))">
+                    @foreach (var (naziv, _) in ZemljeHelper.Zemlje)
+                    {
+                        <option value="@naziv">@naziv</option>
+                    }
+                </NativniSelect>
+            </MudItem>
+            <MudItem xs="12" sm="2">
+                <NativniInput TValue="string" Label="Kod države" Value="@_kodDrzave" Disabled="true" />
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <NativniSelect Label="Tip programa" Value="@_tipPrograma"
+                               ValueChanged="@(v => _tipPrograma = v ?? "TRANSPORT")">
+                    <option value="TRANSPORT">TRANSPORT</option>
+                    <option value="TRGOVINA">TRGOVINA</option>
+                </NativniSelect>
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <NativniSelect Label="Tip licence" Value="@_tipLicence"
+                               ValueChanged="@(v => _tipLicence = v ?? "PROBNA")">
+                    <option value="PROBNA">PROBNA</option>
+                    <option value="MESECNA">MESECNA</option>
+                    <option value="GODISNJA">GODISNJA</option>
+                </NativniSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudDatePicker @bind-Date="_datumOd" Label="Licenca od" Editable="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudDatePicker @bind-Date="_datumDo" Label="Licenca do" Editable="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <NativniInput TValue="int?" Label="Max korisnika" Value="@_maxKorisnika"
+                              ValueChanged="@(v => _maxKorisnika = v)" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Moduli</MudText>
+                <div class="d-flex flex-wrap" style="gap:16px;">
+                    <MudSwitch T="bool" @bind-Value="_modulTure" Color="Color.Primary" Label="Ture" />
+                    <MudSwitch T="bool" @bind-Value="_modulRadniNalozi" Color="Color.Primary" Label="Radni nalozi" />
+                    <MudSwitch T="bool" @bind-Value="_modulLager" Color="Color.Primary" Label="Lager" />
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudSwitch T="bool" @bind-Value="_aktivna" Color="Color.Success" Label="Aktivna" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSwitch T="bool" @bind-Value="_samoCitanje" Color="Color.Warning" Label="Samo čitanje" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_connectionString"
+                              Label="Connection string"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              Style="font-family:monospace; font-size:0.8rem;" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_telefon" Label="Telefon" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_napomena" Label="Napomena" Variant="Variant.Outlined" Lines="2" />
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Sacuvaj"
+                   Disabled="_cuva">
+            @(_cuva ? "Čuvanje..." : "Sačuvaj")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="() => MudDialog.Cancel()">
+            Odustani
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int IdWebLicence { get; set; }
+
+    private string    _naziv            = string.Empty;
+    private string    _pib              = string.Empty;
+    private string    _zemlja           = string.Empty;
+    private string    _kodDrzave        = string.Empty;
+    private string    _tipPrograma      = string.Empty;
+    private string    _tipLicence       = string.Empty;
+    private DateTime? _datumOd;
+    private DateTime? _datumDo;
+    private int?      _maxKorisnika;
+    private bool      _modulTure;
+    private bool      _modulRadniNalozi;
+    private bool      _modulLager;
+    private bool      _aktivna;
+    private bool      _samoCitanje;
+    private string    _connectionString = string.Empty;
+    private string    _telefon          = string.Empty;
+    private string    _email            = string.Empty;
+    private string    _napomena         = string.Empty;
+
+    private bool _cuva;
+
+    // Izbor zemlje AUTOMATSKI postavlja kod države — polje "Kod države" je read-only
+    // (sprečava neslaganje zemlje i prefiksa baze rs{PIB}/me{PIB}/...).
+    private void OnZemljaChanged(string? naziv)
+    {
+        _zemlja    = naziv ?? string.Empty;
+        _kodDrzave = ZemljeHelper.KodZaZemlju(_zemlja);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+        var licenca = await db.WebLicence.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.IdWebLicence == IdWebLicence);
+
+        if (licenca is not null)
+        {
+            _naziv            = licenca.Naziv;
+            _pib              = licenca.Pib;
+            _zemlja           = licenca.Zemlja;
+            _kodDrzave        = licenca.KodDrzave;
+            _tipPrograma      = licenca.TipPrograma;
+            _tipLicence       = licenca.TipLicence;
+            _datumOd          = licenca.DatumOd;
+            _datumDo          = licenca.DatumDo;
+            _maxKorisnika     = licenca.MaxKorisnika;
+            _modulTure        = licenca.ModulTure;
+            _modulRadniNalozi = licenca.ModulRadniNalozi;
+            _modulLager       = licenca.ModulLager;
+            _aktivna          = licenca.Aktivna;
+            _samoCitanje      = licenca.SamoCitanje;
+            _connectionString = licenca.ConnectionString ?? string.Empty;
+            _telefon          = licenca.Telefon ?? string.Empty;
+            _email            = licenca.Email ?? string.Empty;
+            _napomena         = licenca.Napomena ?? string.Empty;
+        }
+    }
+
+    private async Task Sacuvaj()
+    {
+        _cuva = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_aktivna && _datumDo.HasValue && _datumDo.Value.Date < DateTime.Today)
+            {
+                Snackbar.Add("Licenca do je u prošlosti — korisnici se neće moći ulogovati.", Severity.Warning);
+            }
+
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+            var licenca = await db.WebLicence.FirstOrDefaultAsync(l => l.IdWebLicence == IdWebLicence);
+
+            if (licenca is null)
+            {
+                Snackbar.Add("Licenca nije pronađena.", Severity.Error);
+                return;
+            }
+
+            licenca.Zemlja           = _zemlja;
+            licenca.KodDrzave        = _kodDrzave;
+            licenca.TipPrograma      = _tipPrograma;
+            licenca.TipLicence       = _tipLicence;
+            licenca.DatumOd          = _datumOd;
+            licenca.DatumDo          = _datumDo;
+            licenca.MaxKorisnika     = _maxKorisnika;
+            licenca.ModulTure        = _modulTure;
+            licenca.ModulRadniNalozi = _modulRadniNalozi;
+            licenca.ModulLager       = _modulLager;
+            licenca.Aktivna          = _aktivna;
+            licenca.SamoCitanje      = _samoCitanje;
+            licenca.ConnectionString = _connectionString;
+            licenca.Telefon          = _telefon;
+            licenca.Email            = _email;
+            licenca.Napomena         = _napomena;
+
+            await db.SaveChangesAsync();
+
+            Snackbar.Add("Web licenca sačuvana.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _cuva = false;
+        }
+    }
+}

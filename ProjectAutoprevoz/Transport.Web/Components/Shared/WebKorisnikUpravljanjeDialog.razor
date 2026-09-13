@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Identity
 
 @inject MasterDbContext MasterDb
+@inject ITenantService  TenantService
 @inject ISnackbar       Snackbar
 
 <MudDialog Style="min-width:480px;">
@@ -32,10 +33,41 @@
                                   HelperText="Email se ne može menjati" />
                 </MudItem>
 
+                @if (!_aktivan)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            Pristup deaktiviran za ovu firmu. Čekirajte "Aktivan" i sačuvajte da reaktivirate.
+                        </MudAlert>
+                    </MudItem>
+                }
+
+                @if (_clanstvo?.JeVlasnik == true)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            Ovo je vlasnik firme — pristup vlasnika ne može da se deaktivira.
+                        </MudAlert>
+                    </MudItem>
+                }
+
                 <MudItem xs="12">
                     <MudCheckBox @bind-Value="_aktivan"
-                                 Label="Aktivan"
-                                 Color="Color.Primary" />
+                                 Label="Aktivan (za ovu firmu)"
+                                 Color="Color.Primary"
+                                 Disabled="@(_clanstvo?.JeVlasnik == true)" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <NativniSelect Label="Rola" Value="@_rola" ValueChanged="@(v => _rola = v ?? "2")"
+                                   Disabled="@(_clanstvo?.JeVlasnik == true)">
+                        @if (_clanstvo?.JeVlasnik == true)
+                        {
+                            <option value="1">Vlasnik</option>
+                        }
+                        <option value="2">Administrator</option>
+                        <option value="3">Operater</option>
+                    </NativniSelect>
                 </MudItem>
 
                 @if (_korisnik.ZadnjaPrijava.HasValue)
@@ -108,8 +140,10 @@
     [Parameter] public int KorisnikId { get; set; }
 
     private WebKorisnik? _korisnik;
+    private WebClanstvo? _clanstvo;
     private string       _ime              = string.Empty;
     private bool         _aktivan;
+    private string       _rola             = "2";
     private bool         _prikaziResetLozinke;
     private string       _novaLozinka      = string.Empty;
     private string       _potvrda          = string.Empty;
@@ -121,8 +155,13 @@
         _korisnik = await MasterDb.WebKorisnici.FindAsync(KorisnikId);
         if (_korisnik is not null)
         {
-            _ime     = _korisnik.Ime ?? string.Empty;
-            _aktivan = _korisnik.Aktivan == 1;
+            _ime = _korisnik.Ime ?? string.Empty;
+
+            var idFirme = TenantService.GetIdFirme();
+            _clanstvo = await MasterDb.WebClanstva
+                .FirstOrDefaultAsync(c => c.IdKorisnika == KorisnikId && c.IdWebLicence == idFirme);
+            _aktivan = _clanstvo?.Aktivan ?? false;
+            _rola    = _clanstvo?.IdWebRole.ToString() ?? "2";
         }
     }
 
@@ -130,6 +169,28 @@
     {
         if (_korisnik is null) return;
         _greska = null;
+
+        // Server-side provera — skrivanje dugmeta "Upravljaj pristupom" u VozacDialog-u NIJE zaštita.
+        if (!await TenantService.JeVlasnikTrenutneFirme())
+        {
+            _greska = "Nemate ovlašćenje za ovu radnju.";
+            return;
+        }
+
+        if (_clanstvo is not null && _clanstvo.Aktivan && !_aktivan)
+        {
+            if (_clanstvo.JeVlasnik)
+            {
+                _greska = "Ne možete deaktivirati pristup vlasnika firme.";
+                return;
+            }
+
+            if (_clanstvo.IdKorisnika == TenantService.GetIdKorisnika())
+            {
+                _greska = "Ne možete deaktivirati sopstveni pristup.";
+                return;
+            }
+        }
 
         if (_prikaziResetLozinke)
         {
@@ -150,8 +211,17 @@
 
         try
         {
-            _korisnik.Ime    = _ime.Trim();
-            _korisnik.Aktivan = _aktivan ? 1 : 0;
+            _korisnik.Ime = _ime.Trim();
+
+            if (_clanstvo is not null)
+            {
+                _clanstvo.Aktivan = _aktivan;
+
+                // Rola vlasnika se ovde nikad ne menja (polje je i u UI Disabled) — dodeljuje
+                // se samo pri otvaranju firme. "Vlasnik" (1) nije ponuđena vrednost za ostale.
+                if (!_clanstvo.JeVlasnik && int.TryParse(_rola, out var novaRola) && (novaRola == 2 || novaRola == 3))
+                    _clanstvo.IdWebRole = novaRola;
+            }
 
             if (_prikaziResetLozinke && _novaLozinka.Length >= 6)
             {

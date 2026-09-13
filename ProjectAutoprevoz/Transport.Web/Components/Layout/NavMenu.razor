@@ -1,4 +1,5 @@
 @inject ITenantService TenantService
+@inject IModulService  ModulService
 
 <MudNavMenu>
 
@@ -48,7 +49,9 @@
                 Icon="@Icons.Material.Filled.CardMembership">
         Dozvole MUP
     </MudNavLink>
-    @if (TenantService.GetTransportModulAktivan())
+    @* OpcijaInt2 (transportModulAktivan) — podešavanje po klijentu, NE dirati. Modul TURE
+       (tbl_web_licence.ModulTure, preko IModulService) — licenca. Oba moraju biti ispunjena. *@
+    @if (TenantService.GetTransportModulAktivan() && _tureDozvoljen)
     {
         <MudNavLink Href="/transport/nalozi"
                     Icon="@Icons.Material.Filled.DriveEta">
@@ -157,10 +160,16 @@
 
     @* ── RESURSI ──────────────────────────────────────── *@
     <div class="nav-section-title">Resursi</div>
-    <MudNavLink Href="/magacin/lager"
-                Icon="@Icons.Material.Filled.Inventory">
-        Magacin
-    </MudNavLink>
+    @* Modul LAGER (tbl_web_licence.ModulLager) — modul još nije razvijen, "Magacin" je stub stranica. *@
+    @if (_lagerDozvoljen)
+    {
+        <MudNavLink Href="/magacin/lager"
+                    Icon="@Icons.Material.Filled.Inventory">
+            Magacin
+        </MudNavLink>
+    }
+    @* Modul RADNI_NALOZI (tbl_web_licence.ModulRadniNalozi) — grana pripremljena, stranice još
+       ne postoje. Kad se dodaju: @if (_radniNaloziDozvoljen) { <MudNavLink ...>...</MudNavLink> } *@
     <MudNavLink Href="/planiranje/planer"
                 Icon="@Icons.Material.Filled.CalendarToday">
         Planiranje
@@ -201,3 +210,14 @@
     </MudNavGroup>
 
 </MudNavMenu>
+
+@code {
+    private bool _tureDozvoljen;
+    private bool _lagerDozvoljen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tureDozvoljen  = await ModulService.JeDozvoljen("TURE");
+        _lagerDozvoljen = await ModulService.JeDozvoljen("LAGER");
+    }
+}

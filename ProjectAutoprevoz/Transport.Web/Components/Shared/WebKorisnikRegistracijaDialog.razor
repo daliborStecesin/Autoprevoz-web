@@ -77,6 +77,13 @@
             </MudItem>
 
             <MudItem xs="12">
+                <NativniSelect Label="Rola" Value="@_rola" ValueChanged="@(v => _rola = v ?? "2")">
+                    <option value="2">Administrator</option>
+                    <option value="3">Operater</option>
+                </NativniSelect>
+            </MudItem>
+
+            <MudItem xs="12">
                 <MudCheckBox @bind-Value="_aktivan"
                              Label="Aktivan"
                              Color="Color.Primary" />
@@ -117,6 +124,7 @@
     private string _email   = string.Empty;
     private string _lozinka = string.Empty;
     private string _potvrda = string.Empty;
+    private string _rola    = "2"; // Administrator — default; "Vlasnik" (1) se ne nudi ovde
     private bool   _aktivan = true;
     private bool   _ucitava;
     private string? _greska;
@@ -127,12 +135,20 @@
         _email   = string.Empty;
         _lozinka = string.Empty;
         _potvrda = string.Empty;
+        _rola    = "2";
         _greska  = null;
     }
 
     private async Task Registruj()
     {
         _greska = null;
+
+        // Server-side provera — skrivanje dugmeta u VozacDialog-u NIJE zaštita.
+        if (!await TenantService.JeVlasnikTrenutneFirme())
+        {
+            _greska = "Nemate ovlašćenje za ovu radnju.";
+            return;
+        }
 
         if (string.IsNullOrWhiteSpace(_ime))
         {
@@ -163,12 +179,20 @@
 
         try
         {
-            var emailPostoji = await MasterDb.WebKorisnici
-                .AnyAsync(k => k.Email == _email);
+            var email = _email.Trim().ToLowerInvariant();
+            var postojeciKorisnik = await MasterDb.WebKorisnici.AsNoTracking()
+                .FirstOrDefaultAsync(k => k.Email == email);
 
-            if (emailPostoji)
+            if (postojeciKorisnik is not null)
             {
-                _greska = "Email već postoji u sistemu.";
+                // Specifičnija poruka kad je duplikat baš u OVOJ firmi — tada je ispravna
+                // radnja "Upravljaj pristupom" (VozacDialog), ne nova registracija.
+                var vecClanFirme = await MasterDb.WebClanstva.AsNoTracking()
+                    .AnyAsync(c => c.IdKorisnika == postojeciKorisnik.IdKorisnika && c.IdWebLicence == TenantService.GetIdFirme());
+
+                _greska = vecClanFirme
+                    ? "Taj korisnik već postoji u ovoj firmi."
+                    : "Email već postoji u sistemu.";
                 return;
             }
 
@@ -186,8 +210,6 @@
 
             var korisnik = new WebKorisnik
             {
-                IdLicence      = TenantService.GetIdLicence(),
-                IdZaposlenog   = VozacId,
                 Ime            = _ime.Trim(),
                 Email          = _email.Trim().ToLower(),
                 LozinkaHash    = hash,
@@ -197,8 +219,30 @@
                 ZadnjaPrijava  = null
             };
 
+            // Korisnik + članstvo u istoj transakciji (v214 — pripadnost firmi ide isključivo
+            // preko tbl_web_clanstvo, ne preko WebKorisnik.IdLicence).
+            await using var tx = await MasterDb.Database.BeginTransactionAsync();
+
             MasterDb.WebKorisnici.Add(korisnik);
             await MasterDb.SaveChangesAsync();
+
+            var idWebRole = int.TryParse(_rola, out var r) && (r == 2 || r == 3) ? r : 2;
+
+            var clanstvo = new WebClanstvo
+            {
+                IdKorisnika    = korisnik.IdKorisnika,
+                IdWebLicence   = TenantService.GetIdFirme(),
+                IdWebRole      = idWebRole,
+                JeVlasnik      = false,
+                IdZaposlenog   = VozacId,
+                Aktivan        = true,
+                DatumDodavanja = DateTime.Now,
+                DodaoKorisnik  = TenantService.GetIdKorisnika()
+            };
+            MasterDb.WebClanstva.Add(clanstvo);
+            await MasterDb.SaveChangesAsync();
+
+            await tx.CommitAsync();
 
             Snackbar.Add($"Korisnik {_ime} uspešno registrovan!", Severity.Success);
             MudDialog.Close(DialogResult.Ok(true));

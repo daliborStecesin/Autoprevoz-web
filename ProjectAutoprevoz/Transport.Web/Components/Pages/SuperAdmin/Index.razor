@@ -34,92 +34,187 @@
 
 <MudGrid Spacing="3">
 
-    @* ── LEVO — Licence ──────────────────────────────────────────────── *@
+    @* ── LEVO — Licence (dva taba) ───────────────────────────────────── *@
     <MudItem xs="12" md="6">
         <MudPaper Elevation="1" Class="pa-3">
-            <div class="d-flex align-center justify-space-between mb-2">
-                <MudText Typo="Typo.subtitle1" Style="font-weight:600; color:#2D3E50;">Licence</MudText>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_licencePrikazane.Count prikazano</MudText>
-            </div>
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
 
-            <div class="mb-2">
-                <NativniInput TValue="string" Label="Pretraga (naziv ili PIB)" Value="@_licencaPretraga"
-                              ValueChanged="@(v => { _licencaPretraga = v ?? string.Empty; AzurirajLicence(); })" />
-            </div>
+                @* ── TAB — Web licence (tbl_web_licence) ── *@
+                <MudTabPanel Text="Web licence">
+                    <div class="d-flex align-center justify-space-between mb-2 mt-2">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_webLicencePrikazane.Count prikazano</MudText>
+                    </div>
 
-            <div class="d-flex align-center mb-2" style="gap:16px;">
-                <MudCheckBox T="bool" Value="_samoWebAktivne" Dense="true" Color="Color.Primary"
-                             Label="Samo web aktivne"
-                             ValueChanged="@((bool v) => { _samoWebAktivne = v; AzurirajLicence(); })" />
-                <MudCheckBox T="bool" Value="_samoVazece" Dense="true" Color="Color.Primary"
-                             Label="Samo važeće"
-                             ValueChanged="@((bool v) => { _samoVazece = v; AzurirajLicence(); })" />
-            </div>
+                    <div class="mb-2">
+                        <NativniInput TValue="string" Label="Pretraga (naziv ili PIB)" Value="@_webLicencaPretraga"
+                                      ValueChanged="@(v => { _webLicencaPretraga = v ?? string.Empty; AzurirajWebLicence(); })" />
+                    </div>
 
-            @if (_licencePrikazane.Count == 0)
-            {
-                <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
-                    Nema rezultata.
-                </MudText>
-            }
-            else
-            {
-                <MudTable Items="_licencePrikazane" T="Licenca"
-                          Dense="true" Hover="true" FixedHeader="true" Height="60vh"
-                          Class="ds-licence-table" Style="overflow-x:hidden;"
-                          RowClick="OnLicencaRowClick"
-                          RowStyleFunc="@((l, _) => l.IdLicence == _izabranaLicencaId ? "background:#F3E5F5;" : "")">
-                    <HeaderContent>
-                        <MudTh Style="width:34%; font-size:0.75rem;">Naziv</MudTh>
-                        <MudTh Style="width:16%; font-size:0.75rem;">PIB</MudTh>
-                        <MudTh Style="width:15%; font-size:0.75rem;">Datum licence</MudTh>
-                        <MudTh Style="width:10%; font-size:0.75rem;">Web</MudTh>
-                        <MudTh Style="width:10%; font-size:0.75rem;">Kor.</MudTh>
-                        <MudTh Style="width:15%; font-size:0.75rem;"></MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Naziv">
-                            <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:0.8rem;"
-                                  title="@context.Naziv">@context.Naziv</span>
-                        </MudTd>
-                        <MudTd DataLabel="PIB">@context.PIB</MudTd>
-                        <MudTd DataLabel="Datum licence">
-                            @if (context.DatumLicence.HasValue)
-                            {
-                                var istekla = context.DatumLicence.Value < DateOnly.FromDateTime(DateTime.Today);
-                                <span style="@(istekla ? "color:#c62828;" : "")">
-                                    @context.DatumLicence.Value.ToString("dd.MM.yy")
-                                </span>
-                            }
-                        </MudTd>
-                        <MudTd DataLabel="Web">
-                            <MudChip T="string" Size="Size.Small" Color="@(context.WebAktivan == 1 ? Color.Success : Color.Default)">
-                                @(context.WebAktivan == 1 ? "DA" : "NE")
-                            </MudChip>
-                        </MudTd>
-                        <MudTd DataLabel="Kor.">@_brojKorisnikaPoLicenci.GetValueOrDefault(context.IdLicence, 0)</MudTd>
-                        <MudTd Style="text-align:center; white-space:nowrap;">
-                            <span @onclick="@(() => { })" @onclick:stopPropagation="true">
-                                <MudTooltip Text="Izmeni">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                   Size="Size.Small"
-                                                   Color="Color.Default"
-                                                   OnClick="@(() => IzmeniLicencu(context))" />
-                                </MudTooltip>
-                                <MudTooltip Text="Uđi u firmu">
-                                    <span>
-                                        <MudIconButton Icon="@Icons.Material.Filled.Login"
-                                                       Size="Size.Small"
-                                                       Color="Color.Primary"
-                                                       Disabled="@(string.IsNullOrEmpty(context.ConnectionString))"
-                                                       OnClick="@(() => UdjiUFirmu(context.IdLicence))" />
+                    <div class="d-flex align-center mb-2" style="gap:16px;">
+                        <MudCheckBox T="bool" Value="_samoAktivneWeb" Dense="true" Color="Color.Primary"
+                                     Label="Samo aktivne"
+                                     ValueChanged="@((bool v) => { _samoAktivneWeb = v; AzurirajWebLicence(); })" />
+                    </div>
+
+                    @if (_webLicencePrikazane.Count == 0)
+                    {
+                        <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
+                            Nema rezultata.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudTable Items="_webLicencePrikazane" T="WebLicenca"
+                                  Dense="true" Hover="true" FixedHeader="true" Height="55vh"
+                                  Class="ds-licence-table" Style="overflow-x:hidden;"
+                                  OnRowClick="OnWebLicencaRowClick"
+                                  RowStyleFunc="@((l, _) => l.IdWebLicence == _izabranaWebLicencaId ? "background:#F3E5F5;" : "")">
+                            <HeaderContent>
+                                <MudTh Style="width:18%; font-size:0.75rem;">Naziv</MudTh>
+                                <MudTh Style="width:10%; font-size:0.75rem;">PIB</MudTh>
+                                <MudTh Style="width:9%; font-size:0.75rem;">Zemlja</MudTh>
+                                <MudTh Style="width:10%; font-size:0.75rem;">Program</MudTh>
+                                <MudTh Style="width:19%; font-size:0.75rem;">Moduli</MudTh>
+                                <MudTh Style="width:10%; font-size:0.75rem;">Licenca do</MudTh>
+                                <MudTh Style="width:8%; font-size:0.75rem;">Kor.</MudTh>
+                                <MudTh Style="width:8%; font-size:0.75rem;">Aktivna</MudTh>
+                                <MudTh Style="width:8%; font-size:0.75rem;"></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Naziv">
+                                    <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:0.8rem;"
+                                          title="@context.Naziv">@context.Naziv</span>
+                                </MudTd>
+                                <MudTd DataLabel="PIB" Style="font-size:0.8rem;">@context.Pib</MudTd>
+                                <MudTd DataLabel="Zemlja" Style="font-size:0.8rem;">@context.KodDrzave</MudTd>
+                                <MudTd DataLabel="Program" Style="font-size:0.8rem;">@context.TipPrograma</MudTd>
+                                <MudTd DataLabel="Moduli">
+                                    <div style="display:flex; gap:2px; flex-wrap:wrap;">
+                                        @if (context.ModulTure)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Style="font-size:0.65rem;">TURE</MudChip>
+                                        }
+                                        @if (context.ModulRadniNalozi)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Style="font-size:0.65rem;">RADNI NALOZI</MudChip>
+                                        }
+                                        @if (context.ModulLager)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Style="font-size:0.65rem;">LAGER</MudChip>
+                                        }
+                                    </div>
+                                </MudTd>
+                                <MudTd DataLabel="Licenca do">
+                                    @if (context.DatumDo.HasValue)
+                                    {
+                                        var istekla = context.DatumDo.Value.Date < DateTime.Today;
+                                        <span style="@(istekla ? "color:#c62828;" : "")">
+                                            @context.DatumDo.Value.ToString("dd.MM.yy")
+                                        </span>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Kor.">@_brojClanovaPoFirmi.GetValueOrDefault(context.IdWebLicence, 0)</MudTd>
+                                <MudTd DataLabel="Aktivna">
+                                    <MudChip T="string" Size="Size.Small" Color="@(context.Aktivna ? Color.Success : Color.Default)">
+                                        @(context.Aktivna ? "DA" : "NE")
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd Style="text-align:center; white-space:nowrap;">
+                                    <span @onclick="@(() => { })" @onclick:stopPropagation="true">
+                                        <MudTooltip Text="Izmeni">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                           Size="Size.Small"
+                                                           Color="Color.Default"
+                                                           OnClick="@(() => IzmeniWebLicencu(context))" />
+                                        </MudTooltip>
+                                        <MudTooltip Text="Uđi u firmu">
+                                            <span>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Login"
+                                                               Size="Size.Small"
+                                                               Color="Color.Primary"
+                                                               Disabled="@(string.IsNullOrEmpty(context.ConnectionString))"
+                                                               OnClick="@(() => UdjiUFirmu(context.IdWebLicence))" />
+                                            </span>
+                                        </MudTooltip>
                                     </span>
-                                </MudTooltip>
-                            </span>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudTabPanel>
+
+                @* ── TAB — Desktop licence (tbl_licence) ── *@
+                <MudTabPanel Text="Desktop licence">
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2 mt-2">
+                        Desktop klijenti — nemaju web pristup.
+                    </MudAlert>
+
+                    <div class="mb-2">
+                        <NativniInput TValue="string" Label="Pretraga (naziv ili PIB)" Value="@_licencaPretraga"
+                                      ValueChanged="@(v => { _licencaPretraga = v ?? string.Empty; AzurirajLicence(); })" />
+                    </div>
+
+                    <div class="d-flex align-center mb-2" style="gap:16px;">
+                        <MudCheckBox T="bool" Value="_samoWebAktivne" Dense="true" Color="Color.Primary"
+                                     Label="Samo web aktivne"
+                                     ValueChanged="@((bool v) => { _samoWebAktivne = v; AzurirajLicence(); })" />
+                        <MudCheckBox T="bool" Value="_samoVazece" Dense="true" Color="Color.Primary"
+                                     Label="Samo važeće"
+                                     ValueChanged="@((bool v) => { _samoVazece = v; AzurirajLicence(); })" />
+                    </div>
+
+                    @if (_licencePrikazane.Count == 0)
+                    {
+                        <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
+                            Nema rezultata.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudTable Items="_licencePrikazane" T="Licenca"
+                                  Dense="true" Hover="true" FixedHeader="true" Height="55vh"
+                                  Class="ds-licence-table" Style="overflow-x:hidden;">
+                            <HeaderContent>
+                                <MudTh Style="width:40%; font-size:0.75rem;">Naziv</MudTh>
+                                <MudTh Style="width:18%; font-size:0.75rem;">PIB</MudTh>
+                                <MudTh Style="width:17%; font-size:0.75rem;">Datum licence</MudTh>
+                                <MudTh Style="width:13%; font-size:0.75rem;">Web</MudTh>
+                                <MudTh Style="width:12%; font-size:0.75rem;"></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Naziv">
+                                    <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:0.8rem;"
+                                          title="@context.Naziv">@context.Naziv</span>
+                                </MudTd>
+                                <MudTd DataLabel="PIB">@context.PIB</MudTd>
+                                <MudTd DataLabel="Datum licence">
+                                    @if (context.DatumLicence.HasValue)
+                                    {
+                                        var istekla = context.DatumLicence.Value < DateOnly.FromDateTime(DateTime.Today);
+                                        <span style="@(istekla ? "color:#c62828;" : "")">
+                                            @context.DatumLicence.Value.ToString("dd.MM.yy")
+                                        </span>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Web">
+                                    <MudChip T="string" Size="Size.Small" Color="@(context.WebAktivan == 1 ? Color.Success : Color.Default)">
+                                        @(context.WebAktivan == 1 ? "DA" : "NE")
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd Style="text-align:center; white-space:nowrap;">
+                                    <MudTooltip Text="Izmeni">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                       Size="Size.Small"
+                                                       Color="Color.Default"
+                                                       OnClick="@(() => IzmeniLicencu(context))" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudTabPanel>
+
+            </MudTabs>
         </MudPaper>
     </MudItem>
 
@@ -127,55 +222,126 @@
     <MudItem xs="12" md="6">
         <MudPaper Elevation="1" Class="pa-3">
             <div class="d-flex align-center justify-space-between mb-2">
-                <MudText Typo="Typo.subtitle1" Style="font-weight:600; color:#2D3E50;">Web korisnici</MudText>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_korisniciPrikazani.Count prikazano</MudText>
+                <div class="d-flex align-center" style="gap:8px; min-width:0;">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600; color:#2D3E50; white-space:nowrap;">
+                        @(_izabranaWebLicencaId is null ? "Web korisnici" : $"Korisnici — {_izabranaWebLicencaNaziv}")
+                    </MudText>
+                    @if (_izabranaWebLicencaId is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Style="margin:0;"
+                                 OnClose="@(() => PonistiIzborWebLicence())">
+                            filter aktivan
+                        </MudChip>
+                    }
+                </div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="white-space:nowrap;">
+                    @((_izabranaWebLicencaId is null ? _agregatiPrikazani.Count : _korisniciPrikazani.Count)) prikazano
+                </MudText>
             </div>
-
-            @if (_izabranaLicencaId is not null)
-            {
-                <MudChip T="string" Color="Color.Secondary" Class="mb-2"
-                         OnClose="@(() => PonistiIzborLicence())">
-                    Firma: @_izabranaLicencaNaziv
-                </MudChip>
-            }
 
             <div class="mb-2">
                 <NativniInput TValue="string" Label="Pretraga (ime ili email)" Value="@_korisnikPretraga"
                               ValueChanged="@(v => { _korisnikPretraga = v ?? string.Empty; AzurirajKorisnike(); })" />
             </div>
 
-            @if (_korisniciPrikazani.Count == 0)
+            @if (_izabranaWebLicencaId is null)
             {
-                <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
-                    Nema rezultata.
-                </MudText>
+                @if (_agregatiPrikazani.Count == 0)
+                {
+                    <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
+                        Nema rezultata.
+                    </MudText>
+                }
+                else
+                {
+                    <MudTable Items="_agregatiPrikazani" T="WebKorisnikAgregat"
+                              Dense="true" Hover="true" FixedHeader="true" Height="60vh">
+                        <HeaderContent>
+                            <MudTh Style="width:15%;">Ime</MudTh>
+                            <MudTh Style="width:24%;">Email</MudTh>
+                            <MudTh Style="width:27%;">Firme</MudTh>
+                            <MudTh Style="width:9%;">Aktivan</MudTh>
+                            <MudTh Style="width:17%;">Zadnja prijava</MudTh>
+                            <MudTh Style="width:8%;"></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Ime">@context.Ime</MudTd>
+                            <MudTd DataLabel="Email" Style="font-size:0.8rem; word-break:break-all;">@context.Email</MudTd>
+                            <MudTd DataLabel="Firme">
+                                <div style="display:flex; gap:2px; flex-wrap:wrap;">
+                                    @foreach (var naziv in context.AktivneFirme.Take(2))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="font-size:0.65rem;">@naziv</MudChip>
+                                    }
+                                    @if (context.AktivneFirme.Count > 2)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="font-size:0.65rem;">
+                                            +@(context.AktivneFirme.Count - 2)
+                                        </MudChip>
+                                    }
+                                </div>
+                            </MudTd>
+                            <MudTd DataLabel="Aktivan">
+                                <MudChip T="string" Size="Size.Small" Color="@(context.Aktivan ? Color.Success : Color.Error)">
+                                    @(context.Aktivan ? "DA" : "NE")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Zadnja prijava" Style="white-space:nowrap;">@(context.ZadnjaPrijava?.ToString("dd.MM.yy HH:mm") ?? "—")</MudTd>
+                            <MudTd Style="text-align:center;">
+                                <MudTooltip Text="Izmeni">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   OnClick="@(() => IzmeniKorisnika(context.IdKorisnika))" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
             }
             else
             {
-                <MudTable Items="_korisniciPrikazani" T="WebKorisnik"
-                          Dense="true" Hover="true" FixedHeader="true" Height="60vh">
-                    <HeaderContent>
-                        <MudTh Style="width:20%;">Ime</MudTh>
-                        <MudTh Style="width:28%;">Email</MudTh>
-                        <MudTh Style="width:24%;">Firma</MudTh>
-                        <MudTh Style="width:10%;">Aktivan</MudTh>
-                        <MudTh Style="width:18%;">Zadnja prijava</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Ime">@context.Ime</MudTd>
-                        <MudTd DataLabel="Email" Style="font-size:0.8rem; word-break:break-all;">@context.Email</MudTd>
-                        <MudTd DataLabel="Firma">
-                            <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;"
-                                  title="@(context.Licenca?.Naziv ?? "—")">@(context.Licenca?.Naziv ?? "—")</span>
-                        </MudTd>
-                        <MudTd DataLabel="Aktivan">
-                            <MudChip T="string" Size="Size.Small" Color="@(context.Aktivan == 1 ? Color.Success : Color.Error)">
-                                @(context.Aktivan == 1 ? "DA" : "NE")
-                            </MudChip>
-                        </MudTd>
-                        <MudTd DataLabel="Zadnja prijava" Style="white-space:nowrap;">@(context.ZadnjaPrijava?.ToString("dd.MM.yy HH:mm") ?? "—")</MudTd>
-                    </RowTemplate>
-                </MudTable>
+                @if (_korisniciPrikazani.Count == 0)
+                {
+                    <MudText Align="Align.Center" Class="mud-text-secondary my-6" Style="display:block;">
+                        Nema rezultata.
+                    </MudText>
+                }
+                else
+                {
+                    <MudTable Items="_korisniciPrikazani" T="WebKorisnikRed"
+                              Dense="true" Hover="true" FixedHeader="true" Height="60vh">
+                        <HeaderContent>
+                            <MudTh Style="width:18%;">Ime</MudTh>
+                            <MudTh Style="width:27%;">Email</MudTh>
+                            <MudTh Style="width:16%;">Rola</MudTh>
+                            <MudTh Style="width:10%;">Vlasnik</MudTh>
+                            <MudTh Style="width:9%;">Aktivan</MudTh>
+                            <MudTh Style="width:14%;">Zadnja prijava</MudTh>
+                            <MudTh Style="width:6%;"></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Ime">@context.Ime</MudTd>
+                            <MudTd DataLabel="Email" Style="font-size:0.8rem; word-break:break-all;">@context.Email</MudTd>
+                            <MudTd DataLabel="Rola">@context.Rola</MudTd>
+                            <MudTd DataLabel="Vlasnik">
+                                <MudChip T="string" Size="Size.Small" Color="@(context.JeVlasnik ? Color.Secondary : Color.Default)">
+                                    @(context.JeVlasnik ? "DA" : "NE")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Aktivan">
+                                <MudChip T="string" Size="Size.Small" Color="@(context.Aktivan ? Color.Success : Color.Error)">
+                                    @(context.Aktivan ? "DA" : "NE")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Zadnja prijava" Style="white-space:nowrap;">@(context.ZadnjaPrijava?.ToString("dd.MM.yy HH:mm") ?? "—")</MudTd>
+                            <MudTd Style="text-align:center;">
+                                <MudTooltip Text="Izmeni">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   OnClick="@(() => IzmeniKorisnika(context.IdKorisnika))" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
             }
         </MudPaper>
     </MudItem>
@@ -186,45 +352,61 @@
     [SupplyParameterFromQuery(Name = "greska")]
     public string? Greska { get; set; }
 
-    private List<Licenca>     _sveLicence    = [];
-    private List<WebKorisnik> _sviKorisnici  = []; // već bez Privilegija==9 (superadmin)
-    private Dictionary<int, int> _brojKorisnikaPoLicenci = [];
+    // Red u listi "Web korisnici" KAD JE FILTER AKTIVAN (klik na firmu u tabu "Web
+    // licence") — jedan po ČLANSTVU (tbl_web_clanstvo) u TOJ firmi.
+    private record WebKorisnikRed(
+        int IdKorisnika,
+        string Ime,
+        string Email,
+        string NazivFirme,
+        int IdWebLicence,
+        string Rola,
+        bool JeVlasnik,
+        bool Aktivan,
+        DateTime? ZadnjaPrijava);
 
-    private List<Licenca>     _licencePrikazane   = [];
-    private List<WebKorisnik> _korisniciPrikazani = [];
+    // Red u listi "Web korisnici" BEZ FILTERA — jedan po KORISNIKU. Aktivan je GLOBALNI
+    // nalog (WebKorisnik.Aktivan), ne pojedinačno članstvo. AktivneFirme = nazivi firmi
+    // gde korisnik ima AKTIVNO članstvo (može biti prazno ako su sva ugašena).
+    private record WebKorisnikAgregat(
+        int IdKorisnika,
+        string Ime,
+        string Email,
+        List<string> AktivneFirme,
+        bool Aktivan,
+        DateTime? ZadnjaPrijava);
 
-    private string _licencaPretraga  = "";
+    // ── Desktop licence (tbl_licence) ──
+    private List<Licenca> _sveLicence      = [];
+    private List<Licenca> _licencePrikazane = [];
+    private string _licencaPretraga = "";
+    private bool   _samoWebAktivne  = true;
+    private bool   _samoVazece      = false;
+
+    // ── Web licence (tbl_web_licence) ──
+    private List<WebLicenca> _sveWebLicence      = [];
+    private List<WebLicenca> _webLicencePrikazane = [];
+    private Dictionary<int, int> _brojClanovaPoFirmi = [];
+    private string _webLicencaPretraga = "";
+    private bool   _samoAktivneWeb     = true;
+    private int?    _izabranaWebLicencaId;
+    private string? _izabranaWebLicencaNaziv;
+
+    // ── Web korisnici (tbl_web_clanstvo) ──
+    private List<WebKorisnikRed>     _sviRedoviKorisnika  = [];
+    private List<WebKorisnikRed>     _korisniciPrikazani  = [];
+    private List<WebKorisnikAgregat> _sviAgregatiKorisnika = [];
+    private List<WebKorisnikAgregat> _agregatiPrikazani    = [];
     private string _korisnikPretraga = "";
-
-    private bool _samoWebAktivne = true;
-    private bool _samoVazece     = false;
-
-    private int?    _izabranaLicencaId;
-    private string? _izabranaLicencaNaziv;
 
     protected override async Task OnInitializedAsync()
     {
         await UcitajLicence();
-
-        // Kratkotrajan, izolovan MasterDbContext preko IDbContextFactory (ne deljeni
-        // scoped) — SuperAdminLayout guard i ova stranica se inicijalizuju preklapajuće
-        // u istom Blazor circuit-u, pa bi deljena scoped instanca izazvala
-        // "A second operation was started on this context instance...".
-        await using var db = await MasterDbFactory.CreateDbContextAsync();
-
-        _sviKorisnici = await db.WebKorisnici.AsNoTracking()
-            .Include(k => k.Licenca)
-            .Where(k => k.Privilegija != 9)
-            .OrderBy(k => k.Ime)
-            .ToListAsync();
-
-        _brojKorisnikaPoLicenci = _sviKorisnici
-            .Where(k => k.IdLicence.HasValue)
-            .GroupBy(k => k.IdLicence!.Value)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        AzurirajKorisnike();
+        await UcitajWebLicence();
+        await UcitajWebKorisnike();
     }
+
+    // ── Desktop licence ──────────────────────────────────────────────
 
     private async Task UcitajLicence()
     {
@@ -261,49 +443,6 @@
         _licencePrikazane = [.. izvor];
     }
 
-    private void AzurirajKorisnike()
-    {
-        var tekst = _korisnikPretraga.Trim();
-
-        IEnumerable<WebKorisnik> izvor = _sviKorisnici;
-
-        // Filter po tekstu i filter po izabranoj licenci rade ZAJEDNO (AND).
-        if (_izabranaLicencaId is not null)
-            izvor = izvor.Where(k => k.IdLicence == _izabranaLicencaId);
-
-        if (!string.IsNullOrEmpty(tekst))
-            izvor = izvor.Where(k =>
-                (k.Ime   ?? "").Contains(tekst, StringComparison.OrdinalIgnoreCase) ||
-                (k.Email ?? "").Contains(tekst, StringComparison.OrdinalIgnoreCase));
-
-        _korisniciPrikazani = [.. izvor];
-    }
-
-    private void OnLicencaRowClick(TableRowClickEventArgs<Licenca> e)
-    {
-        if (_izabranaLicencaId == e.Item.IdLicence)
-        {
-            // Ponovni klik na isti red — poništi izbor.
-            PonistiIzborLicence();
-        }
-        else
-        {
-            _izabranaLicencaId    = e.Item.IdLicence;
-            _izabranaLicencaNaziv = e.Item.Naziv;
-            AzurirajKorisnike();
-        }
-    }
-
-    private void PonistiIzborLicence()
-    {
-        _izabranaLicencaId    = null;
-        _izabranaLicencaNaziv = null;
-        AzurirajKorisnike();
-    }
-
-    private void UdjiUFirmu(int idLicence) =>
-        Nav.NavigateTo($"/api/superadmin/udji?id={idLicence}", forceLoad: true);
-
     private async Task IzmeniLicencu(Licenca licenca)
     {
         var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
@@ -312,5 +451,173 @@
 
         if (!(await dialog.Result).Canceled)
             await UcitajLicence();
+    }
+
+    // ── Web licence ──────────────────────────────────────────────────
+
+    private async Task UcitajWebLicence()
+    {
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        _sveWebLicence = await db.WebLicence.AsNoTracking()
+            .OrderBy(l => l.Naziv)
+            .ToListAsync();
+
+        _brojClanovaPoFirmi = await db.WebClanstva.AsNoTracking()
+            .Where(c => c.Aktivan)
+            .GroupBy(c => c.IdWebLicence)
+            .Select(g => new { g.Key, Broj = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Broj);
+
+        AzurirajWebLicence();
+    }
+
+    private void AzurirajWebLicence()
+    {
+        var tekst = _webLicencaPretraga.Trim();
+
+        IEnumerable<WebLicenca> izvor = _sveWebLicence;
+
+        if (_samoAktivneWeb)
+            izvor = izvor.Where(l => l.Aktivna);
+
+        if (!string.IsNullOrEmpty(tekst))
+            izvor = izvor.Where(l =>
+                (l.Naziv ?? "").Contains(tekst, StringComparison.OrdinalIgnoreCase) ||
+                (l.Pib   ?? "").Contains(tekst, StringComparison.OrdinalIgnoreCase));
+
+        _webLicencePrikazane = [.. izvor];
+    }
+
+    private void OnWebLicencaRowClick(TableRowClickEventArgs<WebLicenca> e)
+    {
+        if (_izabranaWebLicencaId == e.Item.IdWebLicence)
+        {
+            // Ponovni klik na isti red — poništi izbor.
+            PonistiIzborWebLicence();
+        }
+        else
+        {
+            _izabranaWebLicencaId    = e.Item.IdWebLicence;
+            _izabranaWebLicencaNaziv = e.Item.Naziv;
+            AzurirajKorisnike();
+        }
+    }
+
+    private void PonistiIzborWebLicence()
+    {
+        _izabranaWebLicencaId    = null;
+        _izabranaWebLicencaNaziv = null;
+        AzurirajKorisnike();
+    }
+
+    private void UdjiUFirmu(int idWebLicence) =>
+        Nav.NavigateTo($"/api/superadmin/udji?id={idWebLicence}", forceLoad: true);
+
+    private async Task IzmeniWebLicencu(WebLicenca licenca)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<WebLicencaDialog> { { x => x.IdWebLicence, licenca.IdWebLicence } };
+        var dialog = await Dialog.ShowAsync<WebLicencaDialog>($"Web licenca — {licenca.Naziv}", prms, opts);
+
+        if (!(await dialog.Result).Canceled)
+        {
+            await UcitajWebLicence();
+            await UcitajWebKorisnike();
+        }
+    }
+
+    // ── Web korisnici (tbl_web_clanstvo) ─────────────────────────────
+
+    private async Task UcitajWebKorisnike()
+    {
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        var clanstva = await db.WebClanstva.AsNoTracking()
+            .Include(c => c.Licenca)
+            .Include(c => c.Rola)
+            .ToListAsync();
+
+        var idsKorisnika = clanstva.Select(c => c.IdKorisnika).Distinct().ToList();
+        var korisnici = await db.WebKorisnici.AsNoTracking()
+            .Where(k => idsKorisnika.Contains(k.IdKorisnika) && k.Privilegija != 9)
+            .ToDictionaryAsync(k => k.IdKorisnika);
+
+        _sviRedoviKorisnika = clanstva
+            .Where(c => korisnici.ContainsKey(c.IdKorisnika))
+            .Select(c =>
+            {
+                var k = korisnici[c.IdKorisnika];
+                return new WebKorisnikRed(
+                    c.IdKorisnika,
+                    k.Ime ?? "",
+                    k.Email ?? "",
+                    c.Licenca?.Naziv ?? "—",
+                    c.IdWebLicence,
+                    c.Rola?.Naziv ?? "—",
+                    c.JeVlasnik,
+                    c.Aktivan,
+                    k.ZadnjaPrijava);
+            })
+            .OrderBy(r => r.Ime)
+            .ToList();
+
+        // Agregat po korisniku (za prikaz BEZ filtera) — Aktivan je GLOBALNI nalog,
+        // AktivneFirme su nazivi firmi gde je TO KONKRETNO članstvo aktivno.
+        _sviAgregatiKorisnika = korisnici.Values
+            .Select(k => new WebKorisnikAgregat(
+                k.IdKorisnika,
+                k.Ime ?? "",
+                k.Email ?? "",
+                clanstva.Where(c => c.IdKorisnika == k.IdKorisnika && c.Aktivan)
+                        .Select(c => c.Licenca?.Naziv ?? "—")
+                        .ToList(),
+                k.Aktivan == 1,
+                k.ZadnjaPrijava))
+            .OrderBy(a => a.Ime)
+            .ToList();
+
+        AzurirajKorisnike();
+    }
+
+    private void AzurirajKorisnike()
+    {
+        var tekst = _korisnikPretraga.Trim();
+
+        if (_izabranaWebLicencaId is not null)
+        {
+            IEnumerable<WebKorisnikRed> izvor = _sviRedoviKorisnika.Where(r => r.IdWebLicence == _izabranaWebLicencaId);
+
+            if (!string.IsNullOrEmpty(tekst))
+                izvor = izvor.Where(r =>
+                    r.Ime.Contains(tekst, StringComparison.OrdinalIgnoreCase) ||
+                    r.Email.Contains(tekst, StringComparison.OrdinalIgnoreCase));
+
+            _korisniciPrikazani = [.. izvor];
+        }
+        else
+        {
+            IEnumerable<WebKorisnikAgregat> izvor = _sviAgregatiKorisnika;
+
+            if (!string.IsNullOrEmpty(tekst))
+                izvor = izvor.Where(a =>
+                    a.Ime.Contains(tekst, StringComparison.OrdinalIgnoreCase) ||
+                    a.Email.Contains(tekst, StringComparison.OrdinalIgnoreCase));
+
+            _agregatiPrikazani = [.. izvor];
+        }
+    }
+
+    private async Task IzmeniKorisnika(int idKorisnika)
+    {
+        var opts = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var prms = new DialogParameters<WebKorisnikDialog> { { x => x.IdKorisnika, idKorisnika } };
+        var dialog = await Dialog.ShowAsync<WebKorisnikDialog>("Web korisnik", prms, opts);
+
+        if (!(await dialog.Result).Canceled)
+        {
+            await UcitajWebLicence();
+            await UcitajWebKorisnike();
+        }
     }
 }

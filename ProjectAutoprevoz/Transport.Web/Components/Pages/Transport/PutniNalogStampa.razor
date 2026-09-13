@@ -7,6 +7,7 @@
 @using Transport.Infrastructure.Data
 
 @inject ITenantService     TenantService
+@inject IModulService      ModulService
 @inject TransportDbContext Db
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
@@ -105,6 +106,8 @@
         .wrap { padding: 8mm 10mm; }
     }
 </style>
+
+<ZahtevaModul Kod="TURE">
 
 @if (_ucitava)
 {
@@ -412,6 +415,8 @@ else
 
 }
 
+</ZahtevaModul>
+
 @code {
     [Parameter] public int Id { get; set; }
 
@@ -449,7 +454,7 @@ else
         catch { }
         finally { _ucitava = false; StateHasChanged(); }
 
-        if (_tura is not null)
+        if (_tura is not null && await ModulService.JeDozvoljen("TURE"))
         {
             await Task.Delay(400);
             await JS.InvokeVoidAsync("window.print");

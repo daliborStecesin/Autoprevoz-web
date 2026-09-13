@@ -21,6 +21,8 @@
 
 <PageTitle>Tura @(_tura?.BrNaloga ?? "...") — Autoprevoz</PageTitle>
 
+<ZahtevaModul Kod="TURE">
+
 <div class="d-flex align-center gap-2 mb-3">
     <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
                    Size="Size.Small"
@@ -1164,6 +1166,8 @@ else if (_tura is not null)
 
 </MudGrid>
 }
+
+</ZahtevaModul>
 
 @code {
     [Parameter] public int Id { get; set; }

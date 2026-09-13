@@ -1,0 +1,483 @@
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Domain.Helpers
+@using Transport.Infrastructure.Data
+
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
+@inject ITenantService                     TenantService
+@inject ISnackbar                          Snackbar
+@inject IJSRuntime                         JS
+
+<MudDialog Style="min-width:640px;">
+    <DialogContent>
+        @if (_ucitava)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_korisnik is null)
+        {
+            <MudAlert Severity="Severity.Error">@(_greska ?? "Korisnik nije pronađen.")</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_ime" Label="Ime" Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" InputType="InputType.Email" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox T="bool" @bind-Value="_aktivan" Label="Nalog aktivan" Color="Color.Success" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                        Gasi pristup u SVIM firmama.
+                    </MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <div class="d-flex align-center justify-space-between">
+                        <MudText Typo="Typo.subtitle2">Lozinka</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.LockReset"
+                                   OnClick="ResetujLozinku" Disabled="_resetUcitava">
+                            @(_resetUcitava ? "Resetujem..." : "Resetuj lozinku")
+                        </MudButton>
+                    </div>
+                    @if (_generisanaLozinka is not null)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                            <div class="d-flex align-center justify-space-between" style="gap:8px;">
+                                <span style="font-family:monospace; font-weight:600;">@_generisanaLozinka</span>
+                                <MudTooltip Text="Kopiraj">
+                                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                                   OnClick="@(() => KopirajAsync(_generisanaLozinka))" />
+                                </MudTooltip>
+                            </div>
+                            <MudText Typo="Typo.caption" Class="d-block mt-1">
+                                Zapišite lozinku — neće biti ponovo prikazana.
+                            </MudText>
+                        </MudAlert>
+                    }
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Članstva</MudText>
+
+                    @if (_clanstva.Count == 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Nema članstava.</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true" Style="overflow-x:auto;">
+                            <thead>
+                                <tr>
+                                    <th>Firma</th>
+                                    <th style="min-width:150px;">Rola</th>
+                                    <th>Vlasnik</th>
+                                    <th>Aktivno</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var red in _clanstva)
+                                {
+                                    <tr>
+                                        <td>@red.NazivFirme</td>
+                                        <td style="min-width:150px;">
+                                            <NativniSelect Value="@red.IdWebRole.ToString()"
+                                                           ValueChanged="@(v => PromeniRoluAsync(red, v))"
+                                                           Disabled="@red.JeVlasnik">
+                                                @if (red.JeVlasnik)
+                                                {
+                                                    <option value="1">Vlasnik</option>
+                                                }
+                                                <option value="2">Administrator</option>
+                                                <option value="3">Operater</option>
+                                            </NativniSelect>
+                                        </td>
+                                        <td>
+                                            <MudChip T="string" Size="Size.Small" Color="@(red.JeVlasnik ? Color.Secondary : Color.Default)">
+                                                @(red.JeVlasnik ? "DA" : "NE")
+                                            </MudChip>
+                                        </td>
+                                        <td>
+                                            <MudChip T="string" Size="Size.Small" Color="@(red.Aktivan ? Color.Success : Color.Error)">
+                                                @(red.Aktivan ? "DA" : "NE")
+                                            </MudChip>
+                                        </td>
+                                        <td style="white-space:nowrap;">
+                                            <MudTooltip Text="@(red.Aktivan ? "Ugasi" : "Vrati")">
+                                                <span>
+                                                    <MudIconButton
+                                                        Icon="@(red.Aktivan ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)"
+                                                        Size="Size.Small"
+                                                        Color="@(red.Aktivan ? Color.Error : Color.Success)"
+                                                        Disabled="@(red.Aktivan && red.JeVlasnik)"
+                                                        OnClick="@(() => PromeniStatusClanstvaAsync(red))" />
+                                                </span>
+                                            </MudTooltip>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">+ Dodaj u firmu</MudText>
+
+                    @if (_sveFirme.Count == 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            Korisnik je već član svih postojećih firmi.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-end" style="gap:8px; flex-wrap:wrap;">
+                            <div style="flex:2; min-width:200px;">
+                                <NativniSelect Label="Firma" Value="@(_novaFirmaId?.ToString() ?? string.Empty)"
+                                               ValueChanged="@(v => _novaFirmaId = int.TryParse(v, out var id) ? id : null)">
+                                    @foreach (var f in _sveFirme)
+                                    {
+                                        <option value="@f.IdWebLicence">@f.Naziv</option>
+                                    }
+                                </NativniSelect>
+                            </div>
+                            <div style="flex:1; min-width:140px;">
+                                <NativniSelect Label="Rola" Value="@_novaFirmaRola"
+                                               ValueChanged="@(v => _novaFirmaRola = v ?? "2")">
+                                    <option value="2">Administrator</option>
+                                    <option value="3">Operater</option>
+                                </NativniSelect>
+                            </div>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="DodajUFirmuAsync" Disabled="_dodajUcitava"
+                                       Style="height:40px;">
+                                Dodaj
+                            </MudButton>
+                        </div>
+                    }
+                </MudItem>
+
+                @if (_greska is not null)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SacuvajAsync" Disabled="@(_cuva || _korisnik is null)">
+            @(_cuva ? "Čuvanje..." : "Sačuvaj")
+        </MudButton>
+        @* Ne "Odustani" — sve akcije nad člasnstvima/lozinkom su već upisane. Zatvori
+           uvek prijavljuje "izmenjeno" da panel iza ovog dijaloga sigurno osveži listu. *@
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="@(() => MudDialog.Close(DialogResult.Ok(true)))">
+            Zatvori
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int IdKorisnika { get; set; }
+
+    private record ClanstvoRed(int IdClanstva, int IdWebLicence, string NazivFirme, int IdWebRole, bool JeVlasnik, bool Aktivan);
+
+    private WebKorisnik? _korisnik;
+    private string _ime   = string.Empty;
+    private string _email = string.Empty;
+    private bool   _aktivan;
+
+    private List<ClanstvoRed> _clanstva = [];
+    private List<WebLicenca>  _sveFirme = [];
+
+    private int?   _novaFirmaId;
+    private string _novaFirmaRola = "2";
+    private bool   _dodajUcitava;
+
+    private string? _generisanaLozinka;
+    private bool    _resetUcitava;
+
+    private bool    _ucitava = true;
+    private bool    _cuva;
+    private string? _greska;
+
+    protected override async Task OnInitializedAsync() => await UcitajAsync();
+
+    private async Task UcitajAsync()
+    {
+        _ucitava = true;
+
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        _korisnik = await db.WebKorisnici.AsNoTracking().FirstOrDefaultAsync(k => k.IdKorisnika == IdKorisnika);
+        if (_korisnik is null)
+        {
+            _greska  = "Korisnik nije pronađen.";
+            _ucitava = false;
+            return;
+        }
+
+        _ime     = _korisnik.Ime ?? string.Empty;
+        _email   = _korisnik.Email ?? string.Empty;
+        _aktivan = _korisnik.Aktivan == 1;
+
+        var clanstva = await db.WebClanstva.AsNoTracking()
+            .Include(c => c.Licenca)
+            .Where(c => c.IdKorisnika == IdKorisnika)
+            .ToListAsync();
+
+        _clanstva = clanstva
+            .OrderBy(c => c.Licenca?.Naziv)
+            .Select(c => new ClanstvoRed(c.IdClanstva, c.IdWebLicence, c.Licenca?.Naziv ?? "—", c.IdWebRole, c.JeVlasnik, c.Aktivan))
+            .ToList();
+
+        var idsPostojecih = clanstva.Select(c => c.IdWebLicence).ToHashSet();
+        _sveFirme = await db.WebLicence.AsNoTracking()
+            .Where(l => !idsPostojecih.Contains(l.IdWebLicence))
+            .OrderBy(l => l.Naziv)
+            .ToListAsync();
+
+        _novaFirmaId = _sveFirme.FirstOrDefault()?.IdWebLicence;
+
+        _ucitava = false;
+    }
+
+    // Ne veruj kolačiću ap_priv — sveža provera iz master baze, isti obrazac kao
+    // SuperAdminLayout guard. Panel je već iza tog guarda, ovo je dodatna brana
+    // direktno u akciji (skrivanje dugmeta nije zaštita).
+    private static async Task<bool> JeSuperAdminAsync(MasterDbContext db, int idKorisnika)
+    {
+        var privilegija = await db.WebKorisnici.AsNoTracking()
+            .Where(k => k.IdKorisnika == idKorisnika)
+            .Select(k => k.Privilegija)
+            .FirstOrDefaultAsync();
+        return privilegija >= 9;
+    }
+
+    private async Task SacuvajAsync()
+    {
+        _greska = null;
+
+        if (string.IsNullOrWhiteSpace(_ime)) { _greska = "Ime je obavezno."; return; }
+
+        var email = (_email ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@') || !email.Contains('.'))
+        {
+            _greska = "Unesite ispravan email.";
+            return;
+        }
+
+        _cuva = true;
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+            if (!await JeSuperAdminAsync(db, TenantService.GetIdKorisnika()))
+            {
+                _greska = "Nemate ovlašćenje za ovu radnju.";
+                return;
+            }
+
+            var postojiDrugi = await db.WebKorisnici.AnyAsync(k => k.Email == email && k.IdKorisnika != IdKorisnika);
+            if (postojiDrugi)
+            {
+                _greska = "Email je već u upotrebi kod drugog korisnika.";
+                return;
+            }
+
+            var korisnik = await db.WebKorisnici.FirstOrDefaultAsync(k => k.IdKorisnika == IdKorisnika);
+            if (korisnik is null) { _greska = "Korisnik nije pronađen."; return; }
+
+            korisnik.Ime     = _ime.Trim();
+            korisnik.Email   = email;
+            korisnik.Aktivan = _aktivan ? 1 : 0;
+            await db.SaveChangesAsync();
+
+            Snackbar.Add("Sačuvano.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _cuva = false;
+        }
+    }
+
+    private async Task ResetujLozinku()
+    {
+        _greska = null;
+        _resetUcitava = true;
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+            if (!await JeSuperAdminAsync(db, TenantService.GetIdKorisnika()))
+            {
+                _greska = "Nemate ovlašćenje za ovu radnju.";
+                return;
+            }
+
+            var korisnik = await db.WebKorisnici.FirstOrDefaultAsync(k => k.IdKorisnika == IdKorisnika);
+            if (korisnik is null) { _greska = "Korisnik nije pronađen."; return; }
+
+            var novaLozinka = LozinkaHelper.Generisi(korisnik.Ime);
+            var hasher = new PasswordHasher<object>();
+            korisnik.LozinkaHash = hasher.HashPassword(new object(), novaLozinka);
+            await db.SaveChangesAsync();
+
+            _generisanaLozinka = novaLozinka;
+            Snackbar.Add("Lozinka je resetovana.", Severity.Success);
+        }
+        finally
+        {
+            _resetUcitava = false;
+        }
+    }
+
+    // Rola vlasničkog članstva se ovde nikad ne menja (polje je i u UI Disabled) —
+    // isto pravilo kao u WebKorisnikUpravljanjeDialog (aplikacija).
+    private async Task PromeniRoluAsync(ClanstvoRed red, string? novaVrednost)
+    {
+        if (red.JeVlasnik) return;
+        if (!int.TryParse(novaVrednost, out var novaRola) || (novaRola != 2 && novaRola != 3)) return;
+
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        if (!await JeSuperAdminAsync(db, TenantService.GetIdKorisnika()))
+        {
+            Snackbar.Add("Nemate ovlašćenje za ovu radnju.", Severity.Error);
+            return;
+        }
+
+        var clanstvo = await db.WebClanstva.FirstOrDefaultAsync(c => c.IdClanstva == red.IdClanstva);
+        if (clanstvo is null || clanstvo.JeVlasnik) return;
+
+        clanstvo.IdWebRole = novaRola;
+        await db.SaveChangesAsync();
+
+        var idx = _clanstva.FindIndex(c => c.IdClanstva == red.IdClanstva);
+        if (idx >= 0) _clanstva[idx] = red with { IdWebRole = novaRola };
+
+        Snackbar.Add("Rola promenjena.", Severity.Success);
+    }
+
+    // Vlasničko članstvo se NIKAD ne gasi ovim putem (bez izuzetka) — firma mora uvek
+    // imati bar jedno aktivno članstvo sa JeVlasnik=1 (isto pravilo kao u aplikaciji,
+    // vidi VozacDialog/WebKorisnikUpravljanjeDialog). Pošto se to nikad ne dozvoljava,
+    // invarijanta je automatski očuvana bez posebne provere "da li je poslednji".
+    private async Task PromeniStatusClanstvaAsync(ClanstvoRed red)
+    {
+        if (red.Aktivan && red.JeVlasnik)
+        {
+            Snackbar.Add("Vlasničko članstvo se ne može ugasiti.", Severity.Error);
+            return;
+        }
+
+        await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+        if (!await JeSuperAdminAsync(db, TenantService.GetIdKorisnika()))
+        {
+            Snackbar.Add("Nemate ovlašćenje za ovu radnju.", Severity.Error);
+            return;
+        }
+
+        var clanstvo = await db.WebClanstva.FirstOrDefaultAsync(c => c.IdClanstva == red.IdClanstva);
+        if (clanstvo is null) return;
+
+        if (clanstvo.Aktivan && clanstvo.JeVlasnik)
+        {
+            Snackbar.Add("Vlasničko članstvo se ne može ugasiti.", Severity.Error);
+            return;
+        }
+
+        clanstvo.Aktivan = !clanstvo.Aktivan;
+        await db.SaveChangesAsync();
+
+        var idx = _clanstva.FindIndex(c => c.IdClanstva == red.IdClanstva);
+        if (idx >= 0) _clanstva[idx] = red with { Aktivan = clanstvo.Aktivan };
+
+        Snackbar.Add(clanstvo.Aktivan ? "Članstvo aktivirano." : "Članstvo ugašeno.", Severity.Success);
+    }
+
+    // "Vlasnik" nije ponuđena rola ovde — dodeljuje se samo pri otvaranju firme
+    // (ProvisioningService), isto pravilo kao WebKorisnikRegistracijaDialog.
+    private async Task DodajUFirmuAsync()
+    {
+        _greska = null;
+        if (_novaFirmaId is null) { _greska = "Izaberite firmu."; return; }
+
+        _dodajUcitava = true;
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+
+            if (!await JeSuperAdminAsync(db, TenantService.GetIdKorisnika()))
+            {
+                _greska = "Nemate ovlašćenje za ovu radnju.";
+                return;
+            }
+
+            var vecPostoji = await db.WebClanstva.AnyAsync(c => c.IdKorisnika == IdKorisnika && c.IdWebLicence == _novaFirmaId);
+            if (vecPostoji) { _greska = "Korisnik je već član te firme."; return; }
+
+            var idWebRole = (_novaFirmaRola == "3") ? 3 : 2;
+
+            db.WebClanstva.Add(new WebClanstvo
+            {
+                IdKorisnika    = IdKorisnika,
+                IdWebLicence   = _novaFirmaId.Value,
+                IdWebRole      = idWebRole,
+                JeVlasnik      = false,
+                Aktivan        = true,
+                DatumDodavanja = DateTime.Now,
+                DodaoKorisnik  = TenantService.GetIdKorisnika()
+            });
+            await db.SaveChangesAsync();
+
+            Snackbar.Add("Korisnik je dodat u firmu.", Severity.Success);
+            await UcitajAsync();
+        }
+        finally
+        {
+            _dodajUcitava = false;
+        }
+    }
+
+    private async Task KopirajAsync(string? tekst)
+    {
+        if (string.IsNullOrEmpty(tekst)) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", tekst);
+            Snackbar.Add("Kopirano.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Kopiranje nije uspelo.", Severity.Warning);
+        }
+    }
+}

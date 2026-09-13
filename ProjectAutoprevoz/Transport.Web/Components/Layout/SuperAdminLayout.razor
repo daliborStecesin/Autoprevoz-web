@@ -15,6 +15,8 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+@if (_provereno)
+{
 <MudLayout>
     <MudAppBar Elevation="0" Style="background:#7B1FA2; border-bottom:1px solid rgba(255,255,255,0.08);">
         <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Class="mr-2" />
@@ -32,11 +34,11 @@
                    Color="Color.Inherit"
                    StartIcon="@Icons.Material.Filled.Business"
                    Style="color:#F3E5F5;"
-                   Disabled="@(_korisnik?.IdLicence is null)"
-                   OnClick="@(() => Nav.NavigateTo($"/api/superadmin/udji?id={_korisnik!.IdLicence}", forceLoad: true))">
+                   Disabled="@(_maticnaFirmaId is null)"
+                   OnClick="@(() => Nav.NavigateTo($"/api/superadmin/mojafirma?id={_maticnaFirmaId}", forceLoad: true))">
             Nastavi na svoju aplikaciju
         </MudButton>
-        @if (_korisnik?.IdLicence is null)
+        @if (_maticnaFirmaId is null)
         {
             <MudText Typo="Typo.caption" Class="mx-2" Style="color:rgba(243,229,245,0.85);">
                 Nije podešena matična licenca
@@ -59,21 +61,32 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+}
 
 @code {
     private WebKorisnik? _korisnik;
+    private int? _maticnaFirmaId;
+    private bool _provereno;
 
     // Guard NE veruje cookie-ju ap_priv — pri svakom otvaranju panela proverava
     // stvarno stanje u master bazi (WebKorisnik.Aktivan/Privilegija), pošto je
     // ap_priv samo klijentski kolačić koji korisnik teorijski može izmeniti.
     // Bez TransportDbContext-a bilo gde ovde — superadmin nema tenant bazu.
     //
+    // Navigacija i upit ka bazi idu OVDE (posle prvog rendera, ne tokom prerendera) —
+    // OnInitializedAsync se izvršava i tokom prerenderovanja, gde NavigateTo baca
+    // NavigationException i obara render cele stranice. Dok se privilegija ne potvrdi,
+    // layout ne prikazuje ništa (_provereno == false) — bolje prazan ekran nego prikazan
+    // panel pre potvrde.
+    //
     // Kratkotrajan, izolovan MasterDbContext preko IDbContextFactory (ne deljeni
     // scoped) — layout i /ds stranica se inicijalizuju preklapajuće u istom
     // Blazor circuit-u, pa bi deljena scoped instanca izazvala
     // "A second operation was started on this context instance...".
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender) return;
+
         var idKorisnika = TenantService.GetIdKorisnika();
         if (idKorisnika <= 0)
         {
@@ -93,6 +106,16 @@
         }
 
         _korisnik = korisnik;
+
+        // Matična firma superadmina — prvo aktivno članstvo, prednost onom sa JeVlasnik=1.
+        var clanstva = await db.WebClanstva.AsNoTracking()
+            .Where(c => c.IdKorisnika == idKorisnika && c.Aktivan)
+            .OrderByDescending(c => c.JeVlasnik)
+            .ToListAsync();
+
+        _maticnaFirmaId = clanstva.FirstOrDefault()?.IdWebLicence;
+        _provereno      = true;
+        StateHasChanged();
     }
 
     // Layout ne drži listu licenci (živi u SuperAdmin/Index.razor) — posle uspešnog

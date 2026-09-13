@@ -1,9 +1,11 @@
 @inherits LayoutComponentBase
 @implements IAsyncDisposable
+@using Microsoft.EntityFrameworkCore
+@using Transport.Infrastructure.Data
 @inject IJSRuntime    JS
 @inject ITenantService TenantService
 @inject NavigationManager Nav
-@inject IHttpContextAccessor Http
+@inject IDbContextFactory<MasterDbContext> MasterDbFactory
 
 <MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
@@ -119,10 +121,21 @@
             @TenantService.GetNazivFirme()
         </MudText>
         <MudText Typo="Typo.body2" Class="mx-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.35);">·</MudText>
-        <MudIcon Icon="@Icons.Material.Filled.Person" Style="color:rgba(230,235,240,0.60); font-size:1rem;" Class="d-none d-sm-inline" />
-        <MudText Typo="Typo.body2" Class="mr-3 ml-1 d-none d-sm-block" Style="color:rgba(230,235,240,0.75);">
-            @(TenantService.GetImeKorisnika() is { Length: > 0 } ime ? ime : TenantService.GetNazivFirme())
-        </MudText>
+        <MudMenu Class="d-none d-sm-block mr-1">
+            <ActivatorContent>
+                <div style="display:flex; align-items:center; cursor:pointer;">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Style="color:rgba(230,235,240,0.60); font-size:1rem;" Class="mr-1" />
+                    <MudText Typo="Typo.body2" Style="color:rgba(230,235,240,0.75);">
+                        @(TenantService.GetImeKorisnika() is { Length: > 0 } ime ? ime : TenantService.GetNazivFirme())
+                    </MudText>
+                </div>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" OnClick="@(() => Nav.NavigateTo("/moj-nalog"))">
+                    Moj nalog
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
         <MudTooltip Text="Odjavi se">
             <MudIconButton Icon="@Icons.Material.Filled.Logout"
                            Style="color:#E6EBF0;"
@@ -144,6 +157,18 @@
     </MudDrawer>
 
     <MudMainContent>
+        @if (_jeSamoCitanje)
+        {
+            <div style="background:#FBC02D; color:#212121; padding:8px 16px; text-align:center; font-size:0.85rem; font-weight:600;">
+                Pristup je ograničen na pregled. Podaci su sačuvani. Kontaktirajte DAK-SOFT za produženje licence.
+            </div>
+        }
+        else if (_danaDoIsteka is not null)
+        {
+            <div style="background:#FB8C00; color:#fff; padding:8px 16px; text-align:center; font-size:0.85rem; font-weight:600;">
+                Licenca ističe za @_danaDoIsteka dana (@_datumDoPrikaz!.Value.ToString("dd.MM.yyyy")).
+            </div>
+        }
         <MudContainer MaxWidth="MaxWidth.Large" Class="my-5 pt-4">
             @Body
         </MudContainer>
@@ -152,21 +177,59 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _jeSamoCitanje;
+    private int? _danaDoIsteka;
+    private DateTime? _datumDoPrikaz;
 
-    protected override void OnInitialized()
+    // Navigacija i upit ka bazi idu OVDE (posle prvog rendera, ne tokom prerendera) —
+    // NavigateTo je bezbedan tek u OnAfterRenderAsync. Redirekcija na /login ostaje rezervna
+    // brana (svaka stranica ima i svoju IsAuthenticated proveru), zato se ne uklanja.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!TenantService.IsAuthenticated())
-            Nav.NavigateTo("/login", forceLoad: true);
+        if (!firstRender) return;
 
-        // PRIVREMENA DIJAGNOSTIKA impersonacije — ukloniti posle provere.
-        if (!TenantService.JeImpersonacija() && TenantService.GetIdLicence() > 0)
+        if (!TenantService.IsAuthenticated())
         {
-            var cookies = Http.HttpContext?.Request.Cookies;
-            Console.WriteLine(
-                $"[DEBUG impersonacija] HttpContext={(Http.HttpContext is null ? "NULL" : "OK")} " +
-                $"ap_impersonate={cookies?["ap_impersonate"] ?? "(nema)"} " +
-                $"ap_licence={cookies?["ap_licence"] ?? "(nema)"} " +
-                $"ap_priv={cookies?["ap_priv"] ?? "(nema)"}");
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        // Traka ispod app bara — read-only (žuta) ima prednost nad najavom isteka (narandžasta).
+        // Sopstveni IDbContextFactory kontekst (ne deljeni scoped MasterDbContext) — layout i
+        // stranica se renderuju paralelno, deljeni kontekst bi pucao sa "A second operation
+        // started on this context". Tiho se odustaje (bez trake) ako nešto pukne ili ako
+        // ap_idfirme/firma nisu pronađeni — traka nikad ne sme da obori stranicu.
+        try
+        {
+            var idFirme = TenantService.GetIdFirme();
+            if (idFirme <= 0) return;
+
+            await using var db = await MasterDbFactory.CreateDbContextAsync();
+            var red = await db.WebLicence.AsNoTracking()
+                .Where(l => l.IdWebLicence == idFirme)
+                .Select(l => new { l.SamoCitanje, l.DatumDo })
+                .FirstOrDefaultAsync();
+
+            if (red is null) return;
+
+            // Ista logika kao vw_web_pristup.EfektivnoSamoCitanje / TenantService.JeSamoCitanje().
+            _jeSamoCitanje = red.SamoCitanje || (red.DatumDo.HasValue && red.DatumDo.Value.Date < DateTime.Today);
+
+            if (!_jeSamoCitanje && red.DatumDo.HasValue)
+            {
+                var dana = (red.DatumDo.Value.Date - DateTime.Today).Days;
+                if (dana is >= 0 and <= 7)
+                {
+                    _danaDoIsteka  = dana;
+                    _datumDoPrikaz = red.DatumDo;
+                }
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MainLayout] Greška pri učitavanju statusa licence (traka se ne prikazuje): {ex.Message}");
         }
     }
 

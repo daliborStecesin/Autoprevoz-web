@@ -16,416 +16,443 @@ Transport.Web            — Blazor Server app (MudBlazor UI)
 ## Tehnički stack
 - Blazor Server .NET 9, MudBlazor 7
 - EF Core 8, SQL Server
-- ClosedXML (Excel export), BCrypt/PasswordHasher (lozinke)
+- ClosedXML (Excel export)
+- **Lozinke: `Microsoft.AspNetCore.Identity.PasswordHasher<object>`**
+  (NE BCrypt — starija dokumentacija je to pogrešno tvrdila; BCrypt biblioteka
+  ne postoji u projektu). Koristi se na TRI mesta i sva tri moraju ostati ista:
+  `ProvisioningService`, `WebKorisnikDialog.ResetujLozinku`, login u `Program.cs`.
 - NBS SOAP API (partneri + kurs), SEF API (e-fakture)
 
-## Connection stringovi
-- **Master baza** `daksoft` (licence, korisnici): `appsettings.json` → ključ `"Master"`
-- **Klijentska baza** (svi moduli, podaci): `TenantService.GetConnectionString()` → cookie `ap_conn`
+---
 
-## Multi-tenant
-Login → master baza (`daksoft`) proverava korisnika u `tbl_web_korisnici` →
-`IdLicence` → `tbl_licence.ConnectionString` → klijentska baza.
-Connection string se čuva u cookie `ap_conn`. Svaka stranica injektuje
-`ITenantService` i čita `TransportDbContext` koji koristi taj connection string.
+# MULTI-TENANT I PRISTUP (v214 — AKTUELNO)
+
+## Dve baze
+
+- **MASTER baza `daksoft`** — licence, korisnici, članstva. Connection string:
+  `appsettings.json` → `ConnectionStrings:Master`. Pristup preko `MasterDbContext`
+  (registrovan i kao scoped `AddDbContext` za API endpointe, i kao
+  `AddDbContextFactory` za Blazor komponente — da se izbegne
+  „second operation started on this context").
+- **KLIJENTSKA baza** (jedna po firmi) — svi moduli i podaci. Connection string se
+  učitava iz mastera preko `ITenantService.GetConnectionString()`.
+
+## Tabele u masteru
+
+| Tabela | Šta drži |
+|---|---|
+| `tbl_web_licence` | firma + licenca: naziv, PIB, **Zemlja**, **KodDrzave**, ImeBaze, ConnectionString, TipPrograma (TRANSPORT/TRGOVINA), **ModulTure / ModulRadniNalozi / ModulLager** (bit), TipLicence, DatumOd/DatumDo, MaxKorisnika, Aktivna, **SamoCitanje**, kontakt |
+| `tbl_web_clanstvo` | **veza korisnik ↔ firma (M:N)**: IdKorisnika, IdWebLicence, IdWebRole, JeVlasnik, **IdZaposlenog**, Aktivan |
+| `tbl_web_role` | 1 = Vlasnik, 2 = Administrator, 3 = Operater (fiksni ID-jevi, bez IDENTITY) |
+| `tbl_web_korisnici` | identitet: Email (globalno unique), LozinkaHash, Ime, Aktivan, Privilegija, ZadnjaPrijava |
+| `vw_web_pristup` | view koji spaja sve gore + računa `EfektivnoSamoCitanje` |
+| `tbl_licence` | **DESKTOP licence — ne dira se.** Upisuje ih desktop program automatski. Čita ih SAMO tab „Desktop licence" u super admin panelu |
+
+### PRAVILA MODELA (bitno, lako se pogreši)
+
+1. **Jedan mejl = jedan korisnik = jedna lozinka.** Isti čovek u tri firme ima
+   JEDAN red u `tbl_web_korisnici` i TRI reda u `tbl_web_clanstvo`.
+   Nikad se ne duplira korisnik.
+2. **`IdZaposlenog` živi na ČLANSTVU, ne na korisniku** — zaposleni je pojam po
+   firmi. `WebKorisnik.IdZaposlenog` je UKLONJEN iz entiteta (kolona u bazi ostaje
+   do v215). Isto važi za `WebKorisnik.IdLicence` — uklonjen.
+3. **Rola je po firmi** (`tbl_web_clanstvo.IdWebRole`), ne globalno.
+4. **Superadmin (Privilegija = 9) je globalan** i dodeljuje se ISKLJUČIVO ručno
+   kroz SQL. Registracioni dijalog tvrdo spušta svaku vrednost ≥ 9 na 1.
+   Knjigovođa koji radi u 5 firmi NIJE superadmin — to je običan korisnik sa
+   5 članstava.
+
+## Kolačići
+
+Svi se pišu i čitaju ISKLJUČIVO kroz **`KolacicService`**
+(`IDataProtectionProvider`, protector `"Autoprevoz.Kolacici"`).
+
+| Kolačić | Sadržaj |
+|---|---|
+| `ap_user` | IdKorisnika |
+| `ap_idfirme` | **IdWebLicence** — od v214 UVEK znači to, i u impersonaciji |
+| `ap_ime` | ime korisnika (koristi se i za „Obračunao"/„Sastavio" na štampama) |
+| `ap_firma` | naziv firme |
+| `ap_priv` | privilegija (NIKAD se ne koristi za odluke — samo prikaz) |
+| `ap_impersonate` | 1 dok je superadmin u tuđoj firmi |
+| `ap_transport`, `ap_efaktura` | feature flagovi |
+| ~~`ap_licence`~~, ~~`ap_conn`~~ | MRTVI, brišu se pri prijavi i odjavi |
+
+- Zastavice: `HttpOnly=true`, `SameSite=Lax`, `Secure = Request.IsHttps`
+  (NIKAD hardkodovano true — test server je http), `IsEssential=true`
+- Trajanje: `Kolacici:TrajanjeDana` (default 30)
+- Ključevi: `DataProtection:PutanjaKljuceva` → `PersistKeysToFileSystem`.
+  **Ako folder ne postoji ili nije upisiv, ključevi su u memoriji i svi se
+  odjave pri svakom restartu.**
+- `KolacicService.Procitaj` NIKAD ne baca — neuspelo dešifrovanje vraća `null`,
+  što znači „nije prijavljen".
+
+## Tok prijave
+
+```
+login → tbl_web_korisnici (email + lozinka + Aktivan)
+      → aktivna članstva (tbl_web_clanstvo.Aktivan=1 AND tbl_web_licence.Aktivna=1)
+      → 0 članstava  → odbij: "Vaš nalog nije povezan ni sa jednom firmom"
+      → 1 članstvo   → uđi
+      → 2+ članstava → TODO: ekran izbora firme (za sad uzima prvo)
+      → superadmin (9) preskače provere licence
+```
+
+**`TenantService.GetConnectionString()` NIKAD ne veruje kolačiću** — pri svakom
+razrešavanju proverava da za `ap_user` postoji AKTIVNO članstvo u `ap_idfirme`.
+Nema članstva → `Logout()`. Keširano po circuit-u.
+
+## Ključne metode `ITenantService`
+
+| Metoda | Šta radi |
+|---|---|
+| `GetIdFirme()` | IdWebLicence iz `ap_idfirme` |
+| `GetConnectionString()` | + provera članstva (vidi gore) |
+| `RolaTrenutneFirme()` | IdWebRole u trenutnoj firmi; superadmin → 1; bez članstva → 0 |
+| `JeVlasnikTrenutneFirme()` | `RolaTrenutneFirme() == 1` |
+| `JeSamoCitanje()` | `SamoCitanje=1` ILI `DatumDo < danas` |
+| `DatumDoTrenutneFirme()` | za najavu isteka |
+
+Sve keširano po circuit-u, resetuje se u `Logout()`.
+`GetIdLicence()` **NE POSTOJI VIŠE** — obrisano.
+
+## Nivoi pristupa
+
+| Akcija | Vlasnik | Administrator | Operater |
+|---|---|---|---|
+| Registruj korisnika / Upravljaj pristupom | ✔ | ✖ | ✖ |
+| Deaktiviraj / Reaktiviraj zaposlenog | ✔ | ✔ | ✖ |
+| Rad u programu | ✔ | ✔ | ✔ |
+
+**Nepromenljive zabrane (važe i za Vlasnika, provera server-side):**
+- ne može se deaktivirati sopstveno članstvo ni sopstveni zaposleni
+- ne može se deaktivirati vlasničko članstvo ni zaposleni koji je vlasnik
+- u firmi uvek ostaje bar jedno aktivno vlasničko članstvo
+- **reset lozinke vlasnik NE MOŽE** — samo superadmin (`WebKorisnikDialog`) ili
+  korisnik sam sebi (`/moj-nalog`). Razlog: admin firme B bi inače resetovao
+  lozinku knjigovođi i time ušao u firmu A.
+
+Deaktivacija zaposlenog gasi **članstvo za tu firmu**, ne korisnika globalno —
+spoljni saradnik nastavlja da radi u drugim firmama. Kaskadu sme da pokrene
+samo vlasnik; ostalima se zaposleni deaktivira ali web pristup ostaje.
+
+## Moduli
+
+Bit kolone u `tbl_web_licence`, ali se čitaju **ISKLJUČIVO kroz `IModulService`**
+(`JeDozvoljen("TURE")`, `DozvoljeniModuli()`). Nikad direktno na kolonu — da
+prelazak na pravu tabelu modula ostane izmena jedne metode.
+
+Kodovi: `TURE`, `RADNI_NALOZI`, `LAGER`.
+
+- **Fail-closed:** nema reda u `tbl_web_licence` ili bit = 0 → modul nije dozvoljen.
+  Važi i za superadmina i za impersonaciju.
+- Sidebar: modul + postojeći `OpcijaInt2` (transportModulAktivan) — **oba** moraju
+  biti ispunjena.
+- Rute: komponenta **`<ZahtevaModul Kod="TURE">`**. Skrivanje iz menija NIJE
+  zaštita — guard je obavezan jer se ruta može ukucati.
+- Keš vezan za trenutnu vrednost `GetIdFirme()` (ne za `Logout()` — izbegnut
+  ciklus `IModulService → ITenantService → IModulService`).
+
+## Read-only režim
+
+`JeSamoCitanje()` = ručno zaključano ILI istekla licenca.
+
+- **Sprovodi se centralno u `TransportDbContext.SaveChangesAsync`** (tamo gde je i
+  audit), preko `ICurrentUser.JeSamoCitanje()`. Jedan blok pokriva ceo program.
+- **Izuzetak:** `tbl_DefaultValues` uvek prolazi (stanje panela/filtera).
+- `MainLayout`: žuta traka kad je read-only, narandžasta najava kad licenca
+  ističe u narednih 7 dana.
+- Štampe i Excel izvoz rade normalno (ne pišu u bazu).
+
+⚠ **Svaki `new TransportDbContext(opts)` BEZ `ICurrentUser` zaobilazi i audit i
+read-only.** Tako je `PlataDialog` mesecima pisao plate bez `Izmenio`/`DatumIzmene`.
+Izuzetak je `ProvisioningService` (baza se tek kreira, nema firme za proveru).
+
+---
+
+## SUPER ADMIN PANEL (`/ds`)
+
+- Guard `SuperAdminLayout` čita privilegiju **IZ MASTER BAZE** po `ap_user` —
+  NIKAD iz kolačića. Provera i redirect su u `OnAfterRenderAsync`, ne u
+  `OnInitializedAsync` (vidi „Prerender" dole).
+- **Dva taba:**
+  - *Web licence* (`tbl_web_licence`) — moduli kao čipovi, broj aktivnih članstava,
+    Izmeni + Uđi u firmu. Klik na red filtrira listu korisnika desno.
+  - *Desktop licence* (`tbl_licence`) — samo pregled i produženje datuma.
+    **Nema i neće imati kreiranje** (to radi desktop program sam).
+- **Web korisnici**, dva režima:
+  - bez filtera: jedan red po KORISNIKU, kolona „Firme" kao čipovi
+  - sa filterom: jedan red po ČLANSTVU u izabranoj firmi
+- `WebKorisnikDialog`: ime, email (globalno unique), globalni „Nalog aktivan",
+  **Resetuj lozinku**, tabela članstava (rola, gašenje/vraćanje), **+ Dodaj u firmu**.
+- **Impersonacija:** `/api/superadmin/udji?id=<IdWebLicence>` postavlja
+  `ap_idfirme` + `ap_impersonate`; `/izadji` vraća.
+  `/api/superadmin/mojafirma` je ODVOJEN endpoint — vodi superadmina u njegovu
+  matičnu firmu preko njegovog članstva (prednost `JeVlasnik=1`), **bez**
+  `ap_impersonate`.
+- Sve mutacije u panelu proveravaju `Privilegija >= 9` sveže iz baze.
+
+## PROVISIONING — „Nova firma"
+
+`ProvisioningService.KreirajWebFirmuAsync` — jedan poziv, atomično, sa rollback-om:
+
+1. provera da (KodDrzave, Pib) već ne postoji
+2. `CREATE DATABASE {kodDrzave}{PIB}` + `RECOVERY SIMPLE` + `01_CREATE` skripta
+   (embedded resource) — ili preskoči ako je „Baza već postoji"
+3. klijentska baza: `tbl_Podaci` (uključujući **ZEMLJU** — bez nje puca kurs za
+   firme van Srbije) + `tbl_imenik` prvi zaposleni = vlasnik
+4. master: `tbl_web_licence` + `tbl_web_korisnici` (ako mejl ne postoji) +
+   `tbl_web_clanstvo` (JeVlasnik=1, rola 1, IdZaposlenog iz koraka 3)
+5. vraća link + email + **generisanu lozinku** (`LozinkaHelper`, oblik
+   `PrvaRecNaziva-4cifre`, npr. `Prevoz-4821`) — prikazuje se JEDNOM
+6. rollback: briše redove u masteru; `DROP DATABASE` samo ako je bazu kreirao
+   ovaj poziv
+
+**Baza već postoji (stari klijent):** obavezna provera da PIB u `tbl_Podaci`
+odgovara PIB-u iz forme. Neslaganje = tvrdo zaustavljanje. Bez PIB-a u bazi traži
+izričitu potvrdu (`PotvrdjenoNepoklapanje`). Vezivanje web licence za pogrešnu
+bazu znači da klijent vidi tuđe podatke — ovo je jedina brana.
+
+**Izbor servera:** `appsettings.json` → sekcija `SqlServeri` (ključ = ime u
+padajućem meniju, vrednost = šablon BEZ `Initial Catalog`). Ako sekcija ne
+postoji, pada na `SuperAdmin:SablonConnectionString` sa `{BAZA}` placeholderom.
+
+**Adresa u linku:** `AdresaAplikacije` iz konfiguracije (inače bi klijent dobio
+`localhost`).
+
+---
 
 ## Vizuelni identitet
 MudBlazor tema: Primary `#2D3E50`, Secondary `#3D8EB9`, Background `#F5F7FA`, Drawer `#2D3E50`.
 Sav UI tekst na srpskom.
 
 ## Ključni servisi
-- `INbsKursService` — NBS SOAP, EUR srednji kurs, keširano 24h. **Singleton** (globalni kurs, ispravno).
-- `IKursService` — kurs EUR po DATUMU događaja. SRBIJA: NBS srednji kurs na dan
-  (preko `INbsKursService`) → fallback `tbl_Podesavanja.kurs` ako servis padne.
-  Strane firme (Vlasnik != SRBIJA): ručni kurs iz `tbl_Podesavanja` (EUR-zemlje=1).
-  4 decimale. Merodavan datum: tura/faktura=istovar, trošak=datum troška,
-  plata/dnevnica=datum putnog naloga.
-- `ITenantService` — multi-tenant, cookie auth, ime/id korisnika. **Scoped** (po circuit-u).
+- `INbsKursService` — NBS SOAP, EUR srednji kurs, keširano 24h. **Singleton**.
+- `IKursService` — kurs EUR po DATUMU događaja. SRBIJA: NBS srednji kurs na dan →
+  fallback `tbl_Podesavanja.kurs`. **Strane firme (Vlasnik != SRBIJA): ručni kurs**
+  (EUR-zemlje = 1). 4 decimale. Merodavan datum: tura/faktura = istovar,
+  trošak = datum troška, plata/dnevnica = datum putnog naloga.
+- `ITenantService` — multi-tenant, kolačići, rola, read-only. **Scoped**.
+- `IModulService` — dozvoljeni moduli po licenci. **Scoped**.
+- `KolacicService` — jedino mesto za rad sa kolačićima.
 - `TransportDbContext` — direktni DB pristup u Razor stranicama. **Scoped**.
-- `BrojDokumentaService` — formatiranje brojeva dokumenata (tokeni: broj, godina2, godina4, mesec, dan)
-- `IDefaultValuesService` — pamti poslednje izbore filtera/panela po korisniku
-- `ISefService` / `SefApiClient` — Srpski e-faktura API (Transport.Application/Services/Sef/)
-- `KarticaNovaService` (Transport.Application) — novi finansijski model
-  (tbl_KarticaNova): ApplyMatrix, DodajStavku, UpisiIzRacuna/ObrisiIzRacuna
-  (paralelno sa fakturom, atomično), OdveziUplatu, ObrisiUplatuNova,
-  ProveriUplateZaRacun (blokada brisanja), SaldoPartnera. Van valute =
-  stavka-bazirano, SUM(preostalo) gde datumValute<danas (strogo).
-- `ILogBrisanjaService` — centralni log brisanja (`tbl_log_brisanja`, v208).
-  Staguje INSERT (Add, bez SaveChanges) pre svakog fizičkog brisanja
-  (računi, kartica/uplate — oba modela, stavke računa), commit atomično
-  sa samim brisanjem.
+- `BrojDokumentaService` — formatiranje brojeva dokumenata.
+- `IDefaultValuesService` — pamti izbore filtera/panela po korisniku.
+  **NIJE bezbednosni mehanizam** i živi u klijentskoj bazi.
+- `ISefService` / `SefApiClient` — SEF API.
+- `KarticaNovaService` — novi finansijski model (`tbl_KarticaNova`).
+- `ILogBrisanjaService` — centralni log brisanja (`tbl_log_brisanja`).
+- `LozinkaHelper` — generator čitljivih lozinki (deli ga provisioning i reset).
 
 ## Obrasci / Pattern
 - Stranice koriste direktno `TransportDbContext` (bez servisa) — jednostavnost
-- Print stranice: `@layout EmptyLayout`, `@rendermode InteractiveServer`, auto-print posle ~400ms, primaju parametre kroz query string, `document.title` = naziv+broj (za PDF naziv)
+- Print stranice: `@layout EmptyLayout`, `@rendermode InteractiveServer`,
+  auto-print posle ~400ms, parametri kroz query string
 - Dijalozi: `MudDialog` + `MudDialogInstance MudDialog`
-- Custom dropdown/autocomplete: ručni `position:absolute; z-index:9999` div iznad inputa (NE MudAutocomplete). `@onfocusin` otvori sve, `@onfocusout` 150ms delay zatvori, filter `Contains OrdinalIgnoreCase`
-- Collapsible sekcije forme: `MudExpansionPanels`, stanje panela pamti se po korisniku (DefaultValues)
-- Collapsible filter panel na listama: RUČNI accordion (div + `@onclick` toggle), NE
-  `MudExpansionPanels` (ne pouzdano čuva Expanded stanje po detetu) — pattern
-  uspostavljen na e-fakturama, sad i na `/fakture` (lista računa), stanje pamti
-  `IDefaultValuesService`
+- Custom dropdown/autocomplete: ručni `position:absolute; z-index:9999` div
+  (NE MudAutocomplete)
+- Collapsible filter panel: RUČNI accordion (div + `@onclick`), NE `MudExpansionPanels`
+- **Prerender:** `NavigateTo` u `OnInitializedAsync` se izvršava i tokom
+  prerendera i baca `NavigationException`. U LAYOUT-ima to obara ceo prikaz —
+  zato `MainLayout` i `SuperAdminLayout` rade i auth-redirect i DB upite
+  u `OnAfterRenderAsync(firstRender)`. Layout NIKAD ne navigira iz
+  `OnInitializedAsync` i uvek koristi `IDbContextFactory`, ne deljeni scoped kontekst.
 
 ## PRAVILA (obavezno)
 1. NIKAD ne menjati šemu postojećih tabela bez dogovora
-2. Soft delete uvek (`brisano=1` ili `aktivan=0`) za šifarničke entitete
-   (partner/vozač/vozilo/firma/banka — ID im živi u istorijskim dokumentima).
-   IZUZETAK (svesna odluka): `tbl_racuni`, `tbl_Kartica`, `tbl_artikli_racuna`
-   prešli na FIZIČKO brisanje + centralni log (`tbl_log_brisanja`,
-   `ILogBrisanjaService`) — nemaju referencijalnu vrednost / zaštite
-   (blokada, confirm) i log nadoknađuju izgubljenu istoriju. `brisano` kolone
-   ostaju u bazi, nekorišćene.
+2. Soft delete uvek (`brisano=1` / `aktivan=0`) za šifarničke entitete.
+   IZUZETAK: `tbl_racuni`, `tbl_Kartica`, `tbl_artikli_racuna` — fizičko brisanje
+   + centralni log (`tbl_log_brisanja`)
 3. Sav UI tekst na srpskom
 4. Decimal za novac (2 ili 4 decimale)
 5. Global Query Filter za soft delete
-6. `tbl_sifarnik` za sve tipove/šifre (kategorija + naziv + aktivan + redosled)
+6. `tbl_sifarnik` za sve tipove/šifre
 7. Kurs EUR iz `INbsKursService`
 8. Audit: `uneo`/`datumUnosa` pri INSERT, `izmenio`/`datumIzmene` pri UPDATE — automatski
-9. Privilegije: proveriti idRole iz sesije (za sad svi Admin — vidi dole)
+9. Privilegije: `RolaTrenutneFirme()`, nikad kolačić
 
 ## UI konvencije — OBAVEZNO
 
-### Padajući meniji i polja u formama
-- NIKAD ne koristi MudSelect — nepouzdan je u ovom projektu (ne radi pouzdano,
-  problem sa bindingom i poravnanjem).
-- UVEK koristi `<NativniSelect>` za padajuće menije
-  (`Transport.Web/Components/Shared/NativniSelect.razor`).
-- Za polja unosa (broj/tekst) koja DELE RED sa `<NativniSelect>`, koristi
-  `<NativniInput>` (isti folder), NE MudNumericField/MudTextField — Mud rezerviše
-  helper prostor ispod polja pa se ne poravnavaju vertikalno sa `<select>`.
-- Pravilo poravnanja: u istom redu sve kontrole moraju biti iz iste familije
-  (NativniSelect + NativniInput), nikad mešati Mud i native u istom redu.
-- Oba wrappera: outlined stil, visina 40px, floating label, #3D8EB9 fokus.
-- NativniInput podržava decimalni separator (zarez i tačka) — kultura-sigurno.
+### Padajući meniji i polja
+- **NIKAD MudSelect** — nepouzdan u ovom projektu. UVEK `<NativniSelect>`.
+- Polja koja dele red sa `<NativniSelect>` → `<NativniInput>`, NE Mud
+  (Mud rezerviše helper prostor pa se ne poravnava).
+- U istom redu sve kontrole iz iste familije.
+- Oba wrappera: outlined, 40px, floating label, `#3D8EB9` fokus.
+
+### ⚠ MudBlazor tiho guta pogrešne parametre
+`MudComponentBase.UserAttributes` (`CaptureUnmatchedValues`) prima svaki
+nepoznat atribut kao HTML atribut. **Build prolazi, funkcija je mrtva.**
+Tako je `RowClick="..."` na `MudTable` mesecima bio bez efekta — ispravno je
+`OnRowClick`. Kad nešto „radi ali ne reaguje", prvo proveri naziv parametra
+u `MudBlazor.xml` iz NuGet paketa.
+
+Druga poznata zamka: **tooltip ne radi na disabled dugmetu** — rešenje je
+span-wrapper OKO dugmeta.
 
 ### Autofill u formama sa kredencijalima
-- Polja za email/lozinku: `autocomplete="new-password"` (lozinka) / `"off"` (ostalo).
-- Pri otvaranju dijaloga resetuj model na prazno, instanciraj nov objekat —
-  ne reuse prethodne instance (sprečava autofill prethodnih kredencijala).
-
-## SQL MIGRACIJE — OBAVEZNO
-Folder: `/sql/`
-- `01_CREATE_kasa_template.sql` — blanko baza za novog klijenta (109 tabela, verzija 213).
-  NEUTRALAN — ne sadrži `CREATE DATABASE` ni `USE [ime]`, pravi samo objekte
-  (tabele/view/proc/seed) u bazi koja je već izabrana pre pokretanja skripte.
-  Bazu treba napraviti unapred (ručno kroz SSMS ili automatski kroz super
-  admin panel) i izabrati je (`USE`) pre puštanja ove skripte.
-- `02_MIGRACIJA_postojeci_klijent.sql` — ALTER za stare klijente (idempotentno, 4 sekcije)
-
-**PRAVILO: Svaka promena šeme baze MORA da se doda u OBA fajla istovremeno:**
-- U `01_CREATE`: kolona ide direktno u CREATE TABLE definiciju + INSERT seed ako treba
-- U `02_MIGRACIJA`: kolona ide kao `IF COL_LENGTH IS NULL → ALTER TABLE ADD`,
-  nova tabela kao `IF OBJECT_ID IS NULL → CREATE TABLE`,
-  novi seed kao `IF NOT EXISTS → INSERT`
-
-`verzijaBaze` u `tbl_Podesavanja` = 213 (Blazor migracija).
-Svaka buduća migracija inkrementira ovaj broj.
-- 201 = `tbl_plate` dodato `idTure` + `kursEur`
-- 202 = `tbl_plate` dodato `iznosEUR`
-- 203 = `tbl_racuni` dodato `brisano` + audit (`datumUnosa`/`izmenio`/`datumIzmene`) za modul Fakture
-- 204 = `tbl_artikli_racuna` dodato `brisano` (stavke računa — Korak 2 unosa faktura)
-- 205 = `tbl_racuni` dodato `idBanke`, `tbl_banka` dodato `defaultRacun`,
-  normalizacija `TipRacuna` na `tbl_banka` (DOMAĆI → DOMACI, bez Ć)
-- 206 = `tbl_Kartica` dodato `brisano` + `Datum_Prometa` + audit
-  (`uneo`/`datumUnosa`/`izmenio`/`datumIzmene`)
-- 207 = Triggeri `insertKarticeRacun`/`UpdateKarticeRacun`/`deleteKarticeRacun` na
-  `tbl_racuni` UKLONJENI — `KarticaService` (Transport.Application) sada upisuje/
-  ažurira/briše `tbl_Kartica` iz aplikacije, u istoj transakciji kao račun
-  (vidi `/fakture/unos`)
-- 208 = `tbl_log_brisanja` dodato (centralni log brisanja: ko/kad/forma/opis).
-  `LogBrisanjaService`/`ILogBrisanjaService` (Transport.Application) STAGE-uje
-  INSERT (samo `Add`, bez `SaveChangesAsync`) pre brisanja računa, uplate/
-  isplate, odvezivanja uplate i stavke računa — uvek u istoj transakciji kao
-  samo brisanje. Log se nikad ne menja/briše (samo INSERT, nema soft delete).
-  Stavke računa (`tbl_artikli_racuna`) takođe prešle sa soft delete na pravi
-  UPDATE/DELETE (nemaju referencijalnu vrednost) — query filter uklonjen.
-- 209 = `tbl_KarticaNova` dodato (CREATE u oba SQL fajla) — potpuno novi
-  finansijski model, POTPUNO NEZAVISAN od `tbl_Kartica` (koja ostaje kao
-  read-only istorija, ne dira se više nikako). Razlog: desktop računa
-  Preostalo kao SUM(Saldo) uživo i filtrira fizičku kolonu Preostalo<>0,
-  pa bi migracija starih podataka (Uplata=Dug) razbila desktop saldo.
-  Kolone: Duguje/Potrazuje/Saldo, preostalo (prava kolona), partnerUloga
-  (KUPAC/DOBAVLJAC), tipDokumenta (RACUN/UPLATA/ISPLATA/KNJIZNO_ODOBRENJE/
-  KNJIZNO_ZADUZENJE/POCETNO), valuta kao kolona, idRacun (FK, NULL za ručne
-  unose), idStavkeVeza (uplata → koju stavku zatvara), 3 datuma
-  (datumDokumenta/datumPrometa/datumValute). Fizičko brisanje + log (isti
-  ILogBrisanjaService kao ostalo), bez soft delete kolone.
-- 210 = `OpcijaString13` (domacaValuta) + `OpcijaInt12` (radSaViseMoneta) u
-  `tbl_Podesavanja`. domacaValuta (RSD/BAM/DEN/..., default RSD) zamenjuje
-  hardkodovane "RSD" u finansijskom modulu (KarticaDetaljNova, DuzniciNovi,
-  Uplate, KarticaNovaStampa, FakturaUnos, Fakture); EUR strana nikad ne menja.
-  radSaViseMoneta (default 1) — kad je 0, skriva EUR opcije u svim finansijskim
-  ekranima (samo UI-nivo, postojeći EUR podaci u bazi ostaju netaknuti).
-  `KarticaNovaService.GetDomacaValuta()` kešira per-circuit (Scoped).
-- 211 = `tbl_KarticaNova` dodato `idEfakture` (veza ka `tbl_eFakturaUlaz`,
-  sprečava dupli upis pri akciji "Upiši u karticu" iz ulaznih e-faktura).
-- 212 = DROP trigera `brisanjaArtikalatbl_eInvoice` na `tbl_eInvoice` — trigger
-  na DELETE sudarao se sa EF Core-ovim OUTPUT klauzulom pri brisanju izlaznih
-  e-faktura ("cannot have any enabled triggers if the statement contains an
-  OUTPUT clause without INTO clause"). Legacy funkcija triggera više nije
-  relevantna za ovaj tok.
-- 213 = Seed `tbl_role` (`Admin` idRole=1, `Operater` idRole=2) dodat u OBA SQL
-  fajla — ranije nijedan od fajlova nije punio `tbl_role`, pa je
-  `WebKorisnikRegistracijaDialog` (`Db.Role.FirstOrDefaultAsync(r => r.Naziv
-  == "Admin")`) tiho vraćao `null` i registracija je ostajala bez `idRole`
-  FK (samo legacy `Privilegija` int je dobijao fallback 1). `01_CREATE`
-  takođe očišćen od hardkodovanog imena baze `Kasa` (uklonjen `CREATE
-  DATABASE`/`USE`/`ALTER DATABASE` blok — vidi napomenu uz `01_CREATE` iznad).
-
-Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
-tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
-Razdvojiti jasno: izmene na MASTER bazi (`daksoft`) vs KLIJENTSKOJ bazi.
+- `autocomplete="new-password"` (lozinka) / `"off"` (ostalo)
+- Pri otvaranju dijaloga instanciraj nov model, ne reuse
 
 ---
 
-## MULTI-KORISNIK / AUDIT (AKTUELNO)
-- Login preko master baze (`daksoft`) → `tbl_web_korisnici`
-- Registracija korisnika kroz Zaposleni → "Registruj kao korisnika" → INSERT u master
-  (IdLicence iz sesije, IdZaposlenog, Ime, Email globalno unique, LozinkaHash BCrypt,
-   Privilegija=Admin za sad, Aktivan=1, DatumKreiranja, ZadnjaPrijava=NULL)
-- Login zahteva `Aktivan=1`, ažurira `ZadnjaPrijava`
-- Deaktivacija zaposlenog → kaskadno deaktivira web korisnika (Aktivan=0)
-- "Upravljaj pristupom" → izmena imena, toggle Aktivan, reset lozinke
-- Cookie: `ap_user` (IdKorisnika), `ap_conn`, `ap_licence`, `ap_ime` (ime korisnika)
-  
-- **Audit (automatski preko TransportDbContext.SaveChangesAsync override):**
-  - Added → `uneo` = IdKorisnika, `datumUnosa` = now
-  - Modified → `izmenio` = IdKorisnika, `datumIzmene` = now
-  - `IdKorisnika` je iz master baze, globalno jedinstven → koristi se za statistiku po dispečeru
-- `Sastavio` (string, ime) na nalogu — postavlja se SAMO pri kreiranju naloga
-  (svaki nalog pamti svog kreatora; ne menja se pri izmeni)
-- "Obračunao" na štampama = ime trenutno ulogovanog (runtime, NE iz baze)
+## SQL SKRIPTE — OBAVEZNO
 
-## NIVOI PRISTUPA (za sad svi Admin — fino kasnije)
-- Trenutno svi registrovani korisnici dobijaju Privilegija=Admin (TODO komentar u kodu)
-- Fine privilegije po modulima (`tbl_role` + `tbl_role_moduli` sa mozeCitati/Unositi/
-  Menjati/Brisati) → ODLOŽENO za kasnije, posle završetka transporta/fakturisanja
-- NEMA `MoraPromenitiLozinku` (svesno izostavljeno — ne treba)
+Folder `/sql/`:
+
+| Fajl | Nad kojom bazom | Šta |
+|---|---|---|
+| `01_CREATE_kasa_template.sql` | KLIJENTSKA (nova) | 109 tabela, verzija 213. NEUTRALAN — bez `CREATE DATABASE`/`USE`. Embedded resource. |
+| `02_MIGRACIJA_postojeci_klijent.sql` | KLIJENTSKA (stara) | ALTER, idempotentno |
+| `03_MASTER_daksoft_v214.sql` | **MASTER `daksoft`** | web licence, članstva, role, view. Aditivno, idempotentno. Pušta se dvaput (drugi put prenese članstva). |
+
+**PRAVILO: svaka promena šeme KLIJENTSKE baze ide u OBA klijentska fajla
+istovremeno.** Izmene mastera idu isključivo u `03_MASTER`.
+
+### Verzije — ne mešati
+- **`verzijaBaze` u `tbl_Podesavanja` (KLIJENTSKA baza) = 213.** v214 se odnosi
+  na MASTER skriptu i NE menja klijentsku verziju.
+- Master baza nema svoju kolonu verzije.
+
+Istorija klijentske baze:
+- 201–207 — plate, računi, banke, kartica, triggeri
+- 208 = `tbl_log_brisanja`
+- 209 = `tbl_KarticaNova`
+- 210 = `domacaValuta` (OpcijaString13) + `radSaViseMoneta` (OpcijaInt12)
+- 211 = `tbl_KarticaNova.idEfakture`
+- 212 = DROP trigera `brisanjaArtikalatbl_eInvoice`
+- 213 = seed `tbl_role` (Admin/Operater) + `01_CREATE` očišćen od imena baze
+
+Master:
+- **214 = `tbl_web_licence`, `tbl_web_clanstvo`, `tbl_web_role`, `vw_web_pristup`**
+- **215 (planirano) = DROP kolona `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`**
+  (EF ih više ne mapira, čekaju potvrdu u produkciji)
+
+Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
+tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
+
+---
+
+## AUDIT
+Automatski preko `TransportDbContext.SaveChangesAsync` override:
+- Added → `uneo` = IdKorisnika, `datumUnosa` = now
+- Modified → `izmenio` = IdKorisnika, `datumIzmene` = now
+- `IdKorisnika` je iz master baze, globalno jedinstven → statistika po dispečeru
+
+`Sastavio` (string) na nalogu — samo pri kreiranju, ne menja se pri izmeni.
+„Obračunao" na štampama = ime trenutno ulogovanog (runtime).
+
+GAP — pri radu na FAKTURISANJU/LAGERU dodati `IAuditable` na: Racun,
+GotovinskiRacun, Otpremnica, Ponuda, Artikal, ObavestenjePP, VatDeductionRecord.
+Partner: `DatumUnosa`/`DatumIzmene` su `[NotMapped]`.
 
 ---
 
 ## TROŠKOVI TURE
-- `tbl_troskovi.idNaloga` = **idTure** (veza troška za turu; IDPutnog u desktop kodu)
+- `tbl_troskovi.idNaloga` = **idTure**
 - Vrsta troška iz `tbl_sifarnik` kategorija `TROSKOVI`
-- **Obračun UVEK u EUR** (`vrednostEUR`), ne RSD (jer je vrednost ture u EUR)
-- Dvosmerna konverzija pri unosu:
-  - tip `ZEMLJA` → unos RSD → `vrednostEUR = vrednost / kurs`
-  - tip `INOSTRANSTVO` → unos EUR → `vrednost(RSD) = vrednostEUR * kurs`
-  - čuvaju se OBA (vrednost RSD + vrednostEUR)
-- Dva NEZAVISNA checkboxa (oba default čekirana):
-  - `ideTroskovnik` (1) — ulazi u obračun zarade ture
-  - `jeGotovinski` (1) — ide na troškovnik za podizanje keša iz banke
-    (samo keš/akontacija: dnevnice, parking u kešu, terminal; NE gorivo/tag preko firme)
-- **ZARADA TURE (EUR)** = vrednost ture (nalozi) − [SUM(vrednostEUR gde ideTroskovnik=1)
-  + SUM(placenTransport iz naloga)]
-  - za AGENCIJSKU turu placenTransport (plaćeno prevozniku) automatski ulazi u troškove
-- Troškovi vidljivi i u glavnom modulu Troškovi (ista tabela `tbl_troskovi`)
+- **Obračun UVEK u EUR** (`vrednostEUR`)
+- Dvosmerna konverzija: `ZEMLJA` → unos RSD → `vrednostEUR = vrednost / kurs`;
+  `INOSTRANSTVO` → unos EUR → `vrednost(RSD) = vrednostEUR * kurs`. Čuvaju se OBA.
+- Dva nezavisna checkboxa (oba default čekirana):
+  - `ideTroskovnik` — ulazi u obračun zarade ture
+  - `jeGotovinski` — ide na troškovnik za podizanje keša
+- **ZARADA TURE (EUR)** = vrednost ture − [SUM(vrednostEUR gde ideTroskovnik=1)
+  + SUM(placenTransport)]
 
 ## DNEVNICE NA TURI
-- Cena dnevnice povučena iz `tbl_Podesavanja`: **OpcijaDecimal1** (domaća RSD), **OpcijaDecimal2** (INO EUR)
-  - editabilno za turu (override) — ako se promeni, množi se sa brojem dnevnica
-  - NAPOMENA: proveriti gde su polja `domacaDnevnica`/`inoDnevnica` ranije povezana (možda neusklađeno; OpcijaDecimal1/2 su tačan izvor)
-- Obračun sati/dnevnica → KORISTI POSTOJEĆU logiku iz `UnosDnevnicaDialog` (/osoblje/dnevnice)
-  - sati u zemlji = (polazak→izlaz) + (ulaz→dolazak)
-  - sati u inostranstvu = (izlaz→ulaz)
-  - pravilo: <8h=0, 8–12h=0.5, ≥12h → puni dani + ostatak
-- Čuva se u `tbl_putniNalogKamion`: satiNaPutuUK/Dom/Ino, satiDom, satiIno,
-  cenaDnevnicaDom, cenaDnevnicaIno, dnevnicaDom, dnevnicaIno,
-  VrednostDnevnicaDom (broj×cena RSD), VrednostDnevnicaIno (broj×cena EUR)
-- Panel "Dnevnice" — collapsible, ispod panela "Datumi ture", stanje pamti po korisniku
-- **Sidebar = izvor istine**: dnevnice se obračunavaju i EDITUJU direktno u sidebar
-  panelu (desktop model). Broj dnevnica i cena dnevnice su editabilni — default se
-  predlaže iz datuma/sati i OpcijaDecimal1/2, ali korisnik može ručno izmeniti
-  (npr. parcijalna dnevnica, dogovor sa vozačem). Šta je upisano u sidebaru ide dalje
-  u dugmiće (troškovi ture / dnevnice vozaču).
+- Cena iz `tbl_Podesavanja`: **OpcijaDecimal1** (domaća RSD), **OpcijaDecimal2** (INO EUR)
+- Obračun sati: u zemlji = (polazak→izlaz)+(ulaz→dolazak); ino = (izlaz→ulaz)
+- Pravilo: <8h=0, 8–12h=0.5, ≥12h → puni dani + ostatak
+- **Sidebar = izvor istine**, broj i cena su editabilni
+- ZAOSTALO ZAKONSKO: kurs na **DAN POVRATKA** (poslednji datum putovanja)
 
-## DNEVNICE → PLATE (REALIZOVANO)
-- Sidebar dnevnica (na turi) — dva dugmeta:
-  - "Dodaj dnevnice vozaču" → INSERT/UPDATE u `tbl_dnevnice` (dnevnice vozača,
-    modul Osoblje/Dnevnice)
-  - "Dodaj u troškove ture" → INSERT/UPDATE u `tbl_troskovi`, `ideTroskovnik=1`
-    (gotovinski trošak za podizanje keša iz banke, ulazi u obračun zarade ture)
-- PLATE sekcija (na turi) — tab po vozaču (Vozač 1 / Vozač 2 ako postoji "Dodatni
-  vozač" panel), 4 metode obračuna:
-  - **procenat** = vrednost ture × %
-  - **po km** = (kmTren − kmPoc) × cena/km
-  - **dnevnica** — cena iz imenika zaposlenog (NE iz tbl_Podesavanja)
-  - **fiksno** — ručno uneti iznos
-  - Plata tab NE računa dnevnice — te se preuzimaju iz sidebar panela "Dnevnice".
-- `tbl_plate` — ledger u RSD/EUR: `iznosPlate` (native valuta) + `iznosEUR` +
-  `kursEur` (zamrznut na dan obračuna), `izvorObracuna` = TURA/RUCNO, `idTure`,
-  `valuta`. Negativni iznosi (avans/odbitak) dozvoljeni.
-- Guard plate: po (`idTure` + `idVozaca` + `tipIsplate`) → ponovni unos radi UPDATE,
-  ne pravi duplikat.
-- Guard dnevnice-trošak: po (`idTure` + `idVozaca` + tip DOM/INO) → po vozaču, isto
-  bez duplikata.
-- Dugme "Dodaj platu u troškove ture" → trošak tipa "PLATA" (za realno stanje
-  troškova ture, odvojeno od zarade).
-- Razlika u ceni dnevnice: SIDEBAR (na turi) koristi državnu cenu iz podešavanja
-  (OpcijaDecimal1/2); PLATA metod "dnevnica" koristi cenu iz imenika zaposlenog.
-- Logika: država priznaje samo dnevnice za izvlačenje keša iz banke (sidebar →
-  troškovi), ali vozač se stvarno plati kroz PLATE (procenat/km/dnevnica iz
-  imenika/fiksno) — dve odvojene, ali povezane stvari.
+## DNEVNICE → PLATE
+- Sidebar: „Dodaj dnevnice vozaču" (`tbl_dnevnice`) i „Dodaj u troškove ture"
+  (`tbl_troskovi`, `ideTroskovnik=1`)
+- PLATE: 4 metode — procenat, po km, dnevnica (cena iz imenika zaposlenog!), fiksno
+- `tbl_plate` — ledger: `iznosPlate` + `iznosEUR` + `kursEur` (zamrznut),
+  `izvorObracuna` = TURA/RUCNO
+- Guard: po (`idTure` + `idVozaca` + `tipIsplate`) → UPDATE, ne duplikat
+- Razlika: SIDEBAR koristi državnu cenu (OpcijaDecimal1/2), PLATA metod „dnevnica"
+  cenu iz imenika zaposlenog
 
 ---
 
-## TBL_PODESAVANJA — MAPIRANJE (potvrđeno)
-Named-značenje OpcijaInt/String/Decimal kolona:
+## TBL_PODESAVANJA — MAPIRANJE
 - OpcijaInt1 = koristiOdvojeneInoRacune
-- OpcijaInt2 = transportModulAktivan (kontroliše vidljivost ture/nalozi u sidebaru+podešavanjima)
-- OpcijaInt3 = koristiKorisnickeSifre (login lozinke)
+- OpcijaInt2 = transportModulAktivan
+- OpcijaInt3 = koristiKorisnickeSifre
 - OpcijaInt4 = automatskiBrojevi
 - OpcijaInt7 = minCifaraBroja
-- OpcijaInt8 = koristiOdvojeneNaloge (→ koristiOdvojeneBrojeve; agencijski poseban brojač)
+- OpcijaInt8 = koristiOdvojeneNaloge
+- OpcijaInt12 = radSaViseMoneta (0 = samo DOM valuta)
 - OpcijaInt13 = eFakturaAktivna
 - OpcijaInt15 = rucniUnosBrojFakture
 - OpcijaInt16 = verzijaBaze
-- OpcijaInt12 = radSaViseMoneta (0=samo DOM valuta, 1=RSD+EUR prikazati svuda, default 1)
-- OpcijaInt18 = SLOBODNO
-- OpcijaDecimal1 = dnevnica domaća (RSD)
-- OpcijaDecimal2 = dnevnica INO (EUR)
-- OpcijaString4 = formatBrojaRacuna
-- OpcijaString5 = prefiksi (R-, INO-)
-- OpcijaString6 = kurs (string, legacy → migrira u kursEur decimal)
-- OpcijaString8 = sefTipServera (DEMO/PRODUKCIONI)
-- OpcijaString9 = pdvKategorija
-- OpcijaString10 = pdvSlovo
-- OpcijaString11 = pdvDatumObracuna
-- OpcijaString12 = valutaOsnova (PROMET/RAČUN, default PROMET)
-- OpcijaString13 = domacaValuta (kôd domaće valute: RSD/BAM/DEN/..., default RSD)
-- Broj_Kalkulacije = brTure (brojač tura)
-- Broj_Gotovinskog = brNalogaTransport (brojač naloga)
-- Broj_Dok_4 = brTureAgencijski / brNalogaAgencijski
-- Broj_Otpremnice = broj INO RAČUNA
-- Folder_Privremeni = stari SEF API key (legacy → migrira u sefApiKey)
-- Napomena_txt1 = usloviTransporta (default tekst opštih uslova naloga)
+- OpcijaDecimal1/2 = dnevnica domaća RSD / INO EUR
+- OpcijaString4 = formatBrojaRacuna, OpcijaString5 = prefiksi
+- OpcijaString8 = sefTipServera, OpcijaString9/10/11 = PDV kategorija/slovo/datum
+- OpcijaString12 = valutaOsnova (PROMET/RAČUN)
+- OpcijaString13 = domacaValuta (RSD/BAM/DEN…, default RSD)
+- Broj_Kalkulacije = brTure, Broj_Gotovinskog = brNalogaTransport,
+  Broj_Dok_4 = agencijski brojači, Broj_Otpremnice = broj INO RAČUNA
+- Napomena_txt1 = usloviTransporta
 
-## PDV NAPOMENE (tbl_Podaci — NE dirati, rade kod postojećih klijenata)
-- Napomena_PDV = "Nije oslobođen"
-- Napomena_bezPDV = Domaća IZVOZ
-- napomena_1 = Domaća UVOZ
-- napomena_inoPDV = Inostrana IZVOZ
-- napomena_2 = Inostrana UVOZ
-- napomena_3 = Trajne napomene na računu
+## PDV NAPOMENE (tbl_Podaci — NE dirati)
+Napomena_PDV / Napomena_bezPDV / napomena_1 / napomena_inoPDV / napomena_2 / napomena_3
+⚠ Mapiranje kolona ne poklapa se sa labelama — vidi ROADMAP, mora se testirati.
 
 ## BROJEVI DOKUMENATA
-- Broj se ČITA iz brojača (tbl_Podesavanja) pri SAVE (ne max iz tabele, ne pri otvaranju forme)
+- Broj se ČITA iz brojača pri SAVE (ne max iz tabele, ne pri otvaranju forme)
 - Increment +1 TEK posle uspešnog Save
-- Provera duplikata → dialog [OSVEŽI BROJ] / [IPAK SAČUVAJ] (ne hard block)
-- Tura/nalog se kreira u memoriji, INSERT tek na Save (odustanak = nula tragova u bazi)
-- koristiOdvojeneBrojeve=1 → agencijski idu posebnim brojačem
+- Duplikat → dialog [OSVEŽI BROJ] / [IPAK SAČUVAJ]
+- Tura/nalog u memoriji, INSERT tek na Save
 
-## AGENCIJSKI vs SOPSTVENI (tura)
-- SOPSTVENI: vozač/vozilo/prikolica autocomplete iz baze → čuva FK + string
-  (parovi: idVozaca1/vozac1, idVozaca2/vozac2, idVozila/vozilo, idPrikolice/prikolica)
-- AGENCIJSKI: vozač/vozilo/prikolica slobodan tekst → FK=NULL, samo string (za štampu)
-- Prikaz/štampa uvek koristi STRING kolone (radi za oba, bez FK join-a)
-- **AGENCIJSKA tura — svedeni prikaz**: skriveni paneli Datumi/Dnevnice/Kilometraža/
-  Plate, ostaju samo Nalozi + Troškovi + Zarada (= nalog − troškovi, tj. razlika u
-  ceni — ne pun obračun u EUR kao kod sopstvene). Vozač 2 i Prikolica su skriveni
-  (agencijski koristi samo Vozač 1 / Vozilo, slobodan tekst).
-- **SOPSTVENA tura**: Vozač 2 + Prikolica su u collapsible panelu
-  "Dodatni vozač / prikolica" (default zatvoren, auto-otvori se ako su već popunjeni).
+## AGENCIJSKI vs SOPSTVENI
+- SOPSTVENI: autocomplete → čuva FK + string
+- AGENCIJSKI: slobodan tekst, FK = NULL
+- Prikaz/štampa uvek STRING kolone
+- Agencijska tura: skriveni paneli Datumi/Dnevnice/Kilometraža/Plate
 
 ## ŠTAMPE
-- Nalog za transport (`nalog-transport`): 2 strane, logo+firma, nalogodavac+prevoznik
-  (puni podaci), carinjenje 2 conditional kocke (samo ako ima tekst), cena na DRUGOJ strani
-  (agencijski=placenTransport, sopstveni=cenaTransporta), opšti uslovi iz usloviTransporta
-  (fallback na default), bez potpisa, datum bez vremena
-- Putni nalog (`putni-nalog`): landscape A4, 2 strane, zvanični obrazac (HTML), popunjava
-  vozilo/vozač/broj/relacija iz baze, ostalo prazne rubrike za ručno
-- Troškovnik (`troskovnik`): obračun GOTOVINSKIH troškova ture za podizanje keša iz banke
-  - SAMO jeGotovinski=1 troškovi (bez naloga, bez prikaza zarade)
-  - Za isplatu EUR = ino gotovinski + ino dnevnice
-  - Za isplatu RSD = dom gotovinski + dom dnevnice
-  - UKUPNO RSD = dom RSD + (ino EUR × kurs)
-  - Obračun putnog naloga (sati/dnevnice) iz tbl_putniNalogKamion
+- Nalog za transport, Putni nalog (landscape A4), Troškovnik (samo `jeGotovinski=1`)
+- **Štampa mora koristiti IDENTIČAN filter kao ekran** — testirati poređenjem
+  broja redova i totala, za sve kombinacije filtera
 
 ---
 
 ## STATUS PROJEKTA
-- [x] Infrastruktura, Login, Multi-tenant, Dashboard
+- [x] Infrastruktura, Login, **Multi-tenant sa članstvima (v214)**, Dashboard
 - [x] Partneri, Zaposleni, Vozila, Podsetnici, Podaci firme + Banke
-- [x] NBS Kurs servis + Kursna lista, IKursService
+- [x] NBS Kurs + Kursna lista, IKursService
 - [x] Troškovi, Dnevnice, Plate, Šifarnici, Dozvole MUP, Podešavanja
-- [x] BrojDokumentaService, SEF osnova, Multi-korisnik, Audit
-- [x] Transport — Ture, Nalozi, Štampe (nalog, putni nalog, troškovnik)
-- [x] Troškovi ture, Dnevnice na turi, Dnevnice → Plate
-- [x] Agencijska tura svedena, Kilometraža panel, NativniSelect/Input
-- [x] Deploy na test server (95.211.62.35)
-- [x] FAKTURISANJE — lista/arhiva, statistika, unos, štampa (3 varijante), izbor banke
-- [x] Centralni log brisanja (tbl_log_brisanja, v208)
-- [x] **STARE Finansije/Kartice (tbl_Kartica)** — kompletan ciklus, sad READ-ONLY
-      arhiva (meni "(staro)"), ne dira se više nikako
-- [x] **NOVI FINANSIJSKI MODEL (tbl_KarticaNova, v209)** — potpuno nova tabela
-      umesto migracije starih podataka:
-      - Matrica upisa (RACUN/UPLATA/ISPLATA/KNJIZNO/POCETNO), van valute
-        stavka-bazirano (strogo datumValute<danas)
-      - Kartica nova + Dužnici novi ekrani, vezivanje + cepanje preplate
-      - Kolona VEZA, Odveži uplatu, brisanje uplate reotvara zaduženje
-      - Blokada brisanja računa sa vezanom uplatom
-      - Ručni unos tipa "Račun" (van automatskog fakturisanja)
-      - Testirano kroz softver: preplata, parcijalne uplate, van valute granica,
-        brisanje/odvezivanje, blokada brisanja
-- [x] Knjižna odobrenja/zaduženja (UI) — unos u finansije/unos, oba tipa, toggle
-      "Vezano za račun", KNJIZNO_ZADUZENJE ponaša se kao puno zaduženje
-- [x] Štampa kartice + IOS (nova) — klasičan format, preneseno stanje, kolona VEZA,
-      identičan filter kao ekran (fix gubitka DOBAVLJAC redova kad uloga=SVE)
-- [x] Domaća valuta kao podešavanje po klijentu (OpcijaString13, v210) — konfiguriše
-      se u Podešavanjima, zamenjuje hardkodovani "RSD" u svim finansijskim ekranima
-- [x] Podešavanje "rad sa više moneta" (OpcijaInt12, v210) — checkbox u Podešavanjima,
-      isključivanjem se skriva EUR strana u unos/kartica/dužnici/štampa
+- [x] Transport — Ture, Nalozi, Štampe
+- [x] FAKTURISANJE — lista/arhiva, statistika, unos, štampa
+- [x] NOVI FINANSIJSKI MODEL (`tbl_KarticaNova`) — kompletan, testiran
+- [x] E-fakture — sve liste, ulazne/izlazne, evidencije PDV (faza A)
+- [x] **Licence, članstva, role, moduli, read-only, kolačići, super admin, nova firma**
 - [ ] Ino EUR pun test prolaz na novom modelu
 - [ ] Predračuni dom+ino
-- [ ] Statistika tura/naloga (POSTOJI, nije testirana)
-- [ ] Gorivo, Servisi, CMR, Skenirani dokumenti (nije započeto)
-- [ ] E-fakture
+- [ ] Unos e-fakture (ručni) + slanje
+- [ ] Gorivo, Servisi, CMR, Skenirani dokumenti
 
 ## TRENUTNI FOKUS
-Novi finansijski model (tbl_KarticaNova) — kompletan ciklus završen i testiran
-(preplata/cepanje, parcijalne uplate, van valute, brisanje/odvezivanje, blokada,
-knjižna, štampa kartice + IOS, domaća valuta i rad sa više moneta, v210).
-Stari model (tbl_Kartica) READ-ONLY arhiva, NE DIRA SE VIŠE NIKAKO.
-Sledeće: (1) Ino EUR pun test prolaz na novom modelu; (2) Predračuni dom+ino.
-ZAOSTALO ZAKONSKO: Dnevnice — kurs na DAN POVRATKA (poslednji datum putovanja),
-primeniti na sidebar dnevnica + dugmiće + modul Dnevnice.
-
+Završen ceo krug licenciranja i pristupa (v214). Sledeće:
+**domen + HTTPS**, pa **zaključavanje naloga posle 5 promašaja**, pa test kod
+5-6 firmi.
 
 ## NAPOMENA — nginx na test serveru (95.211.62.35)
-Login ide preko `/api/auth/login-form` (form POST, ne fetch — radi pouzdano i na mobilnom).
-nginx mora imati `proxy_set_header Connection $connection_upgrade;` (ne hardkodovano
-"keep-alive") i `proxy_read_timeout 100s;` na location bloku za `/_blazor` (SignalR
-WebSocket/long-poll), inače Blazor circuit upada u reconnect petlju ("konekcija nestane").
+Login ide preko `/api/auth/login-form` (form POST, radi i na mobilnom).
+nginx mora imati `proxy_set_header Connection $connection_upgrade;` (ne
+hardkodovano „keep-alive") i `proxy_read_timeout 100s;` na `/_blazor`,
+inače Blazor circuit upada u reconnect petlju.
 Config: `/etc/nginx/sites-enabled/daksoft` (port 80 → 127.0.0.1:5001).
 
-## BUDUĆE FAZE (NE raditi sad — kontekst, detalji u ROADMAP.md)
-- FAZA 8: Self-service onboarding (PIB → kreiraj bazu rs{PIB})
-- FAZA 9: Licenciranje (mesečna naplata, datum u master + lokalni keš)
-- FAZA 10: Modularnost + Lager modul (deljenje koda sa softverom za trgovinu)
+⚠ Server radi na **http** — kolačići putuju nezaštićeni. Domen + Let's Encrypt
+je sledeći korak pre pravih klijenata.
 
----
-## AUDIT — POKRIVENOST (važno za buduće faze)
-Audit (SaveChanges override + IAuditable) radi za transport:
-PutniNalogKamion, Trosak, Dnevnica, NalogPrevoz, Plata (ručno).
-GAP — kad se radi FAKTURISANJE/LAGER, dodati IAuditable na:
-Racun, GotovinskiRacun, Otpremnica, Ponuda, Artikal,
-ObavestenjePP, VatDeductionRecord (imaju polja ali ne IAuditable).
-Partner: DatumUnosa/DatumIzmene su [NotMapped] — nisu u bazi
-(dodati kolone + mapiranje ako zatreba audit za partnere).
-## SUPER ADMIN (DAK-SOFT)
-- Privilegija = 9 u tbl_web_korisnici. Dodeljuje se ISKLJUČIVO ručno kroz SQL.
-  WebKorisnikRegistracijaDialog tvrdo spušta svaku vrednost >= 9 na 1.
-- Superadmin ima IdLicence svoje matične firme (za dugme "Nastavi na svoju
-  aplikaciju"), ali login za Privilegija=9 preskače sve provere licence.
-- Guard (SuperAdminLayout) čita privilegiju IZ MASTER BAZE po ap_user —
-  NIKAD iz kolačića ap_priv (kolačići nisu potpisani).
-- Impersonacija: /api/superadmin/udji?id= postavlja ap_licence + ap_impersonate,
-  /izadji vraća. ap_impersonate se briše pri svakoj prijavi i odjavi.
-- ap_conn je MRTAV — connection string se ne čuva u kolačiću, učitava se iz
-  master baze preko ap_licence pri svakom requestu (keširano po circuit-u).
-
-## PROVISIONING
-- 01_CREATE_kasa_template.sql je NEUTRALAN (bez CREATE DATABASE/USE) i ugrađen
-  kao embedded resource. Ime baze se bira spolja: rs{PIB}.
-- Ručno: CREATE DATABASE [rs...]; ALTER ... SET RECOVERY SIMPLE; USE; pa skripta.
-- Nova baza: verzijaBaze 213, tbl_role seeded, tbl_Podaci upisuje provisioning.
+## BUDUĆE FAZE
+- Samouslužna registracija sa sajta (traži domen + SMTP)
+- Trgovina: `tbl_lager` + varijanta forme računa (profil TRGOVINA već postoji u licenci)
+- Prava tabela modula kad ih bude ~8

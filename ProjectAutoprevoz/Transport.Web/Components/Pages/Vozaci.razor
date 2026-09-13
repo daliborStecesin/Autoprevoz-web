@@ -4,11 +4,12 @@
 @using Transport.Domain.Entities
 @using Transport.Infrastructure.Data
 
-@inject ITenantService    TenantService
-@inject NavigationManager Nav
-@inject TransportDbContext Db
-@inject MasterDbContext   MasterDb
-@inject IDialogService    Dialog
+@inject ITenantService       TenantService
+@inject NavigationManager    Nav
+@inject TransportDbContext   Db
+@inject MasterDbContext      MasterDb
+@inject IDialogService       Dialog
+@inject IDefaultValuesService DefaultValues
 
 <PageTitle>Zaposleni — Autoprevoz</PageTitle>
 
@@ -49,6 +50,13 @@
                    OnClick="@(async () => { if (_selektovani != null) await OtvoriDialog(_selektovani.Broj); })">
             Izmeni
         </MudButton>
+
+        <MudCheckBox Value="_prikaziNeaktivne"
+                     ValueChanged="@((bool v) => _ = OnPrikaziNeaktivneChanged(v))"
+                     T="bool"
+                     Label="Prikaži neaktivne"
+                     Size="Size.Small"
+                     Color="Color.Primary" />
     </div>
 </div>
 
@@ -61,13 +69,21 @@
              RowClick="NaKlikReda"
              RowStyleFunc="@((item, _) => item.Broj == _selektovani?.Broj
                  ? "background-color:#1976D2 !important; color:#fff !important; font-weight:600;"
-                 : string.Empty)">
+                 : item.aktivan == 0 ? "opacity:0.55;" : string.Empty)">
     <Columns>
         <PropertyColumn Property="x => x.Ime"        Title="Ime" />
         <PropertyColumn Property="x => x.Prezime"    Title="Prezime" />
         <PropertyColumn Property="x => x.Mesto"      Title="Mesto" />
         <PropertyColumn Property="x => x.Zaposlenje" Title="Zaposlenje" />
         <PropertyColumn Property="x => x.TelefonMob" Title="Mobilni" />
+        <TemplateColumn Title="Status" Width="110px">
+            <CellTemplate>
+                @if (context.Item.aktivan == 0)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Neaktivan</MudChip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
         <TemplateColumn Title="Tip isplate">
             <CellTemplate>
                 <MudChip T="string"
@@ -113,6 +129,7 @@
     private bool                      _ucitava       = true;
     private string                    _pretraga      = string.Empty;
     private DateTime                  _poslednjKlik  = DateTime.MinValue;
+    private bool                      _prikaziNeaktivne;
 
     protected override void OnInitialized()
     {
@@ -123,6 +140,11 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+
+        var uid = TenantService.GetIdKorisnika();
+        var prikaziDef = await DefaultValues.GetDefault("zaposleni", "prikaziNeaktivne", uid);
+        if (prikaziDef is not null) _prikaziNeaktivne = prikaziDef == "True";
+
         await UcitajSve();
     }
 
@@ -131,24 +153,39 @@
         _ucitava = true;
         StateHasChanged();
 
-        _svi = await Db.Vozaci
+        // Vozac ima globalni query filter (aktivan==1 || null) — IgnoreQueryFilters()
+        // vraća i neaktivne kad je checkbox "Prikaži neaktivne" uključen.
+        var upit = _prikaziNeaktivne ? Db.Vozaci.IgnoreQueryFilters() : Db.Vozaci;
+        _svi = await upit
             .OrderBy(v => v.Prezime)
             .ThenBy(v => v.Ime)
             .AsNoTracking()
             .ToListAsync();
 
-        var idLicence = TenantService.GetIdLicence();
+        // IdZaposlenog je PER-FIRMA polje na tbl_web_clanstvo (ne na WebKorisnik — taj je
+        // globalan, jedna vrednost kroz sve firme). Vidi identičnu napomenu u
+        // VozacDialog.UcitajWebKorisnika().
+        var idFirme = TenantService.GetIdFirme();
         var ids = _svi.Select(v => v.Broj).ToHashSet();
-        var wkLista = await MasterDb.WebKorisnici
-            .Where(k => k.IdLicence == idLicence && k.IdZaposlenog != null)
-            .ToListAsync();
+        var wkLista = await (from c in MasterDb.WebClanstva
+                              join k in MasterDb.WebKorisnici on c.IdKorisnika equals k.IdKorisnika
+                              where c.IdWebLicence == idFirme && c.Aktivan && c.IdZaposlenog != null
+                              select new { c.IdZaposlenog, Korisnik = k })
+                             .ToListAsync();
         _webKorisnici = wkLista
-            .Where(k => ids.Contains(k.IdZaposlenog!.Value))
-            .ToDictionary(k => k.IdZaposlenog!.Value);
+            .Where(x => ids.Contains(x.IdZaposlenog!.Value))
+            .ToDictionary(x => x.IdZaposlenog!.Value, x => x.Korisnik);
 
         Filtriraj(_pretraga);
         _ucitava = false;
         StateHasChanged();
+    }
+
+    private async Task OnPrikaziNeaktivneChanged(bool val)
+    {
+        _prikaziNeaktivne = val;
+        await DefaultValues.SaveDefault("zaposleni", "prikaziNeaktivne", val.ToString(), TenantService.GetIdKorisnika());
+        await UcitajSve();
     }
 
     private void Filtriraj(string pretraga)

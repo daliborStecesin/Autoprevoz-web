@@ -15,6 +15,15 @@ public class TransportDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
+        // Read-only režim (licenca istekla ili SamoCitanje=1) — poslednja brana, ne glavni UX
+        // (glavna poruka je traka u MainLayout-u). IZUZETAK: tbl_DefaultValues (stanje panela/
+        // filtera) — bez toga korisnik ne može ni panel da zatvori u read-only režimu.
+        var imaStvarnihIzmena = ChangeTracker.Entries()
+            .Any(e => e.State != EntityState.Unchanged && e.Entity is not DefaultValue);
+
+        if (imaStvarnihIzmena && _currentUser is not null && await _currentUser.JeSamoCitanje())
+            throw new InvalidOperationException("Licenca je istekla ili je pristup ograničen na pregled. Upis nije moguć.");
+
         var userId = _currentUser?.GetIdKorisnika() ?? 0;
         if (userId > 0)
         {

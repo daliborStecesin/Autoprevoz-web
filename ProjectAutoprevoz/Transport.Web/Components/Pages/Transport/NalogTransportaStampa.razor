@@ -7,6 +7,7 @@
 @using Transport.Infrastructure.Data
 
 @inject ITenantService     TenantService
+@inject IModulService      ModulService
 @inject TransportDbContext Db
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
@@ -94,6 +95,8 @@
         .print-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
 </style>
+
+<ZahtevaModul Kod="TURE">
 
 @if (_ucitava)
 {
@@ -327,6 +330,8 @@ else
 
 }
 
+</ZahtevaModul>
+
 @code {
     [Parameter] public int IdNaloga { get; set; }
 
@@ -381,7 +386,7 @@ else
         catch { }
         finally { _ucitava = false; StateHasChanged(); }
 
-        if (_nalog is not null)
+        if (_nalog is not null && await ModulService.JeDozvoljen("TURE"))
         {
             await Task.Delay(400);
             await JS.InvokeVoidAsync("window.print");

@@ -17,6 +17,8 @@
 
 <PageTitle>Nalozi za prevoz — Autoprevoz</PageTitle>
 
+<ZahtevaModul Kod="TURE">
+
 <MudText Typo="Typo.h5" Class="mb-2">
     <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" />
     Nalozi za prevoz
@@ -430,6 +432,8 @@
         <span>Razlika: <strong style="color:@(fRazl > 0m ? "#C62828" : "#555");">@fRazl.ToString("N2") EUR</strong></span>
     </MudPaper>
 }
+
+</ZahtevaModul>
 
 @code {
     private List<NalogPrevoz> _nalozi   = [];

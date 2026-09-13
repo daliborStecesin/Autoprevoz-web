@@ -1,0 +1,33 @@
+@* Centralni guard za rute vezane za modul licence (tbl_web_licence, preko IModulService).
+   Skrivanje stavke iz menija NIJE zaštita — ruta se može ukucati direktno, zato ide ovde,
+   ne po svakoj stranici posebno. Dok se ne učita provera, ne renderuje se ni sadržaj ni poruka
+   (izbegava trenutni "nije dozvoljeno" bljesak pre nego što stigne stvaran odgovor). *@
+@inject IModulService ModulService
+
+@if (_ucitano)
+{
+    @if (_dozvoljen)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" Class="ma-4">
+            Ovaj modul nije uključen u vašu licencu.
+        </MudAlert>
+    }
+}
+
+@code {
+    [Parameter] public string Kod { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _ucitano;
+    private bool _dozvoljen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _dozvoljen = await ModulService.JeDozvoljen(Kod);
+        _ucitano   = true;
+    }
+}

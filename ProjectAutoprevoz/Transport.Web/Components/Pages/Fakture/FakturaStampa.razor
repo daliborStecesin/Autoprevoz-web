@@ -7,6 +7,7 @@
 @using Transport.Infrastructure.Data
 
 @inject ITenantService     TenantService
+@inject IProfilService     ProfilService
 @inject TransportDbContext Db
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
@@ -131,7 +132,10 @@ else
         <div class="levo">
             <div class="red"><span class="lbl">@(_eng ? "Date of invoice:" : "Datum izdavanja računa:")</span> <strong>@FormatDate(_racun.DatumRacuna)</strong></div>
             <div class="red"><span class="lbl">@(_eng ? "Place of invoice:" : "Mesto izdavanja:")</span> <strong>@MestoIzdavanjaPrikaz</strong></div>
-            <div class="red"><span class="lbl">@(_eng ? "Loading date:" : "Datum utovara:")</span> <strong>@FormatDate(_racun.DatumPrometa)</strong></div>
+            @if (_prikaziDatumUtovara)
+            {
+                <div class="red"><span class="lbl">@(_eng ? "Loading date:" : "Datum utovara:")</span> <strong>@FormatDate(_racun.DatumPrometa)</strong></div>
+            }
             <div class="red"><span class="lbl">@(_eng ? "Date of supply:" : "Datum prometa usluge:")</span> <strong>@FormatDate(_racun.DatumPrometaDo)</strong></div>
         </div>
         <div class="desno">
@@ -344,6 +348,7 @@ else
     private Podesavanja? _podesavanja;
     private bool         _ucitava = true;
     private string?      _logoBase64;
+    private bool         _prikaziDatumUtovara;
 
     // Engleska varijanta (tipStampe='INOSTRANI') je uvek EUR faktura
     private bool   _eng   => _racun?.TipStampe == "INOSTRANI";
@@ -366,6 +371,10 @@ else
 
         try
         {
+            // Profil programa (TRANSPORT/TRGOVINA) odlučuje o vidljivosti "Datum utovara" —
+            // štampa nikad ne čita tbl_web_licence.TipPrograma direktno (vidi IProfilService).
+            _prikaziDatumUtovara = await ProfilService.PrikaziDatumUtovara();
+
             if (Id is int broj)
             {
                 _racun = await Db.Racuni.IgnoreQueryFilters()

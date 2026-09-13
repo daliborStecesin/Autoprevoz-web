@@ -1,229 +1,561 @@
+@using Microsoft.Data.SqlClient
+@using Transport.Application.DTOs
 @using Transport.Application.Interfaces
+@using Transport.Domain.Helpers
 
 @inject IProvisioningService Provisioning
+@inject IDialogService       Dialog
+@inject ISnackbar            Snackbar
+@inject IJSRuntime           JS
+@inject NavigationManager    Nav
+@inject IConfiguration       Configuration
 
-<MudDialog Style="min-width:480px;">
+<MudDialog Style="min-width:560px;">
     <DialogContent>
-        @* Decoy polja — apsorbuju browser autofill umesto stvarnih polja ispod *@
-        <input type="text" name="username" autocomplete="username"
-               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
-               tabindex="-1" aria-hidden="true" />
-        <input type="password" name="password" autocomplete="current-password"
-               style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
-               tabindex="-1" aria-hidden="true" />
 
-        <MudGrid Spacing="2" Class="mt-1">
+        @if (_rezultatUspeh is not null)
+        {
+            @* ── EKRAN USPEHA — pristupni podaci, prikazani samo ovde i samo jednom ── *@
+            <MudAlert Severity="Severity.Success" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">✓ Firma @_naziv je kreirana.</MudText>
+                <MudText Typo="Typo.body2">Baza: @_rezultatUspeh.ImeBaze</MudText>
+            </MudAlert>
 
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_pib"
-                              Label="PIB *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              Required="true"
-                              HelperText="Tačno 9 cifara"
-                              autocomplete="off"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
+            <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#F5F7FA; border-radius:6px;">
+                <div class="d-flex align-center justify-space-between mb-3">
+                    <div>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Link</MudText>
+                        <MudText Typo="Typo.body1">@LinkPrijava</MudText>
+                    </div>
+                    <MudTooltip Text="Kopiraj">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                       OnClick="@(() => KopirajAsync(LinkPrijava))" />
+                    </MudTooltip>
+                </div>
 
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_nazivFirme"
-                              Label="Naziv firme *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              Required="true"
-                              autocomplete="off"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
+                <div class="d-flex align-center justify-space-between mb-3">
+                    <div>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Korisnik</MudText>
+                        <MudText Typo="Typo.body1">@_rezultatUspeh.Email</MudText>
+                    </div>
+                    <MudTooltip Text="Kopiraj">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                       OnClick="@(() => KopirajAsync(_rezultatUspeh.Email ?? string.Empty))" />
+                    </MudTooltip>
+                </div>
 
-            <MudItem xs="6">
-                <MudTextField @bind-Value="_ime"
-                              Label="Ime *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              Required="true"
-                              autocomplete="off"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Lozinka</MudText>
+                        @if (_rezultatUspeh.KorisnikVecPostojao)
+                        {
+                            <MudText Typo="Typo.body2" Style="color:#c62828;">
+                                Korisnik već postoji — koristi svoju postojeću lozinku.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body1" Style="font-family:monospace; font-weight:600;">
+                                @_rezultatUspeh.GenerisanaLozinka
+                            </MudText>
+                        }
+                    </div>
+                    @if (!_rezultatUspeh.KorisnikVecPostojao)
+                    {
+                        <MudTooltip Text="Kopiraj">
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           OnClick="@(() => KopirajAsync(_rezultatUspeh.GenerisanaLozinka ?? string.Empty))" />
+                        </MudTooltip>
+                    }
+                </div>
+            </MudPaper>
 
-            <MudItem xs="6">
-                <MudTextField @bind-Value="_prezime"
-                              Label="Prezime"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              autocomplete="off"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_email"
-                              Label="Email *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              InputType="InputType.Email"
-                              Required="true"
-                              autocomplete="off"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_lozinka"
-                              Label="Lozinka *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              InputType="InputType.Password"
-                              Required="true"
-                              HelperText="Minimum 6 karaktera"
-                              autocomplete="new-password"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_potvrda"
-                              Label="Potvrda lozinke *"
-                              Variant="Variant.Outlined"
-                              ShrinkLabel="true"
-                              InputType="InputType.Password"
-                              Required="true"
-                              autocomplete="new-password"
-                              data-lpignore="true"
-                              data-1p-ignore="true"
-                              data-bwignore="true"
-                              data-form-type="other"
-                              Disabled="_ucitava" />
-            </MudItem>
-
-            @if (_ucitava)
+            @if (!_rezultatUspeh.KorisnikVecPostojao)
             {
-                <MudItem xs="12">
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block" Align="Align.Center">
-                        Kreiram bazu i firmu — ovo može potrajati 30-60 sekundi...
-                    </MudText>
-                </MudItem>
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                    Zapišite lozinku — neće biti ponovo prikazana.
+                </MudAlert>
             }
 
-            @if (_greska is not null)
-            {
-                <MudItem xs="12">
-                    <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
-                </MudItem>
-            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.ContentCopy"
+                       OnClick="KopirajSveAsync">
+                Kopiraj sve
+            </MudButton>
+        }
+        else
+        {
+            @* ── FORMA ── *@
 
-            @if (_uspeh is not null)
-            {
-                <MudItem xs="12">
-                    <MudAlert Severity="Severity.Success" Dense="true">@_uspeh</MudAlert>
-                </MudItem>
-            }
+            @* Decoy polja — apsorbuju browser autofill umesto stvarnih polja ispod *@
+            <input type="text" name="username" autocomplete="username"
+                   style="position:absolute; width:0; height:0; opacity:0; pointer-events:none;"
+                   tabindex="-1" aria-hidden="true" />
 
-        </MudGrid>
+            <MudGrid Spacing="2" Class="mt-1">
+
+                <MudItem xs="12" sm="6">
+                    <NativniSelect Label="Zemlja *" Value="@_zemlja" ValueChanged="@(v => OnZemljaChanged(v))"
+                                   Disabled="@_ucitava">
+                        <option value="">— odaberi —</option>
+                        @foreach (var (naziv, _) in ZemljeHelper.Zemlje)
+                        {
+                            <option value="@naziv">@naziv</option>
+                        }
+                    </NativniSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <NativniInput TValue="string" Label="Kod države" Value="@_kodDrzave" Disabled="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="@(_zemlja == "SRBIJA" ? 8 : 12)">
+                    <NativniInput TValue="string" Label="PIB *" Value="@_pib"
+                                  ValueChanged="@(v => _pib = v ?? string.Empty)" Disabled="@_ucitava" />
+                </MudItem>
+                @if (_zemlja == "SRBIJA")
+                {
+                    <MudItem xs="12" sm="4" Class="d-flex align-end">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                                   Disabled="@(_ucitava || _ucitavaNbs)"
+                                   OnClick="OtvoriNbsPretraga"
+                                   Style="height:40px;">
+                            @if (_ucitavaNbs)
+                            {
+                                <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" Class="mr-1" />
+                                <span>Pretraži NBS</span>
+                            }
+                        </MudButton>
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_naziv" Label="Naziv *" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" Disabled="_ucitava" />
+                </MudItem>
+
+                @if (!_bazaVecPostoji)
+                {
+                    @if (_sqlServeri.Count > 0)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <NativniSelect Label="SQL server" Value="@_sqlServer"
+                                           ValueChanged="@(v => _sqlServer = v ?? _sqlServer)" Disabled="@_ucitava">
+                                @foreach (var kljuc in _sqlServeri)
+                                {
+                                    <option value="@kljuc">@kljuc</option>
+                                }
+                            </NativniSelect>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Warning" Dense="true">
+                                SQL server nije konfigurisan (sekcija "SqlServeri" u appsettings.json) — koristi se podrazumevani server.
+                            </MudAlert>
+                        </MudItem>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_kodDrzave) && !string.IsNullOrWhiteSpace(_pib))
+                    {
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Baza koja će nastati: <strong>@((_kodDrzave + _pib).ToLowerInvariant())</strong>
+                            </MudText>
+                        </MudItem>
+                    }
+                }
+
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="_adresa" Label="Adresa" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_ptt" Label="PTT" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_mesto" Label="Mesto" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_maticniBroj" Label="Matični broj" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" Disabled="_ucitava" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <NativniSelect Label="Tip programa" Value="@_tipPrograma" ValueChanged="@(v => OnTipProgramaChanged(v))"
+                                   Disabled="@_ucitava">
+                        <option value="TRANSPORT">TRANSPORT</option>
+                        <option value="TRGOVINA">TRGOVINA</option>
+                    </NativniSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" Class="d-flex align-center" style="gap:16px;">
+                    <MudCheckBox T="bool" @bind-Value="_modulTure" Label="Ture" Color="Color.Primary" Disabled="_ucitava" />
+                    <MudCheckBox T="bool" @bind-Value="_modulRadniNalozi" Label="Radni nalozi" Color="Color.Primary" Disabled="_ucitava" />
+                    <MudCheckBox T="bool" @bind-Value="_modulLager" Label="Lager" Color="Color.Primary" Disabled="_ucitava" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <NativniSelect Label="Tip licence" Value="@_tipLicence"
+                                   ValueChanged="@(v => _tipLicence = v ?? "PROBNA")" Disabled="@_ucitava">
+                        <option value="PROBNA">PROBNA</option>
+                        <option value="MESECNA">MESECNA</option>
+                        <option value="GODISNJA">GODISNJA</option>
+                    </NativniSelect>
+                </MudItem>
+                <MudItem xs="6" sm="4">
+                    <MudDatePicker @bind-Date="_datumOd" Label="Licenca od" Editable="true" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="6" sm="4">
+                    <MudDatePicker @bind-Date="_datumDo" Label="Licenca do" Editable="true" Disabled="_ucitava" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <NativniInput TValue="int?" Label="Max korisnika (prazno = neograničeno)" Value="@_maxKorisnika"
+                                  ValueChanged="@(v => _maxKorisnika = v)" Disabled="@_ucitava" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2">Vlasnik (prvi korisnik)</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_imeVlasnika" Label="Ime i prezime *" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" autocomplete="off" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_telefon" Label="Telefon" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" autocomplete="off" Disabled="_ucitava" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_emailVlasnika" Label="Email *" Variant="Variant.Outlined"
+                                  ShrinkLabel="true" InputType="InputType.Email" autocomplete="off" Disabled="_ucitava" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudCheckBox T="bool" @bind-Value="_bazaVecPostoji" Label="Baza već postoji" Color="Color.Primary" Disabled="_ucitava" />
+                </MudItem>
+
+                @if (_bazaVecPostoji)
+                {
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_connectionString"
+                                      Label="Connection string"
+                                      Variant="Variant.Outlined"
+                                      Lines="3"
+                                      Style="font-family:monospace; font-size:0.8rem;"
+                                      Disabled="_ucitava" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Wifi"
+                                   OnClick="TestirajKonekciju"
+                                   Disabled="@(_ucitava || _testUcitava)">
+                            @(_testUcitava ? "Testiram..." : "Testiraj konekciju")
+                        </MudButton>
+                    </MudItem>
+
+                    @if (_testGreska is not null)
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Error" Dense="true">@_testGreska</MudAlert>
+                        </MudItem>
+                    }
+                    @if (_testProsao)
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Success" Dense="true">
+                                Konekcija OK — verzija baze: @_verzijaBaze
+                            </MudAlert>
+                        </MudItem>
+                    }
+                }
+
+                @if (_ucitava)
+                {
+                    <MudItem xs="12">
+                        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block" Align="Align.Center">
+                            Kreiram bazu i firmu — ovo može potrajati 30-60 sekundi...
+                        </MudText>
+                    </MudItem>
+                }
+
+                @if (_greska is not null)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error" Dense="true">@_greska</MudAlert>
+                    </MudItem>
+                }
+
+            </MudGrid>
+        }
+
     </DialogContent>
 
     <DialogActions>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.AddBusiness"
-                   OnClick="Kreiraj"
-                   Disabled="@(_ucitava || _uspeh is not null)">
-            @(_ucitava ? "Kreiram..." : "Kreiraj firmu")
-        </MudButton>
-        <MudButton Variant="Variant.Outlined"
-                   OnClick="@(() => MudDialog.Close(DialogResult.Ok(_uspeh is not null)))"
-                   Disabled="_ucitava">
-            @(_uspeh is not null ? "Zatvori" : "Odustani")
-        </MudButton>
+        @if (_rezultatUspeh is not null)
+        {
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => MudDialog.Close(DialogResult.Ok(true)))">
+                Zatvori
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.AddBusiness"
+                       OnClick="Kreiraj"
+                       Disabled="_ucitava">
+                @(_ucitava ? "Kreiram..." : "Kreiraj firmu")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(() => MudDialog.Cancel())"
+                       Disabled="_ucitava">
+                Odustani
+            </MudButton>
+        }
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
 
-    private string _pib        = string.Empty;
-    private string _nazivFirme = string.Empty;
-    private string _ime        = string.Empty;
-    private string _prezime    = string.Empty;
-    private string _email      = string.Empty;
-    private string _lozinka    = string.Empty;
-    private string _potvrda    = string.Empty;
+    // ── Firma ──
+    private string  _zemlja       = string.Empty;
+    private string  _kodDrzave    = string.Empty;
+    private string  _pib          = string.Empty;
+    private string  _naziv        = string.Empty;
+    private string  _adresa       = string.Empty;
+    private string  _mesto        = string.Empty;
+    private string  _ptt          = string.Empty;
+    private string  _maticniBroj  = string.Empty;
+    private bool    _ucitavaNbs;
 
-    private bool    _ucitava;
-    private string? _greska;
-    private string? _uspeh;
+    // ── Program/moduli/licenca ──
+    private string    _tipPrograma      = "TRANSPORT";
+    private bool       _modulTure        = true;
+    private bool       _modulRadniNalozi;
+    private bool       _modulLager;
+    private string     _tipLicence      = "PROBNA";
+    private DateTime?  _datumOd         = DateTime.Today;
+    private DateTime?  _datumDo         = DateTime.Today.AddDays(30);
+    private int?        _maxKorisnika;
+
+    // ── Vlasnik ──
+    private string _imeVlasnika   = string.Empty;
+    private string _emailVlasnika = string.Empty;
+    private string _telefon       = string.Empty;
+
+    // ── Baza već postoji ──
+    private bool    _bazaVecPostoji;
+    private string  _connectionString = string.Empty;
+    private bool    _testUcitava;
+    private bool    _testProsao;
+    private int?    _verzijaBaze;
+    private string? _testGreska;
+    private bool    _potvrdjenoNepoklapanje;
+
+    // ── SQL server (samo za NOVU bazu) — ključevi iz appsettings.json "SqlServeri" ──
+    private List<string> _sqlServeri = [];
+    private string        _sqlServer  = string.Empty;
+
+    // ── Stanje dijaloga ──
+    private bool                    _ucitava;
+    private string?                 _greska;
+    private NovaWebFirmaRezultat?   _rezultatUspeh;
+
+    private string LinkPrijava => $"{Nav.BaseUri.TrimEnd('/')}/login";
+
+    protected override void OnInitialized()
+    {
+        _sqlServeri = Configuration.GetSection("SqlServeri").GetChildren().Select(s => s.Key).ToList();
+        _sqlServer  = _sqlServeri.FirstOrDefault() ?? string.Empty;
+    }
+
+    private void OnZemljaChanged(string? v)
+    {
+        _zemlja    = v ?? string.Empty;
+        _kodDrzave = ZemljeHelper.KodZaZemlju(_zemlja);
+    }
+
+    private void OnTipProgramaChanged(string? v)
+    {
+        _tipPrograma = v ?? "TRANSPORT";
+
+        if (_tipPrograma == "TRGOVINA")
+        {
+            _modulTure = false; _modulRadniNalozi = false; _modulLager = true;
+        }
+        else
+        {
+            _modulTure = true; _modulRadniNalozi = false; _modulLager = false;
+        }
+    }
+
+    // Koristi POSTOJEĆI NbsPretragaDialog (isti kao PodaciFirme.razor/PartnerDialog) —
+    // dijalog sam radi pretragu/grešku/loading, ovde se samo popunjava forma.
+    private async Task OtvoriNbsPretraga()
+    {
+        _ucitavaNbs = true;
+        StateHasChanged();
+
+        try
+        {
+            var opts = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+            var parameters = new DialogParameters<NbsPretragaDialog>
+            {
+                { x => x.TipPretrage,     "PIB" },
+                { x => x.PocetnaVrednost, _pib }
+            };
+            var dialog = await Dialog.ShowAsync<NbsPretragaDialog>("NBS pretraga", parameters, opts);
+            var result = await dialog.Result;
+
+            if (result.Canceled || result.Data is not NbsIzbor izbor)
+                return;
+
+            _naziv       = izbor.Kompanija.Naziv       ?? _naziv;
+            _pib         = izbor.Kompanija.Pib         ?? _pib;
+            _maticniBroj = izbor.Kompanija.MaticniBroj ?? _maticniBroj;
+            _adresa      = izbor.Kompanija.Adresa      ?? _adresa;
+            _mesto       = izbor.Kompanija.Mesto       ?? _mesto;
+        }
+        finally
+        {
+            _ucitavaNbs = false;
+        }
+    }
+
+    // Isti obrazac kao LicencaDialog.TestirajKonekciju — samo provera, ne upisuje ništa.
+    private async Task TestirajKonekciju()
+    {
+        _testGreska  = null;
+        _verzijaBaze = null;
+        _testProsao  = false;
+        _testUcitava = true;
+        StateHasChanged();
+
+        try
+        {
+            var csb = new SqlConnectionStringBuilder(_connectionString ?? string.Empty)
+            {
+                TrustServerCertificate = true,
+                Encrypt        = false,
+                ConnectTimeout = 10
+            };
+
+            using var conn = new SqlConnection(csb.ConnectionString);
+            await conn.OpenAsync();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText    = "SELECT TOP 1 verzijaBaze FROM tbl_Podesavanja";
+            cmd.CommandTimeout = 10;
+            var val = await cmd.ExecuteScalarAsync();
+
+            _verzijaBaze = (val is DBNull or null) ? (int?)null : Convert.ToInt32(val);
+            _testProsao  = true;
+        }
+        catch (Exception ex)
+        {
+            _testGreska = ex.Message;
+        }
+        finally
+        {
+            _testUcitava = false;
+        }
+    }
+
+    private bool Validan()
+    {
+        if (string.IsNullOrWhiteSpace(_zemlja)) { _greska = "Zemlja je obavezna."; return false; }
+        if (string.IsNullOrWhiteSpace(_pib)) { _greska = "PIB je obavezan."; return false; }
+        if (string.IsNullOrWhiteSpace(_naziv)) { _greska = "Naziv je obavezan."; return false; }
+        if (string.IsNullOrWhiteSpace(_imeVlasnika)) { _greska = "Ime vlasnika je obavezno."; return false; }
+        if (string.IsNullOrWhiteSpace(_emailVlasnika) || !_emailVlasnika.Contains('@') || !_emailVlasnika.Contains('.'))
+        {
+            _greska = "Unesite ispravan email vlasnika.";
+            return false;
+        }
+        if (_bazaVecPostoji && string.IsNullOrWhiteSpace(_connectionString))
+        {
+            _greska = "Connection string je obavezan kad je štiklirano 'Baza već postoji'.";
+            return false;
+        }
+
+        return true;
+    }
 
     private async Task Kreiraj()
     {
         _greska = null;
-        _uspeh  = null;
+        if (!Validan()) return;
 
-        if (string.IsNullOrWhiteSpace(_pib))
-        {
-            _greska = "PIB je obavezan.";
-            return;
-        }
+        await PosaljiZahtevAsync();
+    }
 
-        if (string.IsNullOrWhiteSpace(_nazivFirme))
-        {
-            _greska = "Naziv firme je obavezan.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_ime))
-        {
-            _greska = "Ime je obavezno.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_email) || !_email.Contains('@') || !_email.Contains('.'))
-        {
-            _greska = "Unesite ispravan email.";
-            return;
-        }
-
-        if (_lozinka.Length < 6)
-        {
-            _greska = "Lozinka mora imati minimum 6 karaktera.";
-            return;
-        }
-
-        if (_lozinka != _potvrda)
-        {
-            _greska = "Lozinke se ne poklapaju.";
-            return;
-        }
-
+    private async Task PosaljiZahtevAsync()
+    {
         _ucitava = true;
         StateHasChanged();
 
         try
         {
-            var rezultat = await Provisioning.KreirajFirmuAsync(_pib, _nazivFirme, _ime, _prezime, _email, _lozinka);
+            var zahtev = new NovaWebFirmaZahtev(
+                _zemlja,
+                _kodDrzave,
+                _pib.Trim(),
+                _naziv.Trim(),
+                string.IsNullOrWhiteSpace(_maticniBroj) ? null : _maticniBroj.Trim(),
+                string.IsNullOrWhiteSpace(_adresa) ? null : _adresa.Trim(),
+                string.IsNullOrWhiteSpace(_mesto) ? null : _mesto.Trim(),
+                string.IsNullOrWhiteSpace(_ptt) ? null : _ptt.Trim(),
+                _tipPrograma,
+                _modulTure,
+                _modulRadniNalozi,
+                _modulLager,
+                _tipLicence,
+                _datumOd,
+                _datumDo,
+                _maxKorisnika,
+                _imeVlasnika.Trim(),
+                _emailVlasnika.Trim(),
+                string.IsNullOrWhiteSpace(_telefon) ? null : _telefon.Trim(),
+                _bazaVecPostoji,
+                _bazaVecPostoji ? _connectionString : null,
+                _potvrdjenoNepoklapanje,
+                _bazaVecPostoji ? null : _sqlServer);
+
+            var rezultat = await Provisioning.KreirajWebFirmuAsync(zahtev);
+
+            if (rezultat.PotrebnaPotvrda)
+            {
+                _ucitava = false;
+                StateHasChanged();
+
+                var ok = await Dialog.ShowMessageBox(
+                    "Potvrda firme",
+                    $"Baza na datom connection string-u nema upisan PIB, pa se ne može automatski provjeriti. " +
+                    $"Pronađen naziv u toj bazi: '{rezultat.PronadjenNaziv ?? "(prazno)"}'. Da li je ovo ta firma?",
+                    yesText: "Da, to je ta firma", cancelText: "Ne, odustani");
+
+                if (ok == true)
+                {
+                    _potvrdjenoNepoklapanje = true;
+                    await PosaljiZahtevAsync();
+                }
+                return;
+            }
 
             if (rezultat.Uspeh)
-                _uspeh = $"{rezultat.Poruka} (baza: {rezultat.NazivBaze})";
+                _rezultatUspeh = rezultat;
             else
                 _greska = rezultat.Poruka;
         }
@@ -235,5 +567,37 @@
         {
             _ucitava = false;
         }
+    }
+
+    private async Task KopirajAsync(string tekst)
+    {
+        if (string.IsNullOrEmpty(tekst)) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", tekst);
+            Snackbar.Add("Kopirano.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Kopiranje nije uspelo.", Severity.Warning);
+        }
+    }
+
+    private Task KopirajSveAsync()
+    {
+        if (_rezultatUspeh is null) return Task.CompletedTask;
+
+        var linije = new List<string>
+        {
+            "Vaš pristup aplikaciji Autoprevoz:",
+            $"Link: {LinkPrijava}",
+            $"Korisnik: {_rezultatUspeh.Email}",
+            _rezultatUspeh.KorisnikVecPostojao
+                ? "Lozinka: korisnik već postoji — koristi svoju postojeću lozinku."
+                : $"Lozinka: {_rezultatUspeh.GenerisanaLozinka}"
+        };
+
+        return KopirajAsync(string.Join("\n", linije));
     }
 }
