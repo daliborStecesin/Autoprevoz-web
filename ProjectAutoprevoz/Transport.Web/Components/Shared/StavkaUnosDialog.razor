@@ -1,4 +1,3 @@
-@using Transport.Domain.Entities
 @using System.Globalization
 
 @inject ISnackbar Snackbar
@@ -48,7 +47,7 @@
                 </NativniSelect>
             </MudItem>
             <MudItem xs="4">
-                <NativniInput TValue="decimal" Label="Količina" Value="@_kolicina" Format="0.##"
+                <NativniInput TValue="decimal" Label="Količina" Value="@_kolicina" Format="@BrojFormat.KolicinaFormat"
                               ValueChanged="@((decimal v) => { _kolicina = v; Izracunaj(); })" />
             </MudItem>
             <MudItem xs="4">
@@ -58,17 +57,23 @@
         </MudGrid>
 
         <MudGrid Spacing="2" Class="mb-1">
+            @if (RadSaViseMoneta)
+            {
+                <MudItem xs="4">
+                    <NativniInput TValue="decimal" Label="Cena EUR" Value="@_cenaEur" Format="@BrojFormat.CenaFormat"
+                                  ValueChanged="@((decimal v) => OnCenaEurChanged(v))" />
+                </MudItem>
+            }
             <MudItem xs="4">
-                <NativniInput TValue="decimal" Label="Cena EUR" Value="@_cenaEur" Format="0.0000"
-                              ValueChanged="@((decimal v) => OnCenaEurChanged(v))" />
-            </MudItem>
-            <MudItem xs="4">
-                <NativniInput TValue="decimal" Label="Cena" Value="@_cena" Format="0.00"
+                <NativniInput TValue="decimal" Label="Cena" Value="@_cena" Format="@BrojFormat.CenaFormat"
                               ValueChanged="@((decimal v) => OnCenaChanged(v))" />
             </MudItem>
-            <MudItem xs="4">
-                <NativniInput TValue="decimal" Label="Kurs EUR" Value="@KursEur" Format="0.0000" Disabled="true" />
-            </MudItem>
+            @if (RadSaViseMoneta)
+            {
+                <MudItem xs="4">
+                    <NativniInput TValue="decimal" Label="Kurs EUR" Value="@KursEur" Format="0.0000" Disabled="true" />
+                </MudItem>
+            }
         </MudGrid>
 
         <MudGrid Spacing="2" Class="mb-2">
@@ -84,14 +89,14 @@
 
         <MudPaper Elevation="0" Class="pa-2 mb-2" Style="background:#F5F7FA; border-radius:6px;">
             <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                <span>Osnovica:</span><strong>@_osnovica.ToString("N2")</strong>
+                <span>Osnovica:</span><strong>@_osnovica.FormatIznos()</strong>
             </div>
             <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                <span>PDV:</span><strong>@_pdvIznos.ToString("N2")</strong>
+                <span>PDV:</span><strong>@_pdvIznos.FormatIznos()</strong>
             </div>
             <div style="display:flex; justify-content:space-between; font-size:0.95rem; border-top:1px solid #ddd; margin-top:4px; padding-top:4px;">
-                <span>Ukupno (@(TipRacuna == "INOSTRANI" ? "EUR" : "RSD")):</span>
-                <strong style="color:#1565C0;">@_ukupno.ToString("N2")</strong>
+                <span>Ukupno (@(TipRacuna == "INOSTRANI" ? "EUR" : DomacaValuta)):</span>
+                <strong style="color:#1565C0;">@_ukupno.FormatIznos()</strong>
             </div>
         </MudPaper>
     </DialogContent>
@@ -111,15 +116,18 @@
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public Stavka? Postojeca { get; set; }
+    [Parameter] public StavkaVM? Postojeca { get; set; }
     [Parameter] public decimal KursEur { get; set; }
     [Parameter] public string TipRacuna { get; set; } = "IZLAZ";
     [Parameter] public decimal PdvStopa { get; set; }
     [Parameter] public decimal NizaStopaPdv { get; set; }
-    [Parameter] public string? Vozilo { get; set; }
-    [Parameter] public int? IdVozila { get; set; }
-    [Parameter] public string DatumUtovara { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
-    [Parameter] public string DatumIstovara { get; set; } = DateTime.Today.ToString("yyyy-MM-dd");
+
+    // radSaViseMoneta (tbl_Podesavanja.OpcijaInt12) — kad je isključeno, tenant
+    // radi samo u domaćoj valuti: nema polja Cena EUR ni Kurs EUR. domacaValuta
+    // (OpcijaString13) ide u labelu umesto hardkodovanog "RSD". Podrazumevano
+    // true/"RSD" — bezbedno za svakog pozivaoca koji (još) ne prosleđuje ova dva.
+    [Parameter] public bool   RadSaViseMoneta { get; set; } = true;
+    [Parameter] public string DomacaValuta    { get; set; } = "RSD";
 
     private string  _opis    = "";
     private string  _jm      = "kom";
@@ -142,20 +150,23 @@
         {
             var s = Postojeca;
 
-            _opis    = s.Artikal ?? "";
-            _jm      = s.JM ?? "kom";
-            _barcode = s.Barcode ?? "";
+            _opis    = s.Artikal;
+            _jm      = s.JM;
+            _barcode = s.Barcode;
             _idLager = s.IdLager;
 
-            _kolicina = s.Kolicina ?? 1;
-            _rabat    = s.Rabat ?? 0;
-            _stopaPdv = s.StopaPDV ?? 0;
+            _kolicina = s.Kolicina;
+            _rabat    = s.Rabat;
+            _stopaPdv = s.StopaPDV;
 
-            var cenaPoJm = s.CenaPoJMSP ?? 0;
-            if (s.Bon == "EUR")
+            var cenaPoJm = s.CenaPoJM;
+            // Valuta reda nije sopstveno stanje stavke — cela faktura/dokument je
+            // jedne valute, pa je TipRacuna sa glave (parametar) dovoljan da se
+            // zna da li je cenaPoJm zapisana u EUR ili domaćoj valuti.
+            if (TipRacuna == "INOSTRANI")
             {
                 _cenaEur = cenaPoJm;
-                _cena    = KursEur > 0 ? Math.Round(cenaPoJm * KursEur, 2) : 0;
+                _cena    = KursEur > 0 ? Math.Round(cenaPoJm * KursEur, 4) : 0;
             }
             else
             {
@@ -175,7 +186,7 @@
     private void OnCenaEurChanged(decimal v)
     {
         _cenaEur = v;
-        _cena    = KursEur > 0 ? Math.Round(v * KursEur, 2) : 0;
+        _cena    = KursEur > 0 ? Math.Round(v * KursEur, 4) : 0;
         Izracunaj();
     }
 
@@ -213,7 +224,7 @@
         var jeInostrani = TipRacuna == "INOSTRANI";
         var cenaPoJm    = jeInostrani ? _cenaEur : _cena;
 
-        var stavka = new Stavka
+        var vm = new StavkaVM
         {
             Broj    = Postojeca?.Broj ?? 0,
             IdLager = _idLager,
@@ -222,30 +233,19 @@
             JM      = _jm,
             Kolicina = _kolicina,
 
-            CenaPoJMBP = cenaPoJm,
-            CenaPoJMSP = cenaPoJm,
-            Rabat      = _rabat,
+            CenaPoJM = cenaPoJm,
+            Rabat    = _rabat,
 
-            CenaPoJMBPminusRab = _kolicina != 0 ? Math.Round(_osnovica / _kolicina, 3) : cenaPoJm,
-            VrednostMinusRab   = _osnovica,
+            CenaPoJMminusRab = _kolicina != 0 ? Math.Round(_osnovica / _kolicina, 4) : cenaPoJm,
+            VrednostMinusRab = _osnovica,
 
             StopaPDV = _stopaPdv,
             Osnovica = _osnovica,
             PDV      = _pdvIznos,
             Ukupno   = _ukupno,
             Suma     = _ukupno,
-
-            Bon = jeInostrani ? "EUR" : "RSD",
-
-            vozilo   = Vozilo,
-            idVozila = IdVozila,
-
-            datumUtovara  = DateTime.TryParse(DatumUtovara, out var du)  ? du : null,
-            datumIstovara = DateTime.TryParse(DatumIstovara, out var di) ? di : null,
-
-            brisano = Postojeca?.brisano ?? 0,
         };
 
-        MudDialog.Close(DialogResult.Ok(stavka));
+        MudDialog.Close(DialogResult.Ok(vm));
     }
 }

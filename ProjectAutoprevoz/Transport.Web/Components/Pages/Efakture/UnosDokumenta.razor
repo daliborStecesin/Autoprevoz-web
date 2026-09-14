@@ -757,11 +757,11 @@
                                 }
                                 else
                                 {
-                                    <NativniInput TValue="decimal" @bind-Value="stavka.Kolicina" @bind-Value:after="AzurirajNastanakPdvObaveze" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                    <NativniInput TValue="decimal" @bind-Value="stavka.Kolicina" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="@BrojFormat.KolicinaFormat" Style="margin-top:0;" Disabled="@FormaZakljucana" />
                                 }
                             </td>
                             <td style="padding:4px 6px;">
-                                <NativniInput TValue="decimal" @bind-Value="stavka.Cena" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="0.00" Style="margin-top:0;" Disabled="@FormaZakljucana" />
+                                <NativniInput TValue="decimal" @bind-Value="stavka.Cena" @bind-Value:after="AzurirajNastanakPdvObaveze" Format="@BrojFormat.CenaFormat" Style="margin-top:0;" Disabled="@FormaZakljucana" />
                             </td>
                             @if (!JeAvansDokument)
                             {

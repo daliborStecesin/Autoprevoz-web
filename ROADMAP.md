@@ -16,7 +16,7 @@ Vlasnik: DAK-SOFT (Dalibor Stečešin).
 nove master tabele za web — isti pristup koji se već isplatio kod
 `tbl_KarticaNova` (novo pored starog, staro netaknuto).
 
-**Nove tabele u masteru (`03_MASTER_daksoft_v214.sql`):**
+**Nove tabele u masteru (`03_MASTER_daksoft.sql`):**
 - `tbl_web_licence` — firma + licenca + zemlja + moduli + `SamoCitanje`
 - `tbl_web_clanstvo` — **M:N korisnik ↔ firma**, rola i `IdZaposlenog` po firmi
 - `tbl_web_role` — Vlasnik (1) / Administrator (2) / Operater (3)
@@ -292,10 +292,13 @@ već zajednička. Treba:
 ---
 
 ## Verzije
-- **Klijentska baza (`verzijaBaze` u `tbl_Podesavanja`) = 213** — v214 je MASTER
-  skripta i NE menja klijentsku verziju
-- **Master = 214** (`03_MASTER_daksoft_v214.sql`)
+- **Klijentska baza (`verzijaBaze` u `tbl_Podesavanja`) = 214** — tbl_dokumenti +
+  tbl_artikli_dokumenta (ponude/predračuni), tbl_racuni.idIzvora/tipIzvora,
+  tbl_Podesavanja.formatBrojaPonude, cene na 4 decimale
 - **215 planirano** — DROP `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`
+- **Master (`03_MASTER_daksoft.sql`) nema brojčanu verziju** — sopstvena
+  istorija izmena (datumska, `2026-09 = ...`) u zaglavlju fajla, potpuno
+  nezavisna od klijentske `verzijaBaze`. Nemoj ih izjednačavati.
 
 Svaka promena šeme KLIJENTSKE baze → OBA klijentska SQL fajla istovremeno.
 Izmene mastera → isključivo `03_MASTER`.

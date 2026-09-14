@@ -3,12 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Transport.Domain.Entities;
 
-[Table("tbl_artikli_racuna")]
-public class Stavka
+[Table("tbl_artikli_dokumenta")]
+public class StavkaDokumenta
 {
     [Key]
     [Column("Broj")]
     public int Broj { get; set; }
+
+    public int IdDokumenta { get; set; }
 
     [Column("Id_Lager")]
     [MaxLength(5)]
@@ -59,46 +61,6 @@ public class Stavka
     [Column(TypeName = "decimal(18,2)")]
     public decimal? Suma { get; set; }
 
-    [MaxLength(15)]
-    public string? selektor { get; set; }
-
-    [MaxLength(15)]
-    public string? Id_Racuna { get; set; }
-
-    [MaxLength(15)]
-    public string? Id_Partnera { get; set; }
-
-    public DateTime? Datum { get; set; }
-
-    [MaxLength(15)]
-    public string? Status { get; set; }
-
-    [MaxLength(15)]
-    public string? Tip_Prodaje { get; set; }
-
-    [MaxLength(15)]
-    public string? Bon { get; set; }
-
-    [MaxLength(3)]
-    public string? Korisnik_Id { get; set; }
-
-    [MaxLength(15)]
-    public string? Vrsta_Placanja { get; set; }
-
-    public int? idVozila { get; set; }
-
-    [MaxLength(50)]
-    public string? referenca1 { get; set; }
-
-    [MaxLength(50)]
-    public string? referenca2 { get; set; }
-
-    [MaxLength(50)]
-    public string? vozilo { get; set; }
-
-    public DateTime? datumIstovara { get; set; }
-
-    public DateTime? datumUtovara { get; set; }
-
-    public int brisano { get; set; } = 0;
+    [ForeignKey("IdDokumenta")]
+    public virtual Dokument? Dokument { get; set; }
 }

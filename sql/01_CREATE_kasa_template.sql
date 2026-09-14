@@ -232,7 +232,7 @@ CREATE TABLE [dbo].[tbl_artikli_avansa](
 	[Ukupno] [decimal](18, 2) NULL,
 	[Id_Avansa] [int] NULL,
 	[Id_Partnera] [varchar](15) NULL,
- CONSTRAINT [PK_tbl_artikli_avansa] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_tbl_artikli_avansa] PRIMARY KEY CLUSTERED
 (
 	[idArtikla] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -241,6 +241,38 @@ CREATE TABLE [dbo].[tbl_artikli_avansa](
 GO
 SET ANSI_PADDING OFF
 GO
+
+-- v214: stavke ponuda/predracuna (tbl_dokumenti)
+CREATE TABLE [dbo].[tbl_artikli_dokumenta](
+	[Broj]                [int]           IDENTITY(1,1) NOT NULL,
+	[IdDokumenta]         [int]           NOT NULL,
+	[Id_Lager]            [varchar](5)    NULL,
+	[Barcode]             [varchar](20)   NULL,
+	[Artikal]             [varchar](2000) NULL,
+	[JM]                  [varchar](15)   NULL,
+	[Kolicina]            [decimal](18,4) NULL,
+	[CenaPoJMBP]          [decimal](18,4) NULL,
+	[CenaPoJMSP]          [decimal](18,4) NULL,
+	[Rabat]               [decimal](18,2) NULL,
+	[CenaPoJMBPminusRab]  [decimal](18,4) NULL,
+	[VrednostMinusRab]    [decimal](18,2) NULL,
+	[StopaPDV]            [decimal](18,0) NULL,
+	[Osnovica]            [decimal](18,2) NULL,
+	[TipPDV]              [varchar](1)    NULL,
+	[PDV]                 [decimal](18,2) NULL,
+	[Ukupno]              [decimal](18,2) NULL,
+	[Suma]                [decimal](18,2) NULL,
+ CONSTRAINT [PK_tbl_artikli_dokumenta] PRIMARY KEY CLUSTERED
+(
+	[Broj] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+CREATE NONCLUSTERED INDEX [IX_tbl_artikli_dokumenta_IdDokumenta] ON [dbo].[tbl_artikli_dokumenta] ([IdDokumenta] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+
 /****** Object:  Table [dbo].[tbl_artikli_got_racuna]    Script Date: 8.6.2026. 22:52:59 ******/
 SET ANSI_NULLS ON
 GO
@@ -473,11 +505,11 @@ CREATE TABLE [dbo].[tbl_artikli_racuna](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 3) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
 	[Osnovica] [decimal](18, 2) NULL,
@@ -848,7 +880,7 @@ CREATE TABLE [dbo].[tbl_dnevnice](
 	[datumUnosa] [datetime] NULL,
 	[izmenio] [int] NULL,
 	[datumIzmene] [datetime] NULL,
- CONSTRAINT [PK_tbl_dnevnice] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_tbl_dnevnice] PRIMARY KEY CLUSTERED
 (
 	[idDnevnica] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -857,6 +889,57 @@ CREATE TABLE [dbo].[tbl_dnevnice](
 GO
 SET ANSI_PADDING OFF
 GO
+
+-- v214: glava ponuda/predracuna (odvojeno od tbl_racuni i od desktop
+-- tbl_ponude/tbl_predracuni koje ne smeju da se diraju)
+CREATE TABLE [dbo].[tbl_dokumenti](
+	[Broj]              [int]           IDENTITY(1,1) NOT NULL,
+	[TipDokumenta]      [varchar](15)   NOT NULL,
+	[BrojDokumenta]     [varchar](15)   NULL,
+	[Naziv]             [varchar](200)  NULL,
+	[PIB]               [varchar](50)   NULL,
+	[Mesto_Izdavanja]   [varchar](25)   NULL,
+	[Datum_Dokumenta]   [date]          NULL,
+	[Datum_Vazenosti]   [date]          NULL,
+	[Adresa]            [varchar](200)  NULL,
+	[PosBroj]           [varchar](50)   NULL,
+	[Mesto]             [varchar](200)  NULL,
+	[Osnovica]          [decimal](18,2) NULL,
+	[Suma_Rabat]        [decimal](18,2) NULL,
+	[Suma_PDV]          [decimal](18,2) NULL,
+	[Suma_BezRabata]    [decimal](18,2) NULL,
+	[Suma_Ukupno]       [decimal](18,2) NULL,
+	[Komentar1]         [varchar](200)  NULL,
+	[Komentar2]         [varchar](200)  NULL,
+	[komentar3]         [varchar](max)  NULL,
+	[Status]            [varchar](15)   NULL,
+	[TipProdaje]        [varchar](15)   NULL,
+	[Id_Partnera]       [int]           NULL,
+	[idBanke]           [int]           NULL,
+	[uvozIzvoz]         [varchar](10)   NULL,
+	[kurs]              [decimal](18,4) NULL,
+	[datumKursa]        [datetime]      NULL,
+	[tipStampe]         [varchar](15)   NULL,
+	[idIzvora]          [int]           NULL,
+	[tipIzvora]         [varchar](15)   NULL,
+	[uneo]              [int]           NULL,
+	[datumUnosa]        [datetime]      NULL,
+	[izmenio]           [int]           NULL,
+	[datumIzmene]       [datetime]      NULL,
+ CONSTRAINT [PK_tbl_dokumenti] PRIMARY KEY CLUSTERED
+(
+	[Broj] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+
+GO
+CREATE NONCLUSTERED INDEX [IX_tbl_dokumenti_Tip_Datum] ON [dbo].[tbl_dokumenti] ([TipDokumenta] ASC, [Datum_Dokumenta] DESC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [IX_tbl_dokumenti_Partner] ON [dbo].[tbl_dokumenti] ([Id_Partnera] ASC)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+
 /****** Object:  Table [dbo].[tbl_dozvole]    Script Date: 8.6.2026. 22:52:59 ******/
 SET ANSI_NULLS ON
 GO
@@ -2055,8 +2138,8 @@ CREATE TABLE [dbo].[tbl_lineItem](
 	[code] [varchar](20) NULL,
 	[description] [varchar](2000) NULL,
 	[unit] [varchar](20) NULL,
-	[unitPrice] [decimal](18, 2) NULL,
-	[quantity] [decimal](18, 3) NULL,
+	[unitPrice] [decimal](18, 4) NULL,
+	[quantity] [decimal](18, 4) NULL,
 	[discountPercentage] [decimal](18, 2) NULL,
 	[discountAmount] [decimal](18, 2) NULL,
 	[sumWithoutVat] [decimal](18, 2) NULL,
@@ -2065,8 +2148,8 @@ CREATE TABLE [dbo].[tbl_lineItem](
 	[sumWithVat] [decimal](18, 2) NULL,
 	[vatCategoryCode] [varchar](5) NULL,
 	[tipRacuna] [varchar](20) NULL,
-	[cenaSP] [decimal](18, 2) NULL,
-	[cenaSaRbt] [decimal](18, 2) NULL,
+	[cenaSP] [decimal](18, 4) NULL,
+	[cenaSaRbt] [decimal](18, 4) NULL,
 	[KeyClan] [varchar](50) NULL,
 	[idTaxExemption] [int] NULL,
  CONSTRAINT [PK_tbl_lineItem] PRIMARY KEY CLUSTERED 
@@ -2678,7 +2761,13 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[rezervaBit3] [int] NULL DEFAULT ((0)),
 	[brTureAgencijski] [int] NULL DEFAULT ((1)),
 	[minCifaraBroja] [int] NULL DEFAULT ((0)),
-	[verzijaBaze] [int] NULL DEFAULT ((213)),
+	-- 214 = tbl_dokumenti + tbl_artikli_dokumenta (ponude i predracuni),
+	--       tbl_racuni.idIzvora/tipIzvora, tbl_Podesavanja.formatBrojaPonude,
+	--       cene prosirene na 4 decimale;
+	--       dopuna: tbl_artikli_racuna/tbl_artikli_dokumenta cene i kolicine
+	--       na 4 decimale, tbl_lineItem unitPrice/quantity/cenaSP/cenaSaRbt
+	--       na 4 decimale, dodato tbl_racuni.zaokruzenje
+	[verzijaBaze] [int] NULL DEFAULT ((214)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
@@ -2693,6 +2782,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	[formatBrojaInoRacuna] [varchar](50) NULL DEFAULT ('broj-godina4'),
 	[formatBrojaPredracuna] [varchar](50) NULL DEFAULT ('broj-godina4'),
 	[formatBrojaOtpremnice] [varchar](50) NULL DEFAULT ('broj-godina4'),
+	[formatBrojaPonude] [varchar](50) NULL DEFAULT ('broj-godina4'),
 	[prefiksiRacuna] [varchar](50) NULL,
 	[pdvKategorija] [varchar](50) NULL,
 	[pdvSlovo] [varchar](10) NULL,
@@ -3283,6 +3373,9 @@ CREATE TABLE [dbo].[tbl_racuni](
 	[kurs] [decimal](18, 4) NULL,
 	[datumKursa] [datetime] NULL,
 	[tipStampe] [varchar](15) NULL,
+	[idIzvora] [int] NULL,        -- v214: veza ka tbl_dokumenti kad je racun nastao iz predracuna
+	[tipIzvora] [varchar](15) NULL,
+	[zaokruzenje] [decimal](18, 2) NULL,        -- v214: UBL BT-114 PayableRoundingAmount (priprema, builder salje 0)
 	[brisano] [int] NOT NULL DEFAULT ((0)),
 	[datumUnosa] [datetime] NULL,
 	[izmenio] [int] NULL,

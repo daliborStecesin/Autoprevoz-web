@@ -1,0 +1,13 @@
+/* Lokalno, izolovano samo za /dokumenti — gušća tabela, isti obrazac kao
+   /efakture/izlazne (izlazne-grid). ::deep jer MudDataGrid renderuje
+   sopstveni interni markup (thead/tbody/td) van naših template-a. */
+
+.dokumenti-grid ::deep td,
+.dokumenti-grid ::deep th {
+    padding: 4px 8px !important;
+    font-size: 0.82rem;
+}
+
+.dokumenti-grid ::deep .mud-table-toolbar {
+    min-height: 0;
+}

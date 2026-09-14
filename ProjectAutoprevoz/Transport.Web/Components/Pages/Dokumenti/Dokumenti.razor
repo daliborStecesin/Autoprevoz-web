@@ -1,0 +1,409 @@
+@page "/dokumenti"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using Transport.Domain.Entities
+@using Transport.Infrastructure.Data
+@using Transport.Application.Interfaces
+
+@inject ITenantService         TenantService
+@inject IDefaultValuesService  DefaultValues
+@inject NavigationManager      Nav
+@inject TransportDbContext     Db
+@inject IDialogService         Dialog
+@inject ISnackbar              Snackbar
+@inject ILogBrisanjaService    LogServis
+@inject IJSRuntime             JS
+
+<PageTitle>Ponude i predračuni — Autoprevoz</PageTitle>
+
+<div class="d-flex justify-space-between align-center flex-wrap gap-2 mb-3">
+    <MudText Typo="Typo.h5" Style="color:#2D3E50;">
+        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+        Ponude i predračuni
+    </MudText>
+
+    <div class="d-flex align-center flex-wrap gap-2">
+        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NoviDokument">
+            Novi dokument
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   Disabled="@(_selektovan is null)"
+                   OnClick="Izmeni">
+            Izmeni
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Print"
+                   Disabled="@(_selektovan is null)"
+                   OnClick="Stampa">
+            Štampa
+        </MudButton>
+        <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+        <MudTooltip Text="Obriši" ShowOnHover="true">
+            <span>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               Disabled="@(_selektovan is null)" OnClick="ObrisiDokument" />
+            </span>
+        </MudTooltip>
+    </div>
+</div>
+
+<div style="max-width:280px;" class="mb-3">
+    <NativniSelect Label="Tip dokumenta" Value="@_tip" ValueChanged="@OnTipChanged">
+        <option value="PONUDA">Ponude</option>
+        <option value="PREDRACUN">Predračuni</option>
+    </NativniSelect>
+</div>
+
+<MudGrid Spacing="3">
+
+    @* ── LEVA STRANA — Filteri (ručni accordion — isti obrazac kao /fakture) ── *@
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-2">
+            <div style="border:1px solid rgba(0,0,0,0.12); border-radius:4px;">
+                <div @onclick="OnFilteriPanelToggle"
+                     style="display:flex; align-items:center; justify-content:space-between;
+                            padding:8px 12px; cursor:pointer; user-select:none;
+                            background:#fafafa; border-radius:4px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; color:#2D3E50;">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
+                        Filteri
+                    </div>
+                    <MudIcon Icon="@(_filteriOtvoreni ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                             Size="Size.Small" Style="color:#888;" />
+                </div>
+                @if (_filteriOtvoreni)
+                {
+                    <div style="padding:8px 12px 10px;">
+                        <div class="mb-2">
+                            <NativniInput TValue="string" Label="Partner"
+                                          Value="@_partner"
+                                          ValueChanged="@(v => _partner = v ?? string.Empty)"
+                                          OnEnter="Izlistaj" />
+                        </div>
+
+                        <div class="mb-2">
+                            <NativniSelect Label="Status" Value="@_status"
+                                           ValueChanged="@(v => _status = v ?? "SVI")">
+                                <option value="SVI">SVI</option>
+                                <option value="NACRT">NACRT</option>
+                                <option value="POSLAT">POSLAT</option>
+                                <option value="ISTEKLO">ISTEKLO</option>
+                                <option value="PRIHVACEN">PRIHVACEN</option>
+                                <option value="ODBIJEN">ODBIJEN</option>
+                                <option value="REALIZOVAN">REALIZOVAN</option>
+                                <option value="STORNIRAN">STORNIRAN</option>
+                            </NativniSelect>
+                        </div>
+
+                        <div class="mb-2"><DateInput Label="Datum OD" @bind-Value="_od" /></div>
+                        <div class="mb-3"><DateInput Label="Datum DO" @bind-Value="_do" /></div>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Search"
+                                   OnClick="Izlistaj"
+                                   Disabled="_ucitava"
+                                   FullWidth="true">
+                            @if (_ucitava)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            }
+                            Izlistaj
+                        </MudButton>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    @* ── DESNA STRANA — Grid ────────────────────────────────────────── *@
+    <MudItem xs="12" md="9">
+
+        @if (_ucitava)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <MudDataGrid T="Dokument" Items="_rezultati" Dense="true" Hover="true"
+                         FixedHeader="true" Height="calc(100vh - 400px)"
+                         RowClick="NaKlikReda"
+                         RowStyleFunc="@BojaReda"
+                         Class="dokumenti-grid">
+                <Columns>
+                    <TemplateColumn Title="Broj" SortBy="x => x.BrojDokumenta" HeaderStyle="width:12%;">
+                        <CellTemplate Context="red">
+                            <span style="white-space:nowrap;">@(red.Item.BrojDokumenta ?? "-")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Datum" SortBy="x => x.DatumDokumenta" HeaderStyle="width:11%;">
+                        <CellTemplate Context="red">
+                            <span style="white-space:nowrap;">@red.Item.DatumDokumenta?.ToString("dd.MM.yyyy")</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Naziv" Title="Partner" HeaderStyle="width:28%;" />
+                    <TemplateColumn Title="Važi do" SortBy="x => x.DatumVazenosti" HeaderStyle="width:11%;">
+                        <CellTemplate Context="red">
+                            <span style="white-space:nowrap; @(JeIsteklo(red.Item) ? "color:#D32F2F; font-weight:600;" : "")">
+                                @red.Item.DatumVazenosti?.ToString("dd.MM.yyyy")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Vrednost" SortBy="x => x.SumaUkupno" HeaderStyle="width:16%; text-align:right;">
+                        <CellTemplate Context="red">
+                            <span style="display:block; text-align:right; font-weight:600; padding-right:6px;">
+                                @red.Item.SumaUkupno?.ToString("N2")
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Status" HeaderStyle="width:12%;">
+                        <CellTemplate Context="red">
+                            @if (JeIsteklo(red.Item))
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Style="font-weight:600;">
+                                    Isteklo
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="@BojaStatusa(red.Item.Status)">
+                                    @(red.Item.Status ?? "-")
+                                </MudChip>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Dokument" PageSizeOptions="@(new int[]{20,50,100,200})"
+                                      RowsPerPageString="Redova po strani:" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_rezultati.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    Nema dokumenata za izabrane filtere.
+                </MudAlert>
+            }
+        }
+
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _tip = "PONUDA";
+
+    private string _partner = string.Empty;
+    private string _status  = "SVI";
+    private string _od = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd");
+    private string _do = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private List<Dokument> _rezultati = [];
+    private Dokument?      _selektovan;
+
+    private bool _ucitava;
+    private bool _filteriOtvoreni = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantService.IsAuthenticated()) { Nav.NavigateTo("/login"); return; }
+
+        var uid = TenantService.GetIdKorisnika();
+
+        var pTip      = await DefaultValues.GetDefault("dokumenti", "tip",            uid);
+        var pFilteri  = await DefaultValues.GetDefault("dokumenti", "panel_filteri",  uid);
+        var pPartner  = await DefaultValues.GetDefault("dokumenti", "partner",        uid);
+        var pStatus   = await DefaultValues.GetDefault("dokumenti", "status",         uid);
+        var pOd       = await DefaultValues.GetDefault("dokumenti", "od",             uid);
+        var pDo       = await DefaultValues.GetDefault("dokumenti", "do",             uid);
+
+        if (pTip     is not null) _tip     = pTip;
+        if (pFilteri is not null) _filteriOtvoreni = pFilteri == "True";
+        if (pPartner is not null) _partner = pPartner;
+        if (pStatus  is not null) _status  = pStatus;
+        if (pOd      is not null) _od      = pOd;
+        if (pDo      is not null) _do      = pDo;
+
+        await Izlistaj();
+    }
+
+    private async Task OnFilteriPanelToggle()
+    {
+        _filteriOtvoreni = !_filteriOtvoreni;
+        await DefaultValues.SaveDefault("dokumenti", "panel_filteri", _filteriOtvoreni.ToString(), TenantService.GetIdKorisnika());
+    }
+
+    private async Task OnTipChanged(string? value)
+    {
+        _tip = value ?? "PONUDA";
+        await DefaultValues.SaveDefault("dokumenti", "tip", _tip, TenantService.GetIdKorisnika());
+        await Izlistaj();
+    }
+
+    private async Task Izlistaj()
+    {
+        var uid = TenantService.GetIdKorisnika();
+        await DefaultValues.SaveDefault("dokumenti", "partner", _partner, uid);
+        await DefaultValues.SaveDefault("dokumenti", "status",  _status,  uid);
+        await DefaultValues.SaveDefault("dokumenti", "od",      _od,      uid);
+        await DefaultValues.SaveDefault("dokumenti", "do",      _do,      uid);
+
+        _ucitava = true; _selektovan = null; StateHasChanged();
+
+        try
+        {
+            IQueryable<Dokument> q = Db.Dokumenti.AsNoTracking().Where(d => d.TipDokumenta == _tip);
+
+            if (!string.IsNullOrWhiteSpace(_partner))
+                q = q.Where(d => d.Naziv != null && d.Naziv.Contains(_partner));
+
+            if (DateTime.TryParse(_od, out var odDate))
+                q = q.Where(d => d.DatumDokumenta >= odDate);
+
+            if (DateTime.TryParse(_do, out var doDateRaw))
+            {
+                var doDate = doDateRaw.AddDays(1);
+                q = q.Where(d => d.DatumDokumenta < doDate);
+            }
+
+            if (_status == "ISTEKLO")
+            {
+                var danas = DateTime.Today;
+                q = q.Where(d => d.Status == "POSLAT" && d.DatumVazenosti != null && d.DatumVazenosti < danas);
+            }
+            else if (_status != "SVI")
+            {
+                q = q.Where(d => d.Status == _status);
+            }
+
+            _rezultati = await q.OrderByDescending(d => d.DatumDokumenta).ThenByDescending(d => d.Broj).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error,
+                cfg => cfg.VisibleStateDuration = 15000);
+        }
+        finally
+        {
+            _ucitava = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NaKlikReda(DataGridRowClickEventArgs<Dokument> args)
+    {
+        _selektovan = args.Item;
+    }
+
+    private string BojaReda(Dokument item, int _) =>
+        _selektovan is not null && _selektovan.Broj == item.Broj
+            ? "background-color:rgba(61,142,185,0.18); border-left:4px solid #3D8EB9;"
+            : string.Empty;
+
+    // "Isteklo" se ne čita iz baze — računa se u prikazu iz Status+DatumVazenosti.
+    // U bazi Status ostaje "POSLAT" dok ga neko ručno ne promeni.
+    private static bool JeIsteklo(Dokument d) =>
+        d.Status == "POSLAT" && d.DatumVazenosti.HasValue && d.DatumVazenosti.Value.Date < DateTime.Today;
+
+    // Boja statusnog čipa. PRIHVACEN/REALIZOVAN = zeleno, ODBIJEN/STORNIRAN = crveno,
+    // NACRT/POSLAT = žuto. "Isteklo" (narandžasto) se rešava posebno u markup-u
+    // preko Color.Warning, pre nego što se ovaj helper uopšte pozove.
+    private static string BojaStatusa(string? status) => status switch
+    {
+        "PRIHVACEN" or "REALIZOVAN" => "background-color:#2E7D32; color:#fff;",
+        "ODBIJEN"   or "STORNIRAN"  => "background-color:#C62828; color:#fff;",
+        "NACRT"     or "POSLAT"     => "background-color:#FBC02D; color:#3a2f00;",
+        _                           => "background-color:#9e9e9e; color:#fff;"
+    };
+
+    private void NoviDokument() => Nav.NavigateTo($"/dokumenti/unos?tip={_tip}");
+
+    private void Izmeni()
+    {
+        if (_selektovan is not null)
+            Nav.NavigateTo($"/dokumenti/unos/{_selektovan.Broj}");
+    }
+    private async Task Stampa()
+    {
+        if (_selektovan is null) return;
+        await JS.InvokeVoidAsync("open", $"/dokumenti/stampa?id={_selektovan.Broj}", "_blank");
+    }
+
+    // Obrazac po uzoru na KarticaNovaService.ProveriUplateZaRacun — null znači
+    // sme da se obriše, string je poruka koja objašnjava zašto ne sme.
+    private async Task<string?> ProveriBrisanjeDokumenta(Dokument dok)
+    {
+        if (dok.Status == "REALIZOVAN")
+            return $"Dokument {dok.BrojDokumenta ?? dok.Broj.ToString()} je realizovan (postao je sledeći dokument u lancu) i ne može se obrisati.";
+
+        var imaSledeciDokument = await Db.Dokumenti.AsNoTracking()
+            .AnyAsync(d => d.IdIzvora == dok.Broj);
+        if (imaSledeciDokument)
+            return $"Iz dokumenta {dok.BrojDokumenta ?? dok.Broj.ToString()} je nastao drugi dokument (ponuda/predračun). Prvo raskinite tu vezu.";
+
+        var imaRacun = await Db.Racuni.AsNoTracking()
+            .AnyAsync(r => r.IdIzvora == dok.Broj);
+        if (imaRacun)
+            return $"Iz dokumenta {dok.BrojDokumenta ?? dok.Broj.ToString()} je nastao račun. Prvo raskinite tu vezu na računu.";
+
+        return null;
+    }
+
+    private async Task ObrisiDokument()
+    {
+        if (_selektovan is null) return;
+
+        var greska = await ProveriBrisanjeDokumenta(_selektovan);
+        if (greska is not null)
+        {
+            Snackbar.Add(greska, Severity.Warning, cfg => cfg.VisibleStateDuration = 10000);
+            return;
+        }
+
+        var ok = await Dialog.ShowMessageBox(
+            "Brisanje dokumenta",
+            $"Da li ste sigurni da želite da obrišete dokument\n{_selektovan.BrojDokumenta ?? _selektovan.Broj.ToString()} — {_selektovan.Naziv}?",
+            yesText: "Da, obriši", cancelText: "Ne");
+
+        if (ok != true) return;
+
+        var entitet = await Db.Dokumenti.FindAsync(_selektovan.Broj);
+        if (entitet is null) return;
+
+        try
+        {
+            using var tx = await Db.Database.BeginTransactionAsync();
+            try
+            {
+                await LogServis.Zabelezi("DOKUMENTI",
+                    $"Obrisan dokument {entitet.TipDokumenta} {entitet.BrojDokumenta}, vrednost {(entitet.SumaUkupno ?? 0):N2}");
+
+                var stavke = await Db.ArtikliDokumenta
+                    .Where(s => s.IdDokumenta == entitet.Broj)
+                    .ToListAsync();
+                Db.ArtikliDokumenta.RemoveRange(stavke);
+                Db.Dokumenti.Remove(entitet);
+
+                await Db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+
+            _selektovan = null;
+            Snackbar.Add("Dokument obrisan.", Severity.Success);
+            await Izlistaj();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Greška: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+}

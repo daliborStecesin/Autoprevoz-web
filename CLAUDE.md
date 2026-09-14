@@ -304,15 +304,17 @@ Folder `/sql/`:
 |---|---|---|
 | `01_CREATE_kasa_template.sql` | KLIJENTSKA (nova) | 109 tabela, verzija 213. NEUTRALAN — bez `CREATE DATABASE`/`USE`. Embedded resource. |
 | `02_MIGRACIJA_postojeci_klijent.sql` | KLIJENTSKA (stara) | ALTER, idempotentno |
-| `03_MASTER_daksoft_v214.sql` | **MASTER `daksoft`** | web licence, članstva, role, view. Aditivno, idempotentno. Pušta se dvaput (drugi put prenese članstva). |
+| `03_MASTER_daksoft.sql` | **MASTER `daksoft`** | web licence, članstva, role, view. Aditivno, idempotentno. Pušta se dvaput (drugi put prenese članstva). Sopstvena istorija izmena u zaglavlju fajla, nezavisna od klijentske `verzijaBaze`. |
 
 **PRAVILO: svaka promena šeme KLIJENTSKE baze ide u OBA klijentska fajla
 istovremeno.** Izmene mastera idu isključivo u `03_MASTER`.
 
 ### Verzije — ne mešati
-- **`verzijaBaze` u `tbl_Podesavanja` (KLIJENTSKA baza) = 213.** v214 se odnosi
-  na MASTER skriptu i NE menja klijentsku verziju.
-- Master baza nema svoju kolonu verzije.
+- **`verzijaBaze` u `tbl_Podesavanja` (KLIJENTSKA baza) = 214.**
+- **Master baza nema svoju kolonu verzije i NE deli brojanje sa klijentskom.**
+  `03_MASTER_daksoft.sql` (bez brojke u imenu — ranije se zvao
+  `03_MASTER_daksoft_v214.sql`, preimenovan da se ukloni sudar sa klijentskom
+  v214) ima sopstvenu, datumsku istoriju izmena u zaglavlju fajla.
 
 Istorija klijentske baze:
 - 201–207 — plate, računi, banke, kartica, triggeri
@@ -322,11 +324,14 @@ Istorija klijentske baze:
 - 211 = `tbl_KarticaNova.idEfakture`
 - 212 = DROP trigera `brisanjaArtikalatbl_eInvoice`
 - 213 = seed `tbl_role` (Admin/Operater) + `01_CREATE` očišćen od imena baze
+- 214 = `tbl_dokumenti` + `tbl_artikli_dokumenta` (ponude/predračuni),
+  `tbl_racuni.idIzvora`/`tipIzvora`, `tbl_Podesavanja.formatBrojaPonude`,
+  cene na 4 decimale
 
-Master:
-- **214 = `tbl_web_licence`, `tbl_web_clanstvo`, `tbl_web_role`, `vw_web_pristup`**
-- **215 (planirano) = DROP kolona `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`**
-  (EF ih više ne mapira, čekaju potvrdu u produkciji)
+Master (istorija u zaglavlju `03_MASTER_daksoft.sql`, ne ovde):
+- 2026-09 = `tbl_web_licence`, `tbl_web_clanstvo`, `tbl_web_role`, `vw_web_pristup`
+- planirano = DROP kolona `IdLicence` i `IdZaposlenog` iz `tbl_web_korisnici`
+  (EF ih više ne mapira, čeka potvrdu u produkciji)
 
 Izbačene tabele (6): lazarCo, partneri(duplikat), tbl_partneriBeljkas,
 tbl_partneriMAX, tbl_partneriSamSam, tbl_boraObaveze.
@@ -343,7 +348,7 @@ Automatski preko `TransportDbContext.SaveChangesAsync` override:
 „Obračunao" na štampama = ime trenutno ulogovanog (runtime).
 
 GAP — pri radu na FAKTURISANJU/LAGERU dodati `IAuditable` na: Racun,
-GotovinskiRacun, Otpremnica, Ponuda, Artikal, ObavestenjePP, VatDeductionRecord.
+GotovinskiRacun, Otpremnica, Artikal, ObavestenjePP, VatDeductionRecord.
 Partner: `DatumUnosa`/`DatumIzmene` su `[NotMapped]`.
 
 ---

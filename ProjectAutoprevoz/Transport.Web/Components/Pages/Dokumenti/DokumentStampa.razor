@@ -1,4 +1,4 @@
-@page "/fakture/stampa"
+@page "/dokumenti/stampa"
 @layout EmptyLayout
 @rendermode InteractiveServer
 
@@ -7,12 +7,11 @@
 @using Transport.Infrastructure.Data
 
 @inject ITenantService     TenantService
-@inject IProfilService     ProfilService
 @inject TransportDbContext Db
 @inject NavigationManager  Nav
 @inject IJSRuntime         JS
 
-<PageTitle>@(_racun is not null ? $"Racun {_racun.BrojRacuna}" : "Račun")</PageTitle>
+<PageTitle>@(_dokument is not null ? $"{NazivTipaZaNaslov} {_dokument.BrojDokumenta}" : "Dokument")</PageTitle>
 
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,15 +88,15 @@
 {
     <div class="loading">Učitavanje...</div>
 }
-else if (_racun is null)
+else if (_dokument is null)
 {
-    <div class="loading" style="color:#c62828;">Račun nije pronađen.<br /><br /><button onclick="window.history.back()">Nazad</button></div>
+    <div class="loading" style="color:#c62828;">Dokument nije pronađen.<br /><br /><button onclick="window.history.back()">Nazad</button></div>
 }
 else
 {
 <div class="wrap">
 
-    @* Zaglavlje: logo + firma levo, izdavalac uokvireno desno *@
+    @* Zaglavlje: logo + firma levo, primalac uokvireno desno — isto kao na fakturi *@
     <div class="print-header">
 
         @if (!string.IsNullOrEmpty(_logoBase64))
@@ -119,27 +118,23 @@ else
         </div>
 
         <div class="blok">
-            <div class="naslov">@(_eng ? "Bill To" : "Primalac")</div>
-            <div><strong>@_racun.Naziv</strong></div>
-            <div>@_racun.Adresa, @_racun.PosBroj @_racun.Mesto</div>
-            <div>PIB: @_racun.PIB</div>
+            <div class="naslov">@N(NazivKljuc.Primalac)</div>
+            <div><strong>@_dokument.Naziv</strong></div>
+            <div>@_dokument.Adresa, @_dokument.PosBroj @_dokument.Mesto</div>
+            <div>PIB: @_dokument.PIB</div>
         </div>
 
     </div>
 
-    @* Identifikacija *@
+    @* Identifikacija — bez datuma utovara/prometa (dokument nema ta polja,
+       transport blok se ovde uopšte ne pojavljuje) *@
     <div class="identifikacija">
         <div class="levo">
-            <div class="red"><span class="lbl">@(_eng ? "Date of invoice:" : "Datum izdavanja računa:")</span> <strong>@FormatDate(_racun.DatumRacuna)</strong></div>
-            <div class="red"><span class="lbl">@(_eng ? "Place of invoice:" : "Mesto izdavanja:")</span> <strong>@MestoIzdavanjaPrikaz</strong></div>
-            @if (_prikaziDatumUtovara)
-            {
-                <div class="red"><span class="lbl">@(_eng ? "Loading date:" : "Datum utovara:")</span> <strong>@FormatDate(_racun.DatumPrometa)</strong></div>
-            }
-            <div class="red"><span class="lbl">@(_eng ? "Date of supply:" : "Datum prometa usluge:")</span> <strong>@FormatDate(_racun.DatumPrometaDo)</strong></div>
+            <div class="red"><span class="lbl">@N(NazivKljuc.DatumIzdavanja)</span> <strong>@FormatDate(_dokument.DatumDokumenta)</strong></div>
+            <div class="red"><span class="lbl">@N(NazivKljuc.MestoIzdavanja)</span> <strong>@MestoIzdavanjaPrikaz</strong></div>
         </div>
         <div class="desno">
-            <div class="naslov-racuna">@(_eng ? "Invoice no" : "RAČUN broj"): <strong>@_racun.BrojRacuna</strong></div>
+            <div class="naslov-racuna">@NaslovTipa: <strong>@_dokument.BrojDokumenta</strong></div>
         </div>
     </div>
 
@@ -160,40 +155,20 @@ else
             <col style="width:5%;" />
         </colgroup>
         <thead>
-            @if (_eng)
-            {
-                <tr>
-                    <th>Id.</th>
-                    <th>Product / Service</th>
-                    <th>UoM</th>
-                    <th>QTY</th>
-                    <th>Unit Price</th>
-                    @if (_imaRabat)
-                    {
-                        <th>Disc%</th>
-                        <th>Net Price</th>
-                    }
-                    <th>Base</th>
-                    <th>VAT%</th>
-                </tr>
-            }
-            else
-            {
-                <tr>
-                    <th>R.Br</th>
-                    <th>Vrsta usluge</th>
-                    <th>JM</th>
-                    <th>Kol.</th>
-                    <th>Cena</th>
-                    @if (_imaRabat)
-                    {
-                        <th>Rbt%</th>
-                        <th>Cena sa Rbt</th>
-                    }
-                    <th>Osnovica</th>
-                    <th>PDV %</th>
-                </tr>
-            }
+            <tr>
+                <th>@N(NazivKljuc.TabelaRedniBroj)</th>
+                <th>@N(NazivKljuc.TabelaOpis)</th>
+                <th>@N(NazivKljuc.TabelaJm)</th>
+                <th>@N(NazivKljuc.TabelaKolicina)</th>
+                <th>@N(NazivKljuc.TabelaCena)</th>
+                @if (_imaRabat)
+                {
+                    <th>@N(NazivKljuc.TabelaRabat)</th>
+                    <th>@N(NazivKljuc.TabelaCenaSaRabatom)</th>
+                }
+                <th>@N(NazivKljuc.TabelaOsnovica)</th>
+                <th>@N(NazivKljuc.TabelaPdvProcenat)</th>
+            </tr>
         </thead>
         <tbody>
             @{ int redniBroj = 0; }
@@ -218,16 +193,16 @@ else
         </tbody>
     </table>
 
-    @* Napomena PDV + rekapitulacija *@
+    @* Napomena PDV + "Važi do" + rekapitulacija *@
     <div class="rekap-row">
         <div class="napomena-pdv">
-            @if (!string.IsNullOrWhiteSpace(_racun.Komentar2))
+            @if (!string.IsNullOrWhiteSpace(_dokument.Komentar2))
             {
-                <div>@(_eng ? "Tax exemption note:" : "Napomena o poreskom oslobođenju:") @_racun.Komentar2</div>
+                <div>@N(NazivKljuc.NapomenaOslobodjenje) @_dokument.Komentar2</div>
             }
-            @if (_racun.DatumValute.HasValue)
+            @if (_dokument.DatumVazenosti.HasValue)
             {
-                <div style="margin-top:6px;">@(_eng ? "Payment date:" : "Valuta plaćanja:") @FormatDate(_racun.DatumValute)</div>
+                <div style="margin-top:6px;">@N(NazivKljuc.VaziDo) @FormatDate(_dokument.DatumVazenosti)</div>
             }
         </div>
 
@@ -235,46 +210,37 @@ else
             @if (_eng)
             {
                 <div class="rekap-blok">
-                    <div class="red"><span>TOTAL (EUR):</span><strong>@((_racun.Osnovica ?? 0).ToString("N2"))</strong></div>
-                    <div class="red"><span>TAX (EUR):</span><strong>@((_racun.SumaPDV ?? 0).ToString("N2"))</strong></div>
-                    <div class="red ukupno"><span>FOR PAYMENT (EUR):</span><span>@((_racun.SumaRacuna ?? 0).ToString("N2"))</span></div>
+                    <div class="red"><span>@N(NazivKljuc.RekapOsnovica)</span><strong>@((_dokument.Osnovica ?? 0).ToString("N2"))</strong></div>
+                    <div class="red"><span>@N(NazivKljuc.RekapPdv)</span><strong>@((_dokument.SumaPDV ?? 0).ToString("N2"))</strong></div>
+                    <div class="red ukupno"><span>@N(NazivKljuc.RekapUkupno)</span><span>@((_dokument.SumaUkupno ?? 0).ToString("N2"))</span></div>
                 </div>
 
                 <div class="rekap-blok">
-                    <div class="red"><span>EUR rate:</span><strong>@((_racun.Kurs ?? 0).ToString("N4"))</strong></div>
-                    <div class="red"><span>Value RSD:</span><strong>@(((_racun.SumaRacuna ?? 0) * (_racun.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
+                    <div class="red"><span>@N(NazivKljuc.KursEur)</span><strong>@((_dokument.Kurs ?? 0).ToString("N4"))</strong></div>
+                    <div class="red"><span>@N(NazivKljuc.VrednostRsd)</span><strong>@(((_dokument.SumaUkupno ?? 0) * (_dokument.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
                 </div>
             }
             else
             {
                 <div class="rekap-blok">
-                    <div class="red"><span>Osnovica:</span><strong>@((_racun.Osnovica ?? 0).ToString("N2")) @Valuta</strong></div>
-                    <div class="red"><span>Iznos PDV:</span><strong>@((_racun.SumaPDV ?? 0).ToString("N2")) @Valuta</strong></div>
-                    <div class="red ukupno"><span>UKUPNO:</span><span>@((_racun.SumaRacuna ?? 0).ToString("N2")) @Valuta</span></div>
+                    <div class="red"><span>@N(NazivKljuc.RekapOsnovica)</span><strong>@((_dokument.Osnovica ?? 0).ToString("N2")) @Valuta</strong></div>
+                    <div class="red"><span>@N(NazivKljuc.RekapPdv)</span><strong>@((_dokument.SumaPDV ?? 0).ToString("N2")) @Valuta</strong></div>
+                    <div class="red ukupno"><span>@N(NazivKljuc.RekapUkupno)</span><span>@((_dokument.SumaUkupno ?? 0).ToString("N2")) @Valuta</span></div>
                 </div>
 
                 @if (JeEur)
                 {
                     <div class="rekap-blok">
-                        <div class="red"><span>Kurs EUR:</span><strong>@((_racun.Kurs ?? 0).ToString("N4"))</strong></div>
-                        <div class="red"><span>Vrednost RSD:</span><strong>@(((_racun.SumaRacuna ?? 0) * (_racun.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
+                        <div class="red"><span>@N(NazivKljuc.KursEur)</span><strong>@((_dokument.Kurs ?? 0).ToString("N4"))</strong></div>
+                        <div class="red"><span>@N(NazivKljuc.VrednostRsd)</span><strong>@(((_dokument.SumaUkupno ?? 0) * (_dokument.Kurs ?? 0)).ToString("N2")) RSD</strong></div>
                     </div>
                 }
             }
         </div>
     </div>
 
-    @* Dodatni podaci *@
-    <div class="info-blok">
-        @if (!string.IsNullOrWhiteSpace(_racun.Otpremnica))
-        { <div class="red"><span class="lbl">CMR:</span> @_racun.Otpremnica</div> }
-        @if (!string.IsNullOrWhiteSpace(_racun.FiskIsecak))
-        { <div class="red"><span class="lbl">@(_eng ? "Order number:" : "Nalog za utovar:")</span> @_racun.FiskIsecak</div> }
-        @if (!string.IsNullOrWhiteSpace(_racun.Vozilo) || !string.IsNullOrWhiteSpace(_racun.RegOznaka))
-        { <div class="red"><span class="lbl">@(_eng ? "Truck registration no:" : "Transport dobara izvršen vozilom:")</span> @(_racun.Vozilo ?? _racun.RegOznaka)</div> }
-    </div>
-
-    @* Žiro / devizni / bank account *@
+    @* Žiro / devizni račun — isto kao na fakturi, bez "Dodatni podaci" bloka
+       (CMR / nalog za utovar / vozilo) jer ponuda/predračun ta polja nemaju *@
     <div class="info-blok">
         @if (!JeEur)
         {
@@ -285,10 +251,10 @@ else
         }
         else
         {
-            <div class="red" style="font-weight:bold;">@(_eng ? "Bank account:" : "Devizni račun:")</div>
+            <div class="red" style="font-weight:bold;">@N(NazivKljuc.DevizniRacun)</div>
             @if (_banka is not null)
             {
-                <div class="red"><span class="lbl">@(_eng ? "Bank:" : "Banka:")</span> @_banka.banka</div>
+                <div class="red"><span class="lbl">@N(NazivKljuc.Banka)</span> @_banka.banka</div>
                 <div class="red"><span class="lbl">IBAN:</span> @_banka.IBAN</div>
                 <div class="red"><span class="lbl">SWIFT CODE:</span> @_banka.SWIFT</div>
             }
@@ -300,9 +266,9 @@ else
     </div>
 
     @* Komentar *@
-    @if (!string.IsNullOrWhiteSpace(_racun.Komentar1))
+    @if (!string.IsNullOrWhiteSpace(_dokument.Komentar1))
     {
-        <div class="komentar">@_racun.Komentar1</div>
+        <div class="komentar">@_dokument.Komentar1</div>
     }
 
     @* Stalna napomena *@
@@ -322,10 +288,10 @@ else
 
     @* Podnožje *@
     <div class="podnozje">
-        <div>@(_eng ? "Invoice issued by:" : "Račun izdao:") ____________________</div>
+        <div>@N(NazivKljuc.IzdaoDokument) ____________________</div>
         <div class="potpis">
             <div>M.P.</div>
-            <div class="linija">@(_eng ? "Signature" : "Potpis")</div>
+            <div class="linija">@N(NazivKljuc.Potpis)</div>
         </div>
     </div>
 
@@ -341,28 +307,36 @@ else
     [SupplyParameterFromQuery(Name = "id")]
     public int? Id { get; set; }
 
-    private Racun?       _racun;
-    private List<Stavka> _stavke = [];
-    private Banka?       _banka;
-    private PodaciFirme? _firma;
-    private Podesavanja? _podesavanja;
-    private bool         _ucitava = true;
-    private string?      _logoBase64;
-    private bool         _prikaziDatumUtovara;
+    private Dokument?          _dokument;
+    private List<StavkaDokumenta> _stavke = [];
+    private Banka?              _banka;
+    private PodaciFirme?        _firma;
+    private Podesavanja?        _podesavanja;
+    private bool                _ucitava = true;
+    private string?             _logoBase64;
 
-    // Engleska varijanta (tipStampe='INOSTRANI') je uvek EUR faktura
-    private bool   _eng   => _racun?.TipStampe == "INOSTRANI";
-    private bool   JeEur  => _eng || _racun?.TipProdaje == "INOSTRANI";
+    // Isti mehanizam kao FakturaStampa.razor: TipStampe='INOSTRANI' je uvek
+    // engleska (i time EUR) varijanta štampe, bez obzira na TipProdaje.
+    private bool   _eng   => _dokument?.TipStampe == "INOSTRANI";
+    private bool   JeEur  => _eng || _dokument?.TipProdaje == "INOSTRANI";
     private string Valuta => JeEur ? "EUR" : "RSD";
 
-    // Kolone Rbt% / Cena sa Rbt prikazuju se samo ako bar jedna stavka ima rabat
     private bool _imaRabat => _stavke.Any(s => (s.Rabat ?? 0) > 0);
 
-    // Mesto izdavanja: iz podešavanja, fallback na mesto firme izdavaoca
     private string MestoIzdavanjaPrikaz =>
         !string.IsNullOrWhiteSpace(_podesavanja?.MestoIzdavanja)
             ? _podesavanja!.MestoIzdavanja!
             : (_firma?.Mesto ?? "—");
+
+    private string N(NazivKljuc kljuc) => NaziviDokumenata.Naziv(kljuc, _eng);
+
+    private string NaslovTipa => _dokument?.TipDokumenta == "PONUDA"
+        ? N(NazivKljuc.NaslovPonuda)
+        : N(NazivKljuc.NaslovPredracun);
+
+    // Za PageTitle/ime PDF-a — bez dijakritika, isti obrazac kao FakturaStampa
+    // ("Racun {broj}", ne "Račun {broj}").
+    private string NazivTipaZaNaslov => _dokument?.TipDokumenta == "PONUDA" ? "Ponuda" : "Predracun";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -371,24 +345,19 @@ else
 
         try
         {
-            // Profil programa (TRANSPORT/TRGOVINA) odlučuje o vidljivosti "Datum utovara" —
-            // štampa nikad ne čita tbl_web_licence.TipPrograma direktno (vidi IProfilService).
-            _prikaziDatumUtovara = await ProfilService.PrikaziDatumUtovara();
-
             if (Id is int broj)
             {
-                _racun = await Db.Racuni.IgnoreQueryFilters()
-                                  .AsNoTracking()
-                                  .FirstOrDefaultAsync(r => r.Broj == broj);
+                _dokument = await Db.Dokumenti.AsNoTracking()
+                                     .FirstOrDefaultAsync(d => d.Broj == broj);
 
-                if (_racun is not null)
+                if (_dokument is not null)
                 {
-                    _stavke = await Db.ArtikliRacuna.AsNoTracking()
-                                      .Where(s => s.Id_Racuna == broj.ToString() && s.brisano == 0)
-                                      .OrderBy(s => s.Broj)
-                                      .ToListAsync();
+                    _stavke = await Db.ArtikliDokumenta.AsNoTracking()
+                                       .Where(s => s.IdDokumenta == broj)
+                                       .OrderBy(s => s.Broj)
+                                       .ToListAsync();
 
-                    if (_racun.IdBanke is int idBanke)
+                    if (_dokument.IdBanke is int idBanke)
                     {
                         _banka = await Db.Banke.AsNoTracking()
                                           .FirstOrDefaultAsync(b => b.idBanke == idBanke);
@@ -408,7 +377,7 @@ else
         catch { }
         finally { _ucitava = false; StateHasChanged(); }
 
-        if (_racun is not null)
+        if (_dokument is not null)
         {
             await Task.Delay(400);
             await JS.InvokeVoidAsync("window.print");

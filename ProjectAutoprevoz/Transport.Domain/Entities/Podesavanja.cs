@@ -61,6 +61,8 @@ public class Podesavanja
     [MaxLength(50)]  public string? formatBrojaPredracuna { get; set; }
     public int?     Broj_Otpremnice       { get; set; }
     [MaxLength(50)]  public string? formatBrojaOtpremnice { get; set; }
+    public int?     Broj_Ponude           { get; set; }
+    [MaxLength(50)]  public string? formatBrojaPonude     { get; set; }
 
     // Slobodni string — OpcijaString12: osnova za valutu (PROMET/RACUN)
     [MaxLength(50)] public string? OpcijaString12 { get; set; }

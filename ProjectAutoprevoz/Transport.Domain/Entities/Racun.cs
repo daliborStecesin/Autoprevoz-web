@@ -159,6 +159,16 @@ public class Racun : IAuditable
     [MaxLength(15)]
     public string? TipStampe { get; set; }
 
+    [Column("idIzvora")]
+    public int? IdIzvora { get; set; }
+
+    [Column("tipIzvora")]
+    [MaxLength(15)]
+    public string? TipIzvora { get; set; }
+
+    [Column("zaokruzenje", TypeName = "decimal(18,2)")]
+    public decimal? Zaokruzenje { get; set; }
+
     public int brisano { get; set; } = 0;
 
     public DateTime? DatumUnosa  { get; set; }

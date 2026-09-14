@@ -56,6 +56,11 @@ public class TransportDbContext : DbContext
                 {
                     kartica.uneo = userId;
                 }
+
+                if (entry.Entity is Dokument dok && entry.State == EntityState.Added)
+                {
+                    dok.uneo = userId;
+                }
             }
         }
         return await base.SaveChangesAsync(ct);
@@ -77,8 +82,8 @@ public class TransportDbContext : DbContext
     public DbSet<StavkaGotovinskog> StavkeGotovinskog { get; set; }
     public DbSet<Otpremnica> Otpremnice { get; set; }
     public DbSet<StavkaOtpremnice> StavkeOtpremnice { get; set; }
-    public DbSet<Ponuda> Ponude { get; set; }
-    public DbSet<StavkaPonude> StavkePonude { get; set; }
+    public DbSet<Dokument> Dokumenti { get; set; }
+    public DbSet<StavkaDokumenta> ArtikliDokumenta { get; set; }
 
     // Transport
     public DbSet<NalogPrevoz> NaloziZaPrevoz { get; set; }
@@ -237,11 +242,11 @@ public class TransportDbContext : DbContext
             .HasForeignKey(s => s.BrojOtpremnice)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Ponuda ← Stavke
-        modelBuilder.Entity<Ponuda>()
-            .HasMany(p => p.Stavke)
-            .WithOne(s => s.Ponuda)
-            .HasForeignKey(s => s.BrojPonude)
+        // Dokument (ponude/predracuni, tbl_dokumenti) ← Stavke (tbl_artikli_dokumenta)
+        modelBuilder.Entity<Dokument>()
+            .HasMany(d => d.Stavke)
+            .WithOne(s => s.Dokument)
+            .HasForeignKey(s => s.IdDokumenta)
             .OnDelete(DeleteBehavior.Restrict);
 
         // PutniNalogKamion (TURA) ← NalogPrevoz (NALOZI)
@@ -477,8 +482,8 @@ public class TransportDbContext : DbContext
             e.Property(x => x.code).HasColumnName("code").HasMaxLength(20);
             e.Property(x => x.description).HasColumnName("description").HasMaxLength(2000);
             e.Property(x => x.unit).HasColumnName("unit").HasMaxLength(20);
-            e.Property(x => x.unitPrice).HasColumnName("unitPrice").HasColumnType("decimal(18,2)");
-            e.Property(x => x.quantity).HasColumnName("quantity").HasColumnType("decimal(18,3)");
+            e.Property(x => x.unitPrice).HasColumnName("unitPrice").HasColumnType("decimal(18,4)");
+            e.Property(x => x.quantity).HasColumnName("quantity").HasColumnType("decimal(18,4)");
             e.Property(x => x.discountPercentage).HasColumnName("discountPercentage").HasColumnType("decimal(18,2)");
             e.Property(x => x.discountAmount).HasColumnName("discountAmount").HasColumnType("decimal(18,2)");
             e.Property(x => x.sumWithoutVat).HasColumnName("sumWithoutVat").HasColumnType("decimal(18,2)");
@@ -487,8 +492,8 @@ public class TransportDbContext : DbContext
             e.Property(x => x.sumWithVat).HasColumnName("sumWithVat").HasColumnType("decimal(18,2)");
             e.Property(x => x.vatCategoryCode).HasColumnName("vatCategoryCode").HasMaxLength(5);
             e.Property(x => x.tipRacuna).HasColumnName("tipRacuna").HasMaxLength(20);
-            e.Property(x => x.cenaSP).HasColumnName("cenaSP").HasColumnType("decimal(18,2)");
-            e.Property(x => x.cenaSaRbt).HasColumnName("cenaSaRbt").HasColumnType("decimal(18,2)");
+            e.Property(x => x.cenaSP).HasColumnName("cenaSP").HasColumnType("decimal(18,4)");
+            e.Property(x => x.cenaSaRbt).HasColumnName("cenaSaRbt").HasColumnType("decimal(18,4)");
             e.Property(x => x.KeyClan).HasColumnName("KeyClan").HasMaxLength(50);
             e.Property(x => x.idTaxExemption).HasColumnName("idTaxExemption");
         });
@@ -515,8 +520,14 @@ public class TransportDbContext : DbContext
             {
                 if (property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?))
                 {
-                    property.SetPrecision(18);
-                    property.SetScale(2);
+                    // Ne diraj property kome je preciznost već eksplicitno postavljena
+                    // (HasPrecision pre ove petlje) — inače se tiho prepisuje na (18,2)
+                    // i redosled poziva postaje bitan (v214: Podesavanja.kursEur).
+                    if (property.GetPrecision() == null)
+                    {
+                        property.SetPrecision(18);
+                        property.SetScale(2);
+                    }
                 }
             }
         }

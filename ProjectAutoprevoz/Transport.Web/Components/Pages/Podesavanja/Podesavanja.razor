@@ -229,6 +229,28 @@ else if (_pod is not null && _firma is not null)
                 </MudItem>
             </MudGrid>
 
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?"
+                                     @bind-Value="_pod.Broj_Ponude"
+                                     Label="Broj ponude"
+                                     Variant="Variant.Outlined" ShrinkLabel="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_pod.formatBrojaPonude"
+                                  Label="Format ponude"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  Placeholder="broj-godina4"
+                                  HelperText="Tokeni: broj, godina2, godina4, mesec, dan" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField Value="@(PrevBroj(_pod.Broj_Ponude, _pod.formatBrojaPonude))"
+                                  Label="Preview ponuda"
+                                  Variant="Variant.Outlined" ShrinkLabel="true"
+                                  ReadOnly="true" />
+                </MudItem>
+            </MudGrid>
+
             <MudDivider Class="my-4" />
 
             @* ── Finansijski dokumenti ─────────────────────────────── *@
@@ -736,6 +758,7 @@ else if (_pod is not null && _firma is not null)
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaRacuna))             _pod.formatBrojaRacuna             = "broj-godina4";
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaInoRacuna))          _pod.formatBrojaInoRacuna          = "broj-godina4";
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaPredracuna))         _pod.formatBrojaPredracuna         = "broj-godina4";
+        if (string.IsNullOrWhiteSpace(_pod.formatBrojaPonude))             _pod.formatBrojaPonude             = "broj-godina4";
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaTure))               _pod.formatBrojaTure               = "broj-godina4";
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaTureAgencijski))     _pod.formatBrojaTureAgencijski     = "broj-godina4";
         if (string.IsNullOrWhiteSpace(_pod.formatBrojaNaloga))             _pod.formatBrojaNaloga             = "broj-godina4";

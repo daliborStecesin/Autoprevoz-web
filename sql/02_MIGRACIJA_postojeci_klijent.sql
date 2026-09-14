@@ -37,7 +37,7 @@ PRINT 'Provera/kreiranje tabele dbo.tbl_DefaultValues';
 IF OBJECT_ID(N'[dbo].[tbl_DefaultValues]', N'U') IS NULL
 BEGIN
 SET ANSI_NULLS ON
-SET QUOTED_IDENTIFIER ONFiskalna_kasa
+SET QUOTED_IDENTIFIER ON
 SET ANSI_PADDING ON
 CREATE TABLE [dbo].[tbl_DefaultValues](
 	[DefaultId] [int] IDENTITY(1,1) NOT NULL,
@@ -1291,6 +1291,7 @@ GO
 IF OBJECT_ID(N'[dbo].[tbl_sifarnik]', N'U') IS NOT NULL
 BEGIN
     SET IDENTITY_INSERT [dbo].[tbl_sifarnik] ON;
+    BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_sifarnik] WHERE [idStavke] = 1 OR ([kategorija] = N'DOZVOLE' AND [naziv] = N'REGISTRACIJA'))
         INSERT INTO [dbo].[tbl_sifarnik] ([idStavke], [kategorija], [naziv], [aktivan], [redosled]) VALUES (1, N'DOZVOLE', N'REGISTRACIJA', 1, 0);
     IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_sifarnik] WHERE [idStavke] = 2 OR ([kategorija] = N'DOZVOLE' AND [naziv] = N'BELA POTVRDICA'))
@@ -1362,6 +1363,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_sifarnik] WHERE [idStavke] = 52 OR ([kategorija] = N'SIFRA_TRANSPORTA' AND [naziv] = N'Lokalno-kiper'))
         INSERT INTO [dbo].[tbl_sifarnik] ([idStavke], [kategorija], [naziv], [aktivan], [redosled]) VALUES (52, N'SIFRA_TRANSPORTA', N'Lokalno-kiper', 1, 0);
     SET IDENTITY_INSERT [dbo].[tbl_sifarnik] OFF;
+    END TRY
+    BEGIN CATCH
+        SET IDENTITY_INSERT [dbo].[tbl_sifarnik] OFF;
+        PRINT 'Seed tbl_sifarnik: greska pri insert-u, IDENTITY_INSERT vracen na OFF - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
 END
 ELSE
 BEGIN
@@ -1655,12 +1662,171 @@ GO
 IF OBJECT_ID(N'[dbo].[tbl_role]', N'U') IS NOT NULL
 BEGIN
     SET IDENTITY_INSERT [dbo].[tbl_role] ON;
-    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Admin')
-        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (1, N'Admin', N'Pun pristup svim modulima', 1);
-    IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [naziv] = N'Operater')
-        INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (2, N'Operater', N'Osnovni operativni pristup', 1);
-    SET IDENTITY_INSERT [dbo].[tbl_role] OFF;
-    PRINT 'Seed tbl_role (Admin/Operater) proveren.';
+    BEGIN TRY
+        IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [idRole] = 1)
+            INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (1, N'Admin', N'Pun pristup svim modulima', 1);
+        IF NOT EXISTS (SELECT 1 FROM [dbo].[tbl_role] WHERE [idRole] = 2)
+            INSERT INTO [dbo].[tbl_role] ([idRole], [naziv], [opis], [aktivan]) VALUES (2, N'Operater', N'Osnovni operativni pristup', 1);
+        SET IDENTITY_INSERT [dbo].[tbl_role] OFF;
+        PRINT 'Seed tbl_role (Admin/Operater) proveren.';
+    END TRY
+    BEGIN CATCH
+        SET IDENTITY_INSERT [dbo].[tbl_role] OFF;
+        PRINT 'Seed tbl_role: greska pri insert-u, IDENTITY_INSERT vracen na OFF - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+
+-- ================================================================
+-- 214 = tbl_dokumenti + tbl_artikli_dokumenta (ponude i predracuni),
+--       tbl_racuni.idIzvora/tipIzvora, tbl_Podesavanja.formatBrojaPonude,
+--       cene prosirene na 4 decimale
+-- ================================================================
+IF OBJECT_ID('dbo.tbl_dokumenti', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[tbl_dokumenti](
+        [Broj]              [int]           IDENTITY(1,1) NOT NULL,
+        [TipDokumenta]      [varchar](15)   NOT NULL,
+        [BrojDokumenta]     [varchar](15)   NULL,
+        [Naziv]             [varchar](200)  NULL,
+        [PIB]               [varchar](50)   NULL,
+        [Mesto_Izdavanja]   [varchar](25)   NULL,
+        [Datum_Dokumenta]   [date]          NULL,
+        [Datum_Vazenosti]   [date]          NULL,
+        [Adresa]            [varchar](200)  NULL,
+        [PosBroj]           [varchar](50)   NULL,
+        [Mesto]             [varchar](200)  NULL,
+        [Osnovica]          [decimal](18,2) NULL,
+        [Suma_Rabat]        [decimal](18,2) NULL,
+        [Suma_PDV]          [decimal](18,2) NULL,
+        [Suma_BezRabata]    [decimal](18,2) NULL,
+        [Suma_Ukupno]       [decimal](18,2) NULL,
+        [Komentar1]         [varchar](200)  NULL,
+        [Komentar2]         [varchar](200)  NULL,
+        [komentar3]         [varchar](max)  NULL,
+        [Status]            [varchar](15)   NULL,
+        [TipProdaje]        [varchar](15)   NULL,
+        [Id_Partnera]       [int]           NULL,
+        [idBanke]           [int]           NULL,
+        [uvozIzvoz]         [varchar](10)   NULL,
+        [kurs]              [decimal](18,4) NULL,
+        [datumKursa]        [datetime]      NULL,
+        [tipStampe]         [varchar](15)   NULL,
+        [idIzvora]          [int]           NULL,
+        [tipIzvora]         [varchar](15)   NULL,
+        [uneo]              [int]           NULL,
+        [datumUnosa]        [datetime]      NULL,
+        [izmenio]           [int]           NULL,
+        [datumIzmene]       [datetime]      NULL,
+     CONSTRAINT [PK_tbl_dokumenti] PRIMARY KEY CLUSTERED ([Broj] ASC)
+     WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF,
+           ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+    ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
+    PRINT 'Kreirana tabela tbl_dokumenti.';
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_dokumenta', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[tbl_artikli_dokumenta](
+        [Broj]                [int]           IDENTITY(1,1) NOT NULL,
+        [IdDokumenta]         [int]           NOT NULL,
+        [Id_Lager]            [varchar](5)    NULL,
+        [Barcode]             [varchar](20)   NULL,
+        [Artikal]             [varchar](2000) NULL,
+        [JM]                  [varchar](15)   NULL,
+        [Kolicina]            [decimal](18,2) NULL,
+        [CenaPoJMBP]          [decimal](18,4) NULL,
+        [CenaPoJMSP]          [decimal](18,4) NULL,
+        [Rabat]               [decimal](18,2) NULL,
+        [CenaPoJMBPminusRab]  [decimal](18,4) NULL,
+        [VrednostMinusRab]    [decimal](18,2) NULL,
+        [StopaPDV]            [decimal](18,0) NULL,
+        [Osnovica]            [decimal](18,2) NULL,
+        [TipPDV]              [varchar](1)    NULL,
+        [PDV]                 [decimal](18,2) NULL,
+        [Ukupno]              [decimal](18,2) NULL,
+        [Suma]                [decimal](18,2) NULL,
+     CONSTRAINT [PK_tbl_artikli_dokumenta] PRIMARY KEY CLUSTERED ([Broj] ASC)
+     WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF,
+           ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+    ) ON [PRIMARY];
+    PRINT 'Kreirana tabela tbl_artikli_dokumenta.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_tbl_artikli_dokumenta_IdDokumenta' AND object_id = OBJECT_ID('dbo.tbl_artikli_dokumenta'))
+    CREATE NONCLUSTERED INDEX [IX_tbl_artikli_dokumenta_IdDokumenta] ON [dbo].[tbl_artikli_dokumenta] ([IdDokumenta] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_tbl_dokumenti_Tip_Datum' AND object_id = OBJECT_ID('dbo.tbl_dokumenti'))
+    CREATE NONCLUSTERED INDEX [IX_tbl_dokumenti_Tip_Datum] ON [dbo].[tbl_dokumenti] ([TipDokumenta] ASC, [Datum_Dokumenta] DESC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_tbl_dokumenti_Partner' AND object_id = OBJECT_ID('dbo.tbl_dokumenti'))
+    CREATE NONCLUSTERED INDEX [IX_tbl_dokumenti_Partner] ON [dbo].[tbl_dokumenti] ([Id_Partnera] ASC)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+          DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'idIzvora') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [idIzvora] [int] NULL;
+    PRINT 'Dodata kolona idIzvora u tbl_racuni.';
+END
+GO
+IF COL_LENGTH('dbo.tbl_racuni', 'tipIzvora') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [tipIzvora] [varchar](15) NULL;
+    PRINT 'Dodata kolona tipIzvora u tbl_racuni.';
+END
+GO
+IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaPonude') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaPonude] [varchar](50) NULL DEFAULT ('broj-godina4');
+    PRINT 'Dodata kolona formatBrojaPonude u tbl_Podesavanja.';
+END
+GO
+
+-- ================================================================
+-- 214 (dopuna) = cene i kolicine na 4 decimale (tbl_artikli_racuna,
+--       tbl_artikli_dokumenta, tbl_lineItem), dodato tbl_racuni.zaokruzenje.
+--       Ista verzija 214 — ovo je nastavak prethodnog dela, ne nova verzija.
+-- ================================================================
+ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+GO
+PRINT 'tbl_artikli_racuna: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+GO
+
+ALTER TABLE [dbo].[tbl_artikli_dokumenta] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+GO
+PRINT 'tbl_artikli_dokumenta: Kolicina prosirena na decimal(18,4).';
+GO
+
+ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [unitPrice] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [quantity] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSP] [decimal](18, 4) NULL;
+GO
+ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSaRbt] [decimal](18, 4) NULL;
+GO
+PRINT 'tbl_lineItem: unitPrice/quantity/cenaSP/cenaSaRbt prosireni na decimal(18,4).';
+GO
+
+IF COL_LENGTH('dbo.tbl_racuni', 'zaokruzenje') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [zaokruzenje] [decimal](18, 2) NULL;
+    PRINT 'Dodata kolona zaokruzenje u tbl_racuni (priprema za UBL BT-114 PayableRoundingAmount).';
 END
 GO
 
@@ -1671,10 +1837,16 @@ GO
 -- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz)
 -- 212 = DROP trigger brisanjaArtikalatbl_eInvoice (sudar sa EF Core OUTPUT klauzulom)
 -- 213 = seed tbl_role (Admin/Operater)
+-- 214 = tbl_dokumenti + tbl_artikli_dokumenta (ponude i predracuni),
+--       tbl_racuni.idIzvora/tipIzvora, tbl_Podesavanja.formatBrojaPonude,
+--       cene prosirene na 4 decimale;
+--       dopuna: tbl_artikli_racuna/tbl_artikli_dokumenta cene i kolicine na
+--       4 decimale, tbl_lineItem unitPrice/quantity/cenaSP/cenaSaRbt na 4
+--       decimale, dodato tbl_racuni.zaokruzenje
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 213;
-    PRINT 'Verzija baze postavljena na 213.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 214;
+    PRINT 'Verzija baze postavljena na 214.';
 END
 GO
 

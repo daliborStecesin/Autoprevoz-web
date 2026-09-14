@@ -245,7 +245,7 @@ za nekoliko naprednih klijenata (testiranje naloga).
 Audit (SaveChanges override + IAuditable) radi za transport:
 PutniNalogKamion, Trosak, Dnevnica, NalogPrevoz, Plata (ručno).
 GAP — kad se radi FAKTURISANJE/LAGER, dodati IAuditable na:
-Racun, GotovinskiRacun, Otpremnica, Ponuda, Artikal,
+Racun, GotovinskiRacun, Otpremnica, Artikal,
 ObavestenjePP, VatDeductionRecord (imaju polja ali ne IAuditable).
 Partner: DatumUnosa/DatumIzmene su [NotMapped] — nisu u bazi
 (dodati kolone + mapiranje ako zatreba audit za partnere).
