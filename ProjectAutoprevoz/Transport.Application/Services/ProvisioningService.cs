@@ -383,6 +383,8 @@ public class ProvisioningService : IProvisioningService
                 ModulTure        = z.ModulTure,
                 ModulRadniNalozi = z.ModulRadniNalozi,
                 ModulLager       = z.ModulLager,
+                ModulEFaktura    = z.ModulEFaktura,
+                ModulEOtpremnica = z.ModulEOtpremnica,
                 TipLicence       = tipLicence,
                 DatumOd          = z.DatumOd,
                 DatumDo          = z.DatumDo,

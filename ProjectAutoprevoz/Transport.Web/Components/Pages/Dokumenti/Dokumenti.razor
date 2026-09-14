@@ -42,6 +42,23 @@
             Štampa
         </MudButton>
         <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+        @if (_selektovan?.TipDokumenta == "PONUDA")
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Tertiary"
+                       StartIcon="@Icons.Material.Filled.ArrowForward"
+                       OnClick="NapraviPredracun">
+                Napravi predračun
+            </MudButton>
+        }
+        @if (_selektovan is not null)
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Receipt"
+                       OnClick="NapraviRacun">
+                Napravi račun
+            </MudButton>
+        }
+        <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
         <MudTooltip Text="Obriši" ShowOnHover="true">
             <span>
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
@@ -167,6 +184,15 @@
                                     Isteklo
                                 </MudChip>
                             }
+                            else if (red.Item.Status == "REALIZOVAN" && _realizovanoU.TryGetValue(red.Item.Broj, out var realizovanoInfo))
+                            {
+                                <MudTooltip Text="@($"Pretvoren u {realizovanoInfo}")">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                             Style="@BojaStatusa(red.Item.Status)">
+                                        @(red.Item.Status ?? "-")
+                                    </MudChip>
+                                </MudTooltip>
+                            }
                             else
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Default"
@@ -204,6 +230,10 @@
 
     private List<Dokument> _rezultati = [];
     private Dokument?      _selektovan;
+
+    // Za REALIZOVAN red na listi — "u šta je pretvoren" u tooltipu, grupno
+    // (jedan upit po tabeli, ne po redu) za trenutno prikazane REALIZOVAN redove.
+    private Dictionary<int, string> _realizovanoU = [];
 
     private bool _ucitava;
     private bool _filteriOtvoreni = true;
@@ -281,6 +311,8 @@
             }
 
             _rezultati = await q.OrderByDescending(d => d.DatumDokumenta).ThenByDescending(d => d.Broj).ToListAsync();
+
+            await UcitajRealizovanoU();
         }
         catch (Exception ex)
         {
@@ -292,6 +324,37 @@
             _ucitava = false;
             StateHasChanged();
         }
+    }
+
+    // Tačka 8 — grupni upit, samo za REALIZOVAN redove trenutno na listi
+    // (ne za celu tabelu). Traži i u tbl_dokumenti (ponuda -> predračun) i u
+    // tbl_racuni (-> račun), pošto oba mogu biti "sledeći" u lancu.
+    private async Task UcitajRealizovanoU()
+    {
+        var realizovaniBrojevi = _rezultati.Where(d => d.Status == "REALIZOVAN").Select(d => d.Broj).ToHashSet();
+        if (realizovaniBrojevi.Count == 0)
+        {
+            _realizovanoU = [];
+            return;
+        }
+
+        var mapa = new Dictionary<int, string>();
+
+        var noviDokumenti = await Db.Dokumenti.AsNoTracking()
+            .Where(d => d.IdIzvora != null && realizovaniBrojevi.Contains(d.IdIzvora.Value))
+            .Select(d => new { d.IdIzvora, d.TipDokumenta, d.BrojDokumenta })
+            .ToListAsync();
+        foreach (var d in noviDokumenti)
+            mapa[d.IdIzvora!.Value] = $"{(d.TipDokumenta == "PONUDA" ? "ponudu" : "predračun")} {d.BrojDokumenta}";
+
+        var noviRacuni = await Db.Racuni.AsNoTracking()
+            .Where(r => r.IdIzvora != null && realizovaniBrojevi.Contains(r.IdIzvora.Value))
+            .Select(r => new { r.IdIzvora, r.BrojRacuna })
+            .ToListAsync();
+        foreach (var r in noviRacuni)
+            mapa[r.IdIzvora!.Value] = $"račun {r.BrojRacuna}";
+
+        _realizovanoU = mapa;
     }
 
     private void NaKlikReda(DataGridRowClickEventArgs<Dokument> args)
@@ -331,6 +394,38 @@
     {
         if (_selektovan is null) return;
         await JS.InvokeVoidAsync("open", $"/dokumenti/stampa?id={_selektovan.Broj}", "_blank");
+    }
+
+    // ── Konverzija — pitaj ako je izvor već REALIZOVAN (dešava se da se iz
+    // jedne ponude izda više predračuna/računa, potvrdom se svesno nastavlja),
+    // pa otvori CILJNU formu POPUNJENU. Ništa se ne snima ovde — vidi
+    // DokumentUnos.razor/FakturaUnos.razor SacuvajNovi() za atomičnu vezu.
+    private async Task<bool> PotvrdiAkoJeRealizovan(Dokument dok)
+    {
+        if (dok.Status != "REALIZOVAN") return true;
+
+        var ok = await Dialog.ShowMessageBox(
+            "Dokument već realizovan",
+            "Ovaj dokument je već realizovan. Želite li ipak da napravite novi?",
+            yesText: "Da", cancelText: "Ne");
+
+        return ok == true;
+    }
+
+    private async Task NapraviPredracun()
+    {
+        if (_selektovan is null || _selektovan.TipDokumenta != "PONUDA") return;
+        if (!await PotvrdiAkoJeRealizovan(_selektovan)) return;
+
+        Nav.NavigateTo($"/dokumenti/unos?tip=PREDRACUN&izvorDokument={_selektovan.Broj}");
+    }
+
+    private async Task NapraviRacun()
+    {
+        if (_selektovan is null) return;
+        if (!await PotvrdiAkoJeRealizovan(_selektovan)) return;
+
+        Nav.NavigateTo($"/fakture/unos?izvorDokument={_selektovan.Broj}");
     }
 
     // Obrazac po uzoru na KarticaNovaService.ProveriUplateZaRacun — null znači

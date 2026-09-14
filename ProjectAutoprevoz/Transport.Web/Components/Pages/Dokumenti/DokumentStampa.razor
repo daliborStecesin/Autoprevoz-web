@@ -334,9 +334,11 @@ else
         ? N(NazivKljuc.NaslovPonuda)
         : N(NazivKljuc.NaslovPredracun);
 
-    // Za PageTitle/ime PDF-a — bez dijakritika, isti obrazac kao FakturaStampa
-    // ("Racun {broj}", ne "Račun {broj}").
-    private string NazivTipaZaNaslov => _dokument?.TipDokumenta == "PONUDA" ? "Ponuda" : "Predracun";
+    // Za PageTitle/ime PDF-a — bez dijakritika, prati jezik i tip dokumenta
+    // (isti obrazac kao FakturaStampa: "Racun"/"Invoice").
+    private string NazivTipaZaNaslov => _dokument?.TipDokumenta == "PONUDA"
+        ? N(NazivKljuc.NaslovFajlaPonuda)
+        : N(NazivKljuc.NaslovFajlaPredracun);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

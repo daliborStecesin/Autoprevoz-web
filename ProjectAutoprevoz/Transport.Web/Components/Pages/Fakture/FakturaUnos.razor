@@ -8,6 +8,7 @@
 @using Transport.Application.Interfaces
 
 @inject ITenantService        TenantService
+@inject IModulService          ModulService
 @inject IDefaultValuesService  DefaultValues
 @inject IKursService           KursService
 @inject IKarticaService        KarticaServis
@@ -21,10 +22,21 @@
 
 <PageTitle>@NaslovForme — Autoprevoz</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-3">
+<MudText Typo="Typo.h5" Class="mb-1">
     <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" />
     @NaslovForme
 </MudText>
+
+@if (_izvorDokument is not null)
+{
+    <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Link" Class="mb-3">
+        Iz @(_izvorDokument.TipDokumenta == "PONUDA" ? "ponude" : "predračuna") @_izvorDokument.BrojDokumenta
+    </MudChip>
+}
+else
+{
+    <div class="mb-3"></div>
+}
 
 @if (_ucitava)
 {
@@ -141,7 +153,7 @@
             }
 
             <div class="mb-2">
-                <NativniSelect Label="Štampaj kao" Value="@_tipStampe" ValueChanged="@(v => _tipStampe = v ?? "DOMACI")">
+                <NativniSelect Label="Štampaj kao" Value="@_tipStampe" ValueChanged="@OnTipStampeChanged">
                     <option value="DOMACI">DOMAĆI</option>
                     <option value="INOSTRANI">INOSTRANI</option>
                 </NativniSelect>
@@ -188,7 +200,7 @@
                            OnClick="Stampaj">
                     Štampa
                 </MudButton>
-                @if (TenantService.GetEFakturaAktivna())
+                @if (TenantService.GetEFakturaAktivna() && _efakturaDozvoljen)
                 {
                     <MudButton Variant="Variant.Outlined" Color="Color.Info"
                                StartIcon="@Icons.Material.Filled.CloudUpload"
@@ -430,6 +442,14 @@
     [SupplyParameterFromQuery(Name = "id")]
     public int? Id { get; set; }
 
+    // Konverzija ponuda/predračun -> račun — id izvornog dokumenta (tbl_dokumenti)
+    // kad je forma otvorena preko "NAPRAVI RAČUN" na /dokumenti. Samo za NOVI
+    // račun (Id je null) — ignoriše se u edit modu.
+    [SupplyParameterFromQuery(Name = "izvorDokument")]
+    public int? IzvorDokument { get; set; }
+
+    private Dokument? _izvorDokument;
+
     // Naslov forme — NIKAD interni idRacuna (Broj/PK), korisniku ništa ne znači.
     // Posle snimanja/pri izmeni prikazuje stvarni broj računa (_brojRacunaPreview
     // je do tada već ažuriran na sačuvanu vrednost — vidi SacuvajNovi/UcitajPostojeci).
@@ -517,6 +537,11 @@
     private int?        _idBanke;
     private bool        _bankaRucnoIzabrana;
 
+    // "Štampaj kao" — podrazumevano prati Tip računa (INOSTRANI → engleska
+    // štampa unapred izabrana), dok korisnik ručno ne izabere drugačije —
+    // isti obrazac kao _bankaRucnoIzabrana.
+    private bool _tipStampeRucnoIzabran;
+
     // ── Panel 3 "Nalog i transport" — kolapsibilan, podrazumevano zatvoren.
     // Isti mehanizam/servis kao filter panel na /fakture i /efakture/izlazne-ulazne
     // (IDefaultValuesService), poseban ključ nezavisan od filter-panela.
@@ -533,6 +558,7 @@
     // promenu ida (ne svaki re-render) i da zna da referentne liste već postoje.
     private int?  _ucitanZaId = -1;
     private bool  _referenceListeUcitane;
+    private bool  _efakturaDozvoljen;
 
     protected override void OnInitialized()
     {
@@ -553,6 +579,7 @@
             _sveBanke    = await Db.Banke.AsNoTracking().Where(b => b.aktivan == 1).OrderBy(b => b.idBanke).ToListAsync();
             _radSaViseMoneta = (_podesavanja?.OpcijaInt12 ?? 1) != 0;
             _domacaValuta    = _podesavanja?.OpcijaString13 ?? "RSD";
+            _efakturaDozvoljen = await ModulService.JeDozvoljen("EFAKTURA");
             _referenceListeUcitane = true;
 
             var uid = TenantService.GetIdKorisnika();
@@ -620,6 +647,7 @@
     private async Task PripremiNoviRacun()
     {
         _postojeci = null;
+        _izvorDokument = null;
         _stavke    = [];
 
         _partner        = null;
@@ -644,6 +672,7 @@
 
         _idBanke             = null;
         _bankaRucnoIzabrana  = false;
+        _tipStampeRucnoIzabran = false;
 
         _datumRacuna   = DateTime.Today.ToString("yyyy-MM-dd");
         _valuta        = DateTime.Today.ToString("yyyy-MM-dd");
@@ -666,9 +695,90 @@
 
         AzurirajBrojRacunaPreview();
         AzurirajDefaultBanku();
+        AzurirajDefaultTipStampe();
 
         await UcitajKurs();
+
+        if (IzvorDokument is int izvorId)
+            await PreuzmiIzDokumenta(izvorId);
     }
+
+    // ── Konverzija: predračun/ponuda -> račun. Popunjava formu, NIŠTA se ne
+    // snima ovde — veza (idIzvora/tipIzvora + Status=REALIZOVAN na izvoru) se
+    // upisuje tek u SacuvajNovi(), atomično sa upisom računa (vidi tačku 4). ──
+    private async Task PreuzmiIzDokumenta(int izvorId)
+    {
+        var izvor = await Db.Dokumenti.AsNoTracking().FirstOrDefaultAsync(d => d.Broj == izvorId);
+        if (izvor is null) return;
+
+        _izvorDokument = izvor;
+
+        _partnerNaziv  = izvor.Naziv  ?? "";
+        _partnerPib    = izvor.PIB    ?? "";
+        _partnerAdresa = izvor.Adresa ?? "";
+        _partnerMesto  = izvor.Mesto  ?? "";
+        _idPartnera    = izvor.IdPartnera;
+        if (_idPartnera is not null)
+            _partner = _sviPartneri.FirstOrDefault(p => p.Broj == _idPartnera.Value);
+        AzurirajValutu(); // partner (rok plaćanja) se saznao tek sad — preračunaj
+
+        _tipRacuna = izvor.TipProdaje ?? _tipRacuna;
+        AzurirajUvozIzvozDefault();
+        AzurirajPdvStopu();
+        AzurirajBrojRacunaPreview();
+
+        _tipStampe = izvor.TipStampe ?? _tipStampe;
+        _tipStampeRucnoIzabran = true;
+
+        // Kurs i datum kursa se PRENOSE tačno kakvi jesu (ne osvežava se na
+        // današnji kurs) — cena je zaključena po kursu sa izvornog dokumenta.
+        _kursEur    = izvor.Kurs ?? _kursEur;
+        _datumKursa = izvor.DatumKursa?.ToString("yyyy-MM-dd") ?? _datumKursa;
+
+        _idBanke             = izvor.IdBanke ?? _idBanke;
+        _bankaRucnoIzabrana  = true;
+
+        _komentar1 = izvor.Komentar1 ?? "";
+        _komentar2 = izvor.Komentar2 ?? "";
+        _komentar3 = izvor.Komentar3 ?? "";
+
+        var izvorStavke = await Db.ArtikliDokumenta.AsNoTracking()
+            .Where(s => s.IdDokumenta == izvorId)
+            .OrderBy(s => s.Broj)
+            .ToListAsync();
+
+        _stavke = izvorStavke.Select(KopirajStavkuIzDokumenta).ToList();
+        AzurirajSumeGlave();
+    }
+
+    // Prenosi iznose TAČNO kakvi jesu na izvoru — bez preračunavanja
+    // (kolicina*cena, rabat, PDV... sve već izračunato na izvoru, ne dira se).
+    private Stavka KopirajStavkuIzDokumenta(StavkaDokumenta s) => new()
+    {
+        Broj    = 0,
+        IdLager = s.IdLager,
+        Barcode = s.Barcode,
+        Artikal = s.Artikal,
+        JM      = s.JM,
+        Kolicina = s.Kolicina,
+
+        CenaPoJMBP = s.CenaPoJMBP,
+        CenaPoJMSP = s.CenaPoJMSP,
+        Rabat      = s.Rabat,
+
+        CenaPoJMBPminusRab = s.CenaPoJMBPminusRab,
+        VrednostMinusRab   = s.VrednostMinusRab,
+
+        StopaPDV = s.StopaPDV,
+        Osnovica = s.Osnovica,
+        PDV      = s.PDV,
+        Ukupno   = s.Ukupno,
+        Suma     = s.Suma,
+
+        Bon = _tipRacuna == "INOSTRANI" ? "EUR" : "RSD",
+
+        brisano = 0,
+    };
 
     private async Task UcitajPostojeci(Racun r)
     {
@@ -722,6 +832,10 @@
             .ToListAsync();
 
         AzurirajSumeGlave();
+
+        _izvorDokument = r.IdIzvora is int izvorId
+            ? await Db.Dokumenti.AsNoTracking().FirstOrDefaultAsync(d => d.Broj == izvorId)
+            : null;
     }
 
     // ── Datum računa → Valuta ────────────────────────────────────────────
@@ -808,6 +922,7 @@
         AzurirajPdvStopu();
         AzurirajBrojRacunaPreview();
         AzurirajDefaultBanku();
+        AzurirajDefaultTipStampe();
 
         await DefaultValues.SaveDefault("fakture-unos", "tipRacuna", _tipRacuna, TenantService.GetIdKorisnika());
     }
@@ -834,6 +949,23 @@
     {
         _bankaRucnoIzabrana = true;
         _idBanke = int.TryParse(value, out var id) ? id : null;
+    }
+
+    // "Štampaj kao" — default po Tipu računa (INOSTRANI → engleska štampa
+    // unapred izabrana), dok korisnik ručno ne izabere na formi — isti
+    // obrazac kao AzurirajDefaultBanku/OnBankaChanged. Posle ručnog izbora
+    // korisnik i dalje može da prebaci nazad na DOMAĆI (mehanizam nepromenjen).
+    private void AzurirajDefaultTipStampe()
+    {
+        if (Id is not null || _tipStampeRucnoIzabran) return;
+
+        _tipStampe = _tipRacuna == "INOSTRANI" ? "INOSTRANI" : "DOMACI";
+    }
+
+    private void OnTipStampeChanged(string? value)
+    {
+        _tipStampeRucnoIzabran = true;
+        _tipStampe = value ?? "DOMACI";
     }
 
     private static string OpisBanke(Banka b)
@@ -1216,8 +1348,28 @@
                 racun.BrojRacuna = brojRacuna;
                 racun.brisano = 0;
 
+                if (_izvorDokument is not null)
+                {
+                    racun.IdIzvora  = _izvorDokument.Broj;
+                    racun.TipIzvora = _izvorDokument.TipDokumenta;
+                }
+
                 Db.Racuni.Add(racun);
                 await Db.SaveChangesAsync();
+
+                // Zatvaranje lanca — TEK ovde, u istoj transakciji: izvorni
+                // dokument postaje REALIZOVAN. Ako bilo šta posle ovoga pukne,
+                // rollback vraća i ovo (tačka 4 — izvor ne sme ostati obeležen
+                // ako snimanje ne uspe).
+                if (_izvorDokument is not null)
+                {
+                    var izvorZaAzuriranje = await Db.Dokumenti.FirstOrDefaultAsync(d => d.Broj == _izvorDokument.Broj);
+                    if (izvorZaAzuriranje is not null)
+                    {
+                        izvorZaAzuriranje.Status = "REALIZOVAN";
+                        await Db.SaveChangesAsync();
+                    }
+                }
 
                 PripremiStavkeZaUpis(_stavke, racun);
                 Db.ArtikliRacuna.AddRange(_stavke);

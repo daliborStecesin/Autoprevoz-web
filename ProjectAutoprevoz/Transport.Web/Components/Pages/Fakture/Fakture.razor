@@ -7,6 +7,7 @@
 @using Transport.Application.Interfaces
 
 @inject ITenantService         TenantService
+@inject IModulService          ModulService
 @inject IDefaultValuesService  DefaultValues
 @inject NavigationManager      Nav
 @inject TransportDbContext     Db
@@ -265,9 +266,9 @@
     private List<Racun> _rezultati = [];
     private Racun?      _selektovani;
 
-    // Kolona "SEF-Status" — samo kad je e-faktura uključena za tenanta (isti
-    // prekidač kao dugme "E-faktura" na /fakture/unos). Batch lookup po idRacuna
-    // (Broj), ne N+1 — jedan upit posle svakog učitavanja _rezultati.
+    // Kolona "SEF-Status" — samo kad je e-faktura uključena za tenanta I dozvoljena
+    // licencom (isti uslov kao dugme "E-faktura" na /fakture/unos). Batch lookup po
+    // idRacuna (Broj), ne N+1 — jedan upit posle svakog učitavanja _rezultati.
     private bool _eFakturaAktivna;
     private Dictionary<int, EInvoice> _sefStatusPoRacunu = [];
 
@@ -291,7 +292,7 @@
             .Select(p => p.OpcijaString13)
             .FirstOrDefaultAsync()) ?? "RSD";
 
-        _eFakturaAktivna = TenantService.GetEFakturaAktivna();
+        _eFakturaAktivna = TenantService.GetEFakturaAktivna() && await ModulService.JeDozvoljen("EFAKTURA");
 
         var uid = TenantService.GetIdKorisnika();
         var pFilteri = await DefaultValues.GetDefault("fakture", "panel_filteri", uid);

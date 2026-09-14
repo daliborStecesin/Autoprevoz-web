@@ -14,6 +14,8 @@ public record NovaWebFirmaZahtev(
     bool ModulTure,
     bool ModulRadniNalozi,
     bool ModulLager,
+    bool ModulEFaktura,
+    bool ModulEOtpremnica,
     string TipLicence,
     DateTime? DatumOd,
     DateTime? DatumDo,

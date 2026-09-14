@@ -107,6 +107,8 @@ BEGIN
         ModulTure         BIT            NOT NULL CONSTRAINT DF_web_lic_ModTure   DEFAULT (1),
         ModulRadniNalozi  BIT            NOT NULL CONSTRAINT DF_web_lic_ModRadNal DEFAULT (0),
         ModulLager        BIT            NOT NULL CONSTRAINT DF_web_lic_ModLager  DEFAULT (0),
+        ModulEFaktura     BIT            NOT NULL CONSTRAINT DF_web_lic_ModEFakt  DEFAULT (1),
+        ModulEOtpremnica  BIT            NOT NULL CONSTRAINT DF_web_lic_ModEOtpr  DEFAULT (0),
 
         /* ---- LICENCA ---- */
         TipLicence        NVARCHAR(20)   NOT NULL CONSTRAINT DF_web_lic_TipLic    DEFAULT (N'PROBNA'),
@@ -145,6 +147,39 @@ BEGIN
     CREATE UNIQUE INDEX UX_tbl_web_licence_Drzava_Pib
         ON dbo.tbl_web_licence (KodDrzave, Pib);
     PRINT '  + UX_tbl_web_licence_Drzava_Pib';
+END
+GO
+
+/* ModulEFaktura — retrofit za baze gde je tbl_web_licence već postojala pre ove izmene.
+   Za NOVU tabelu kolona je već u CREATE TABLE bloku iznad (grupa modula), ovde se
+   preskače jer sys.columns provera odmah vraća "postoji". */
+IF OBJECT_ID('dbo.tbl_web_licence', 'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.columns
+                   WHERE object_id = OBJECT_ID('dbo.tbl_web_licence')
+                     AND name = 'ModulEFaktura')
+BEGIN
+    ALTER TABLE dbo.tbl_web_licence
+        ADD ModulEFaktura BIT NOT NULL CONSTRAINT DF_web_lic_ModEFakt DEFAULT (1);
+    PRINT '  + tbl_web_licence.ModulEFaktura';
+
+    /* Jednokratni backfill. ALTER ... DEFAULT (1) već postavlja postojeće redove na 1,
+       ovo je eksplicitna potvrda — izvršava se samo ovde, unutar istog IF-a koji hvata
+       trenutak "kolona upravo dodata" (drugi put se ceo blok preskače). Dinamički SQL
+       da izbegnemo grešku "Invalid column name" pri kompajliranju batch-a (kolona još
+       ne postoji u trenutku parsiranja ove IF grane ako se ne koristi EXEC). */
+    EXEC(N'UPDATE dbo.tbl_web_licence SET ModulEFaktura = 1');
+END
+GO
+
+/* ModulEOtpremnica — isti retrofit, default 0 pa nema potrebe za backfill UPDATE-om. */
+IF OBJECT_ID('dbo.tbl_web_licence', 'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.columns
+                   WHERE object_id = OBJECT_ID('dbo.tbl_web_licence')
+                     AND name = 'ModulEOtpremnica')
+BEGIN
+    ALTER TABLE dbo.tbl_web_licence
+        ADD ModulEOtpremnica BIT NOT NULL CONSTRAINT DF_web_lic_ModEOtpr DEFAULT (0);
+    PRINT '  + tbl_web_licence.ModulEOtpremnica';
 END
 GO
 
@@ -241,11 +276,7 @@ GO
    "ko ima pristup čemu" u SSMS-u.
    ============================================================================ */
 
-IF OBJECT_ID('dbo.vw_web_pristup', 'V') IS NOT NULL
-    DROP VIEW dbo.vw_web_pristup;
-GO
-
-CREATE VIEW dbo.vw_web_pristup
+CREATE OR ALTER VIEW dbo.vw_web_pristup
 AS
 SELECT
     k.IdKorisnika,
@@ -269,6 +300,8 @@ SELECT
     l.ModulTure,
     l.ModulRadniNalozi,
     l.ModulLager,
+    l.ModulEFaktura,
+    l.ModulEOtpremnica,
     l.TipLicence,
     l.DatumOd,
     l.DatumDo,

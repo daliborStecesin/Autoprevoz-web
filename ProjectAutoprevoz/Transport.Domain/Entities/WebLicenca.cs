@@ -17,6 +17,8 @@ public class WebLicenca
     public bool ModulTure { get; set; }
     public bool ModulRadniNalozi { get; set; }
     public bool ModulLager { get; set; }
+    public bool ModulEFaktura { get; set; }
+    public bool ModulEOtpremnica { get; set; }
     public string TipLicence { get; set; } = string.Empty;
     public DateTime? DatumOd { get; set; }
     public DateTime? DatumDo { get; set; }

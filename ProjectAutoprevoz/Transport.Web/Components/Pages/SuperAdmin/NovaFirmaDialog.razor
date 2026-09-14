@@ -198,6 +198,8 @@
                     <MudCheckBox T="bool" @bind-Value="_modulTure" Label="Ture" Color="Color.Primary" Disabled="_ucitava" />
                     <MudCheckBox T="bool" @bind-Value="_modulRadniNalozi" Label="Radni nalozi" Color="Color.Primary" Disabled="_ucitava" />
                     <MudCheckBox T="bool" @bind-Value="_modulLager" Label="Lager" Color="Color.Primary" Disabled="_ucitava" />
+                    <MudCheckBox T="bool" @bind-Value="_modulEFaktura" Label="e-Faktura" Color="Color.Primary" Disabled="_ucitava" />
+                    <MudCheckBox T="bool" @bind-Value="_modulEOtpremnica" Label="e-Otpremnica" Color="Color.Primary" Disabled="_ucitava" />
                 </MudItem>
 
                 <MudItem xs="12" sm="4">
@@ -345,6 +347,8 @@
     private bool       _modulTure        = true;
     private bool       _modulRadniNalozi;
     private bool       _modulLager;
+    private bool       _modulEFaktura    = true;
+    private bool       _modulEOtpremnica;
     private string     _tipLicence      = "PROBNA";
     private DateTime?  _datumOd         = DateTime.Today;
     private DateTime?  _datumDo         = DateTime.Today.AddDays(30);
@@ -521,6 +525,8 @@
                 _modulTure,
                 _modulRadniNalozi,
                 _modulLager,
+                _modulEFaktura,
+                _modulEOtpremnica,
                 _tipLicence,
                 _datumOd,
                 _datumDo,

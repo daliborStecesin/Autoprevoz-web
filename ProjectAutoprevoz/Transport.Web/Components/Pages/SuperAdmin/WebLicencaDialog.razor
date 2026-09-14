@@ -61,6 +61,8 @@
                     <MudSwitch T="bool" @bind-Value="_modulTure" Color="Color.Primary" Label="Ture" />
                     <MudSwitch T="bool" @bind-Value="_modulRadniNalozi" Color="Color.Primary" Label="Radni nalozi" />
                     <MudSwitch T="bool" @bind-Value="_modulLager" Color="Color.Primary" Label="Lager" />
+                    <MudSwitch T="bool" @bind-Value="_modulEFaktura" Color="Color.Primary" Label="e-Faktura" />
+                    <MudSwitch T="bool" @bind-Value="_modulEOtpremnica" Color="Color.Primary" Label="e-Otpremnica" />
                 </div>
             </MudItem>
 
@@ -124,6 +126,8 @@
     private bool      _modulTure;
     private bool      _modulRadniNalozi;
     private bool      _modulLager;
+    private bool      _modulEFaktura;
+    private bool      _modulEOtpremnica;
     private bool      _aktivna;
     private bool      _samoCitanje;
     private string    _connectionString = string.Empty;
@@ -161,6 +165,8 @@
             _modulTure        = licenca.ModulTure;
             _modulRadniNalozi = licenca.ModulRadniNalozi;
             _modulLager       = licenca.ModulLager;
+            _modulEFaktura    = licenca.ModulEFaktura;
+            _modulEOtpremnica = licenca.ModulEOtpremnica;
             _aktivna          = licenca.Aktivna;
             _samoCitanje      = licenca.SamoCitanje;
             _connectionString = licenca.ConnectionString ?? string.Empty;
@@ -201,6 +207,8 @@
             licenca.ModulTure        = _modulTure;
             licenca.ModulRadniNalozi = _modulRadniNalozi;
             licenca.ModulLager       = _modulLager;
+            licenca.ModulEFaktura    = _modulEFaktura;
+            licenca.ModulEOtpremnica = _modulEOtpremnica;
             licenca.Aktivna          = _aktivna;
             licenca.SamoCitanje      = _samoCitanje;
             licenca.ConnectionString = _connectionString;

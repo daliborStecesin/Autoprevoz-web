@@ -20,10 +20,21 @@
 
 <PageTitle>@NaslovForme — Autoprevoz</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-3">
+<MudText Typo="Typo.h5" Class="mb-1">
     <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
     @NaslovForme
 </MudText>
+
+@if (_izvorDokument is not null)
+{
+    <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Link" Class="mb-3">
+        Iz @(_izvorDokument.TipDokumenta == "PONUDA" ? "ponude" : "predračuna") @_izvorDokument.BrojDokumenta
+    </MudChip>
+}
+else
+{
+    <div class="mb-3"></div>
+}
 
 @if (_ucitava)
 {
@@ -137,6 +148,13 @@
                     <NativniInput TValue="decimal" Label="Kurs EUR" Value="@_kursEur" Format="0.0000" Disabled="true" />
                 </div>
             }
+
+            <div class="mb-2">
+                <NativniSelect Label="Štampaj kao" Value="@_tipStampe" ValueChanged="@OnTipStampeChanged">
+                    <option value="DOMACI">DOMAĆI</option>
+                    <option value="INOSTRANI">INOSTRANI</option>
+                </NativniSelect>
+            </div>
 
             <div class="mb-2">
                 <NativniSelect Label="Žiro račun / Banka" Value="@(_idBanke?.ToString() ?? "")" ValueChanged="@OnBankaChanged">
@@ -284,6 +302,14 @@
     [SupplyParameterFromQuery(Name = "tip")]
     public string? TipQuery { get; set; }
 
+    // Konverzija ponuda -> predračun — id izvornog dokumenta (tbl_dokumenti)
+    // kad je forma otvorena preko "NAPRAVI PREDRAČUN" na /dokumenti. Samo za
+    // NOVI dokument (Id je null) — ignoriše se u edit modu.
+    [SupplyParameterFromQuery(Name = "izvorDokument")]
+    public int? IzvorDokument { get; set; }
+
+    private Dokument? _izvorDokument;
+
     private string NaslovForme => Id is null
         ? "Novi dokument"
         : string.IsNullOrWhiteSpace(_brojDokumentaPreview) ? "Dokument" : $"{NazivTipa(_tip)} {_brojDokumentaPreview}";
@@ -311,6 +337,12 @@
     // ── Tip prodaje ──────────────────────────────────────────────────────
     private string  _tipProdaje = "IZLAZ";
     private decimal _pdvStopa;
+
+    // "Štampaj kao" — podrazumevano prati Tip prodaje (INOSTRANI → engleska
+    // štampa unapred izabrana), dok korisnik ručno ne izabere drugačije —
+    // isti obrazac kao FakturaUnos.razor (_tipStampeRucnoIzabran).
+    private string _tipStampe = "DOMACI";
+    private bool   _tipStampeRucnoIzabran;
 
     // radSaViseMoneta (OpcijaInt12) / domacaValuta (OpcijaString13) — isto
     // ponašanje kao FakturaUnos.razor.
@@ -421,6 +453,7 @@
     private async Task PripremiNoviDokument()
     {
         _postojeci = null;
+        _izvorDokument = null;
         _stavke    = [];
 
         _partnerNaziv  = "";
@@ -439,6 +472,7 @@
 
         _idBanke            = null;
         _bankaRucnoIzabrana = false;
+        _tipStampeRucnoIzabran = false;
 
         _datumDokumenta = DateTime.Today.ToString("yyyy-MM-dd");
         _datumVazenosti = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd");
@@ -451,9 +485,80 @@
         AzurirajPdvStopu();
         AzurirajBrojDokumentaPreview();
         AzurirajDefaultBanku();
+        AzurirajDefaultTipStampe();
 
         await UcitajKurs();
+
+        if (IzvorDokument is int izvorId)
+            await PreuzmiIzDokumenta(izvorId);
     }
+
+    // ── Konverzija: ponuda -> predračun. Popunjava formu, NIŠTA se ne snima
+    // ovde — veza (idIzvora/tipIzvora + Status=REALIZOVAN na izvoru) se upisuje
+    // tek u SacuvajNovi(), atomično sa upisom dokumenta (vidi tačku 4). ──
+    private async Task PreuzmiIzDokumenta(int izvorId)
+    {
+        var izvor = await Db.Dokumenti.AsNoTracking().FirstOrDefaultAsync(d => d.Broj == izvorId);
+        if (izvor is null) return;
+
+        _izvorDokument = izvor;
+
+        _partnerNaziv  = izvor.Naziv  ?? "";
+        _partnerPib    = izvor.PIB    ?? "";
+        _partnerAdresa = izvor.Adresa ?? "";
+        _partnerMesto  = izvor.Mesto  ?? "";
+        _idPartnera    = izvor.IdPartnera;
+
+        _tipProdaje = izvor.TipProdaje ?? _tipProdaje;
+        AzurirajPdvStopu();
+
+        _tipStampe = izvor.TipStampe ?? _tipStampe;
+        _tipStampeRucnoIzabran = true;
+
+        // Kurs i datum kursa se PRENOSE tačno kakvi jesu (ne osvežava se na
+        // današnji kurs) — cena je zaključena po kursu sa izvornog dokumenta.
+        _kursEur    = izvor.Kurs ?? _kursEur;
+        _datumKursa = izvor.DatumKursa?.ToString("yyyy-MM-dd") ?? _datumKursa;
+
+        _idBanke             = izvor.IdBanke ?? _idBanke;
+        _bankaRucnoIzabrana  = true;
+
+        _komentar1 = izvor.Komentar1 ?? "";
+        _komentar2 = izvor.Komentar2 ?? "";
+        _komentar3 = izvor.Komentar3 ?? "";
+
+        var izvorStavke = await Db.ArtikliDokumenta.AsNoTracking()
+            .Where(s => s.IdDokumenta == izvorId)
+            .OrderBy(s => s.Broj)
+            .ToListAsync();
+
+        _stavke = izvorStavke.Select(KopirajStavku).ToList();
+        AzurirajSumeGlave();
+    }
+
+    // Prenosi iznose TAČNO kakvi jesu na izvoru — bez preračunavanja.
+    private static StavkaDokumenta KopirajStavku(StavkaDokumenta s) => new()
+    {
+        Broj    = 0,
+        IdLager = s.IdLager,
+        Barcode = s.Barcode,
+        Artikal = s.Artikal,
+        JM      = s.JM,
+        Kolicina = s.Kolicina,
+
+        CenaPoJMBP = s.CenaPoJMBP,
+        CenaPoJMSP = s.CenaPoJMSP,
+        Rabat      = s.Rabat,
+
+        CenaPoJMBPminusRab = s.CenaPoJMBPminusRab,
+        VrednostMinusRab   = s.VrednostMinusRab,
+
+        StopaPDV = s.StopaPDV,
+        Osnovica = s.Osnovica,
+        PDV      = s.PDV,
+        Ukupno   = s.Ukupno,
+        Suma     = s.Suma,
+    };
 
     private async Task UcitajPostojeci(Dokument d)
     {
@@ -468,6 +573,7 @@
         _status = d.Status ?? "NACRT";
 
         _tipProdaje = d.TipProdaje ?? "IZLAZ";
+        _tipStampe  = d.TipStampe ?? "DOMACI";
         AzurirajPdvStopu();
 
         _komentar1 = d.Komentar1 ?? "";
@@ -492,6 +598,10 @@
             .ToListAsync();
 
         AzurirajSumeGlave();
+
+        _izvorDokument = d.IdIzvora is int izvorId
+            ? await Db.Dokumenti.AsNoTracking().FirstOrDefaultAsync(x => x.Broj == izvorId)
+            : null;
     }
 
     private void OnDatumDokumentaChanged()
@@ -521,6 +631,7 @@
         _tipProdaje = value ?? "IZLAZ";
         AzurirajPdvStopu();
         AzurirajDefaultBanku();
+        AzurirajDefaultTipStampe();
     }
 
     private void AzurirajPdvStopu()
@@ -563,6 +674,22 @@
     {
         _bankaRucnoIzabrana = true;
         _idBanke = int.TryParse(value, out var id) ? id : null;
+    }
+
+    // "Štampaj kao" — default po Tipu prodaje (INOSTRANI → engleska štampa
+    // unapred izabrana), dok korisnik ručno ne izabere na formi — isti
+    // obrazac kao FakturaUnos.razor (AzurirajDefaultTipStampe/OnTipStampeChanged).
+    private void AzurirajDefaultTipStampe()
+    {
+        if (Id is not null || _tipStampeRucnoIzabran) return;
+
+        _tipStampe = _tipProdaje == "INOSTRANI" ? "INOSTRANI" : "DOMACI";
+    }
+
+    private void OnTipStampeChanged(string? value)
+    {
+        _tipStampeRucnoIzabran = true;
+        _tipStampe = value ?? "DOMACI";
     }
 
     private static string OpisBanke(Banka b)
@@ -726,6 +853,8 @@
         d.TipProdaje = _tipProdaje;
         d.Status     = _status;
 
+        d.TipStampe = _tipStampe;
+
         d.Osnovica   = _osnovica;
         d.SumaPDV    = _pdv;
         d.SumaUkupno = _ukupno;
@@ -779,8 +908,28 @@
                 PopuniGlavu(dok);
                 dok.BrojDokumenta = brojDokumenta;
 
+                if (_izvorDokument is not null)
+                {
+                    dok.IdIzvora  = _izvorDokument.Broj;
+                    dok.TipIzvora = _izvorDokument.TipDokumenta;
+                }
+
                 Db.Dokumenti.Add(dok);
                 await Db.SaveChangesAsync();
+
+                // Zatvaranje lanca — TEK ovde, u istoj transakciji: izvorni
+                // dokument postaje REALIZOVAN. Ako bilo šta posle ovoga pukne,
+                // rollback vraća i ovo (tačka 4 — izvor ne sme ostati obeležen
+                // ako snimanje ne uspe).
+                if (_izvorDokument is not null)
+                {
+                    var izvorZaAzuriranje = await Db.Dokumenti.FirstOrDefaultAsync(x => x.Broj == _izvorDokument.Broj);
+                    if (izvorZaAzuriranje is not null)
+                    {
+                        izvorZaAzuriranje.Status = "REALIZOVAN";
+                        await Db.SaveChangesAsync();
+                    }
+                }
 
                 PripremiStavkeZaUpis(_stavke, dok);
                 Db.ArtikliDokumenta.AddRange(_stavke);

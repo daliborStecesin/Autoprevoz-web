@@ -1,16 +1,22 @@
 namespace Transport.Web.Components.Shared;
 
 // Jedno mesto za sve dvojezične (sr/en) labele na štampama računa/ponuda/
-// predračuna. DokumentStampa.razor čita odavde. FakturaStampa.razor NIJE
-// prebačena na ovo (namerno, v214 zadatak) — ali su ključevi/vrednosti
-// prepisani REČ ZA REČ iz njenih trenutnih hardkodovanih stringova, tako
-// da prelazak kasnije ne menja ništa vizuelno.
+// predračuna. Čitaju odavde i FakturaStampa.razor i DokumentStampa.razor.
 public enum NazivKljuc
 {
     Primalac,
     DatumIzdavanja,
     MestoIzdavanja,
     DatumPrometa,
+    DatumUtovara,
+    NalogUtovar,
+    Vozilo,
+
+    Pib,
+    MaticniBroj,
+    Telefon,
+    Mobilni,
+    Pecat,
 
     TabelaRedniBroj,
     TabelaOpis,
@@ -41,6 +47,12 @@ public enum NazivKljuc
     NaslovRacun,
     NaslovPonuda,
     NaslovPredracun,
+
+    // Naslov taba / ime PDF fajla (bez dijakritika — to je ime pod kojim
+    // primalac snima fajl na disk).
+    NaslovFajlaRacun,
+    NaslovFajlaPonuda,
+    NaslovFajlaPredracun,
 }
 
 public static class NaziviDokumenata
@@ -51,6 +63,15 @@ public static class NaziviDokumenata
         [NazivKljuc.DatumIzdavanja]         = ("Datum izdavanja računa:", "Date of invoice:"),
         [NazivKljuc.MestoIzdavanja]         = ("Mesto izdavanja:", "Place of invoice:"),
         [NazivKljuc.DatumPrometa]           = ("Datum prometa usluge:", "Date of supply:"),
+        [NazivKljuc.DatumUtovara]           = ("Datum utovara:", "Loading date:"),
+        [NazivKljuc.NalogUtovar]            = ("Nalog za utovar:", "Order number:"),
+        [NazivKljuc.Vozilo]                 = ("Transport dobara izvršen vozilom:", "Truck registration no:"),
+
+        [NazivKljuc.Pib]                    = ("PIB:", "VAT No.:"),
+        [NazivKljuc.MaticniBroj]            = ("Matični broj:", "Company Reg. No.:"),
+        [NazivKljuc.Telefon]                = ("Tel:", "Tel:"),
+        [NazivKljuc.Mobilni]                = ("Mob:", "Mobile:"),
+        [NazivKljuc.Pecat]                  = ("M.P.", "Stamp"),
 
         [NazivKljuc.TabelaRedniBroj]        = ("R.Br", "Id."),
         [NazivKljuc.TabelaOpis]             = ("Vrsta usluge", "Product / Service"),
@@ -81,6 +102,10 @@ public static class NaziviDokumenata
         [NazivKljuc.NaslovRacun]            = ("RAČUN broj", "Invoice no"),
         [NazivKljuc.NaslovPonuda]           = ("PONUDA broj", "QUOTATION no"),
         [NazivKljuc.NaslovPredracun]        = ("PREDRAČUN broj", "PROFORMA INVOICE no"),
+
+        [NazivKljuc.NaslovFajlaRacun]       = ("Racun", "Invoice"),
+        [NazivKljuc.NaslovFajlaPonuda]      = ("Ponuda", "Quotation"),
+        [NazivKljuc.NaslovFajlaPredracun]   = ("Predracun", "Proforma"),
     };
 
     public static string Naziv(NazivKljuc kljuc, bool eng)

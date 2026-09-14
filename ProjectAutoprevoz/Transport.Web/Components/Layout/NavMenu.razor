@@ -41,10 +41,6 @@
                 Icon="@Icons.Material.Filled.CurrencyExchange">
         Gotovski računi
     </MudNavLink>
-    <MudNavLink Href="/fakturisanje/otpremnice"
-                Icon="@Icons.Material.Filled.LocalShipping">
-        Otpremnice
-    </MudNavLink>
     <MudNavLink Href="/dozvole"
                 Icon="@Icons.Material.Filled.CardMembership">
         Dozvole MUP
@@ -118,7 +114,9 @@
     </MudNavGroup>
 
     @* ── E-FAKTURE ────────────────────────────────────── *@
-    @if (TenantService.GetEFakturaAktivna())
+    @* OpcijaInt13 (eFakturaAktivna) — podešavanje po klijentu, NE dirati. Modul EFAKTURA
+       (tbl_web_licence.ModulEFaktura, preko IModulService) — licenca. Oba moraju biti ispunjena. *@
+    @if (TenantService.GetEFakturaAktivna() && _efakturaDozvoljen)
     {
         <MudNavGroup Title="E-fakture"
                      Icon="@Icons.Material.Filled.CloudUpload"
@@ -214,10 +212,12 @@
 @code {
     private bool _tureDozvoljen;
     private bool _lagerDozvoljen;
+    private bool _efakturaDozvoljen;
 
     protected override async Task OnInitializedAsync()
     {
-        _tureDozvoljen  = await ModulService.JeDozvoljen("TURE");
-        _lagerDozvoljen = await ModulService.JeDozvoljen("LAGER");
+        _tureDozvoljen     = await ModulService.JeDozvoljen("TURE");
+        _lagerDozvoljen    = await ModulService.JeDozvoljen("LAGER");
+        _efakturaDozvoljen = await ModulService.JeDozvoljen("EFAKTURA");
     }
 }

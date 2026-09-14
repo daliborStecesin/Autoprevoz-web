@@ -49,6 +49,8 @@ public class ModulService : IModulService
             if (licenca.ModulTure)        moduli.Add("TURE");
             if (licenca.ModulRadniNalozi) moduli.Add("RADNI_NALOZI");
             if (licenca.ModulLager)       moduli.Add("LAGER");
+            if (licenca.ModulEFaktura)    moduli.Add("EFAKTURA");
+            if (licenca.ModulEOtpremnica) moduli.Add("EOTPREMNICA");
         }
         else
         {
