@@ -1,11 +1,8 @@
-USE [Kasa]
-GO
-
 /*
     FULL MIGRACIJA BAZE TRANSPORT — Autoprevoz Web (Blazor)
     Verzija: 200
     Datum: Jun 2026
-    
+
     Redosled:
     01 CREATE novih tabela (IF NOT EXISTS)
     02 ALTER novih kolona (COL_LENGTH IS NULL)
@@ -17,7 +14,14 @@ GO
 
     Skripta je pisana da moze da se pokrene vise puta bez dupliranja strukture/podataka.
     Bezbedno pokretanje na bilo kojoj verziji baze (pre ili posle v7.86 migracije).
+
+    VAZNO: NEMA "USE [baza]" - skripta radi nad bazom izabranom u SSMS-u
+    (klijentske baze se razlicito zovu, npr. rs100123456). Proveri PRINT
+    poruku ispod pre pokretanja da si sigurno na pravoj bazi.
 */
+GO
+
+PRINT 'Skripta se izvrsava nad bazom: ' + DB_NAME();
 GO
 
 
@@ -414,736 +418,859 @@ GO
 SET XACT_ABORT ON;
 GO
 
-IF COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_DozvoleMinistarstva', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_DozvoleMinistarstva] ADD [uneo] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_DozvoleMinistarstva', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_DozvoleMinistarstva] ADD [datumUnosa] [datetime] NULL DEFAULT (getdate());
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'aktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_DozvoleMinistarstva', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_DozvoleMinistarstva] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_NalogPrevoz', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [uneo] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_NalogPrevoz', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [datumUnosa] [datetime] NULL DEFAULT (getdate());
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_NalogPrevoz', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_NalogPrevoz', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [datumIzmene] [datetime] NULL;
 END
 GO
-IF COL_LENGTH('dbo.tbl_Podaci', 'mailRacuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'mailRacuna') IS NULL
     ALTER TABLE [dbo].[tbl_Podaci]
     ADD [mailRacuna] [varchar](100) NULL;
 GO
 
-IF COL_LENGTH('dbo.tbl_Podaci', 'sifraMaila') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'sifraMaila') IS NULL
     ALTER TABLE [dbo].[tbl_Podaci]
     ADD [sifraMaila] [varchar](15) NULL;
 GO
-IF COL_LENGTH('dbo.tbl_Podaci', 'logoPath') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'logoPath') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podaci] ADD [logoPath] [varchar](500) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podaci', 'drzava') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'drzava') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podaci] ADD [drzava] [varchar](100) NULL DEFAULT ('SRBIJA');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podaci', 'usloviNaloga') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'usloviNaloga') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podaci] ADD [usloviNaloga] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podaci', 'logoData') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'logoData') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podaci] ADD [logoData] [varbinary](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podaci', 'logoMimeType') IS NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'logoMimeType') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podaci] ADD [logoMimeType] [varchar](20) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'koristiOdvojeneBrojeve') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'koristiOdvojeneBrojeve') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [koristiOdvojeneBrojeve] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'automatskiBrojevi') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'automatskiBrojevi') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [automatskiBrojevi] [int] NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rucniUnosBrojFakture') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rucniUnosBrojFakture') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rucniUnosBrojFakture] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'koristiOdvojeneInoRacune') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'koristiOdvojeneInoRacune') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [koristiOdvojeneInoRacune] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'eFakturaAktivna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'eFakturaAktivna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [eFakturaAktivna] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaAktivna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaAktivna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [eOtpremnicaAktivna] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'stampaLogoAktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'stampaLogoAktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [stampaLogoAktivan] [int] NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit1') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit1') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaBit1] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit2') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit2') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaBit2] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit3') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaBit3') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaBit3] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'brTureAgencijski') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'brTureAgencijski') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [brTureAgencijski] [int] NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'minCifaraBroja') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'minCifaraBroja') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [minCifaraBroja] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [verzijaBaze] [int] NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt1') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt1') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaInt1] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt2') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt2') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaInt2] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt3') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt3') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaInt3] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt4') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt4') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaInt4] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt5') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaInt5') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaInt5] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'kursEur') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'kursEur') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [kursEur] [decimal](10, 4) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaTure') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaTure') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaTure] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaTureAgencijski') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaTureAgencijski') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaTureAgencijski] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaNaloga') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaNaloga') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaNaloga] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaNalogaAgencijski') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaNalogaAgencijski') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaNalogaAgencijski] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaRacuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaRacuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaRacuna] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaInoRacuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaInoRacuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaInoRacuna] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaPredracuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaPredracuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaPredracuna] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaOtpremnice') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaOtpremnice') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaOtpremnice] [varchar](50) NULL DEFAULT ('broj-godina4');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'prefiksiRacuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'prefiksiRacuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [prefiksiRacuna] [varchar](50) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvKategorija') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'pdvKategorija') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [pdvKategorija] [varchar](50) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvSlovo') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'pdvSlovo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [pdvSlovo] [varchar](10) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvDatumObracuna') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'pdvDatumObracuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [pdvDatumObracuna] [varchar](30) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'sefTipServera') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'sefTipServera') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [sefTipServera] [varchar](20) NULL DEFAULT ('PRODUKCIONI');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaTipServera') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaTipServera') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [eOtpremnicaTipServera] [varchar](20) NULL DEFAULT ('PRODUKCIONI');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaStr1') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaStr1') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaStr1] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaStr2') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'rezervaStr2') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [rezervaStr2] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'sefApiKey') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'sefApiKey') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [sefApiKey] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaApiKey') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'eOtpremnicaApiKey') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [eOtpremnicaApiKey] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'usloviTransporta') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'usloviTransporta') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [usloviTransporta] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'napomenaStampa1') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'napomenaStampa1') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [napomenaStampa1] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'napomenaStampa2') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'napomenaStampa2') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [napomenaStampa2] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText1') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText1') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [opcijaText1] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText2') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText2') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [opcijaText2] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText3') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText3') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [opcijaText3] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText4') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText4') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [opcijaText4] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText5') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'opcijaText5') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [opcijaText5] [varchar](max) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'MestoIzdavanja') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'MestoIzdavanja') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [MestoIzdavanja] [nvarchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'nizaStopaPDV') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'nizaStopaPDV') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [nizaStopaPDV] [decimal](18, 2) NULL DEFAULT ((10.00));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'transportModulAktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'transportModulAktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [transportModulAktivan] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'koristiKorisnickeSifre') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'koristiKorisnickeSifre') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [koristiKorisnickeSifre] [int] NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'SWIFT') IS NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'SWIFT') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_banka] ADD [SWIFT] [varchar](20) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'IBAN') IS NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'IBAN') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_banka] ADD [IBAN] [varchar](50) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'TipRacuna') IS NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'TipRacuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_banka] ADD [TipRacuna] [varchar](20) NOT NULL DEFAULT ('DOMACI');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'aktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_banka] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'defaultRacun') IS NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'defaultRacun') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_banka] ADD [defaultRacun] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dnevnice', 'akontacija') IS NULL
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dnevnice', 'akontacija') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [akontacija] [decimal](18, 2) NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dnevnice', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dnevnice', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [uneo] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dnevnice', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dnevnice', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [datumUnosa] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dnevnice', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dnevnice', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dnevnice', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dnevnice', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dnevnice] ADD [datumIzmene] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dozvole', 'opis') IS NULL
+IF OBJECT_ID('dbo.tbl_dozvole', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dozvole', 'opis') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dozvole] ADD [opis] [varchar](200) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dozvole', 'aktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_dozvole', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dozvole', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_dozvole] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'tipIsplate') IS NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'tipIsplate') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_imenik] ADD [tipIsplate] [varchar](20) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'procenatZaPlatu') IS NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'procenatZaPlatu') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_imenik] ADD [procenatZaPlatu] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'fixnoPlata') IS NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'fixnoPlata') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_imenik] ADD [fixnoPlata] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'cenaPoKm') IS NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'cenaPoKm') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_imenik] ADD [cenaPoKm] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'aktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_imenik] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_lineItem', 'KeyClan') IS NULL
+IF OBJECT_ID('dbo.tbl_lineItem', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_lineItem', 'KeyClan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_lineItem] ADD [KeyClan] [varchar](50) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_lineItem', 'idTaxExemption') IS NULL
+IF OBJECT_ID('dbo.tbl_lineItem', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_lineItem', 'idTaxExemption') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_lineItem] ADD [idTaxExemption] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'tipIsplate') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'tipIsplate') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [tipIsplate] [varchar](20) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'km') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'km') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [km] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'cenaPoKm') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'cenaPoKm') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [cenaPoKm] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'fixnoPlata') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'fixnoPlata') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [fixnoPlata] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'izvorObracuna') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'izvorObracuna') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [izvorObracuna] [varchar](20) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'isplaceno') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'isplaceno') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [isplaceno] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'datumIsplate') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'datumIsplate') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [datumIsplate] [date] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [uneo] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [datumUnosa] [datetime] NULL DEFAULT (getdate());
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'brisano') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'brisano') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [brisano] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'valuta') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'valuta') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [valuta] [varchar](10) NOT NULL DEFAULT ('RSD');
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [datumIzmene] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'idTure') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'idTure') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [idTure] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'kursEur') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'kursEur') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [kursEur] [decimal](18, 4) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'iznosEUR') IS NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'iznosEUR') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_plate] ADD [iznosEUR] [decimal](18, 2) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [uneo] [varchar](100) NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [datumUnosa] [datetime] NULL DEFAULT (getdate());
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [datumIzmene] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'idVozila') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'idVozila') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [idVozila] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'ideTroskovnik') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'ideTroskovnik') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [ideTroskovnik] [int] NOT NULL DEFAULT ((1));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'jeGotovinski') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'jeGotovinski') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [jeGotovinski] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'brisano') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'brisano') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [brisano] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'idDnevnice') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'idDnevnice') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [idDnevnice] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [uneo] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [datumUnosa] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_troskovi] ADD [datumIzmene] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'brisano') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'brisano') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [brisano] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [datumUnosa] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [datumIzmene] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'idBanke') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'idBanke') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [idBanke] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_artikli_racuna', 'brisano') IS NULL
+IF OBJECT_ID('dbo.tbl_artikli_racuna', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_artikli_racuna', 'brisano') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_artikli_racuna] ADD [brisano] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
 -- tbl_Kartica: soft delete + Datum_Prometa + audit
-IF COL_LENGTH('dbo.tbl_Kartica', 'brisano') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'brisano') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [brisano] [int] NOT NULL DEFAULT ((0));
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Kartica', 'Datum_Prometa') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'Datum_Prometa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [Datum_Prometa] [date] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Kartica', 'uneo') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'uneo') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [uneo] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Kartica', 'datumUnosa') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'datumUnosa') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [datumUnosa] [datetime] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Kartica', 'izmenio') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'izmenio') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [izmenio] [int] NULL;
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_Kartica', 'datumIzmene') IS NULL
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'datumIzmene') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Kartica] ADD [datumIzmene] [datetime] NULL;
 END
@@ -1164,7 +1291,8 @@ IF OBJECT_ID('dbo.deleteKarticeRacun', 'TR') IS NOT NULL
     DROP TRIGGER [dbo].[deleteKarticeRacun];
 GO
 
-IF COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NULL
+IF OBJECT_ID('dbo.tbl_vozila', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_vozila] ADD [aktivan] [int] NOT NULL DEFAULT ((1));
 END
@@ -1633,7 +1761,8 @@ GO
 -- 211 = tbl_KarticaNova.idEfakture (veza ka tbl_eFakturaUlaz, za sprečavanje
 --       duplog upisa pri "Upiši u karticu" akciji iz ulaznih e-faktura)
 -- ================================================================
-IF COL_LENGTH('dbo.tbl_KarticaNova', 'idEfakture') IS NULL
+IF OBJECT_ID('dbo.tbl_KarticaNova', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_KarticaNova', 'idEfakture') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_KarticaNova] ADD [idEfakture] [int] NULL;
     PRINT 'Dodata kolona idEfakture u tbl_KarticaNova.';
@@ -1772,19 +1901,22 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_tbl_dokumenti_Partner'
           DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'idIzvora') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'idIzvora') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [idIzvora] [int] NULL;
     PRINT 'Dodata kolona idIzvora u tbl_racuni.';
 END
 GO
-IF COL_LENGTH('dbo.tbl_racuni', 'tipIzvora') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'tipIzvora') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [tipIzvora] [varchar](15) NULL;
     PRINT 'Dodata kolona tipIzvora u tbl_racuni.';
 END
 GO
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaPonude') IS NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'formatBrojaPonude') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [formatBrojaPonude] [varchar](50) NULL DEFAULT ('broj-godina4');
     PRINT 'Dodata kolona formatBrojaPonude u tbl_Podesavanja.';
@@ -1823,7 +1955,8 @@ GO
 PRINT 'tbl_lineItem: unitPrice/quantity/cenaSP/cenaSaRbt prosireni na decimal(18,4).';
 GO
 
-IF COL_LENGTH('dbo.tbl_racuni', 'zaokruzenje') IS NULL
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'zaokruzenje') IS NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_racuni] ADD [zaokruzenje] [decimal](18, 2) NULL;
     PRINT 'Dodata kolona zaokruzenje u tbl_racuni (priprema za UBL BT-114 PayableRoundingAmount).';
