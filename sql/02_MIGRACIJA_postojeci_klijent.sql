@@ -2604,32 +2604,59 @@ GO
 -- 214 (dopuna) = cene i kolicine na 4 decimale (tbl_artikli_racuna,
 --       tbl_artikli_dokumenta, tbl_lineItem), dodato tbl_racuni.zaokruzenje.
 --       Ista verzija 214 — ovo je nastavak prethodnog dela, ne nova verzija.
+--       Idempotentno (sys.columns scale = 4) - ALTER COLUMN nad decimalnom
+--       kolonom prepisuje celu tabelu, bez provere bi se radilo pri svakom
+--       pokretanju migracije.
 -- ================================================================
-ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
-GO
-PRINT 'tbl_artikli_racuna: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_racuna') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_racuna: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_racuna: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_racuna: preciznost vec decimal(18,4) - preskoceno.';
 GO
 
-ALTER TABLE [dbo].[tbl_artikli_dokumenta] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
-GO
-PRINT 'tbl_artikli_dokumenta: Kolicina prosirena na decimal(18,4).';
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_dokumenta') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_dokumenta] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_dokumenta: Kolicina prosirena na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_dokumenta: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_dokumenta: preciznost vec decimal(18,4) - preskoceno.';
 GO
 
-ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [unitPrice] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [quantity] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSP] [decimal](18, 4) NULL;
-GO
-ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSaRbt] [decimal](18, 4) NULL;
-GO
-PRINT 'tbl_lineItem: unitPrice/quantity/cenaSP/cenaSaRbt prosireni na decimal(18,4).';
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_lineItem') AND name = 'unitPrice' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [unitPrice] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [quantity] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [cenaSaRbt] [decimal](18, 4) NULL;
+        PRINT 'tbl_lineItem: unitPrice/quantity/cenaSP/cenaSaRbt prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_lineItem: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_lineItem: preciznost vec decimal(18,4) - preskoceno.';
 GO
 
 IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
