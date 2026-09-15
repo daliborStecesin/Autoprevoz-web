@@ -75,7 +75,6 @@ builder.Services.AddDbContextFactory<MasterDbContext>(options =>
 builder.Services.AddScoped<IPartnerService, PartnerService>();
 builder.Services.AddScoped<ITransportService, TransportService>();
 builder.Services.AddScoped<IDnevnicaService, DnevnicaService>();
-builder.Services.AddScoped<IPdvService, PdvService>();
 builder.Services.AddScoped<IDefaultValuesService, DefaultValuesService>();
 builder.Services.AddScoped<IKursService, KursService>();
 builder.Services.AddScoped<IKarticaService, KarticaService>();

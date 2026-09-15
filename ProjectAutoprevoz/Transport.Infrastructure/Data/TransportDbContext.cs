@@ -99,9 +99,7 @@ public class TransportDbContext : DbContext
     public DbSet<Plata> Plate { get; set; }
 
     // PDV i ePorezi
-    public DbSet<VatDeductionRecord> VatDeductionRecords { get; set; }
     public DbSet<ObavestenjePP> ObavestenjaPP { get; set; }
-    public DbSet<AnalitikaEpp> AnalitikaEPP { get; set; }
     public DbSet<IndividualVatRecord> IndividualVatRecords { get; set; }
     public DbSet<GroupVatRecord> GroupVatRecords { get; set; }
     public DbSet<EFakturaUlaz> EFaktureUlaz { get; set; }
@@ -252,12 +250,6 @@ public class TransportDbContext : DbContext
         {
             e.HasQueryFilter(p => p.brisano == 0);
         });
-
-        // ============================================================================
-        // KEYLESS ENTITETI — Bez primarnog ključa
-        // ============================================================================
-        modelBuilder.Entity<AnalitikaEpp>()
-            .HasNoKey();
 
         // ============================================================================
         // SPECIFIČNA MAPIRANJA ZA ANOMALIJE U ŠEMI
