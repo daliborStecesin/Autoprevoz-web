@@ -2463,6 +2463,615 @@ ELSE
     PRINT 'tbl_lager: preciznost vec decimal(18,4) - preskoceno.';
 GO
 
+-- ================================================================
+-- DOPUNA (bez promene verzijaBaze) = sirenje duzina string kolona do
+--       stanja iz 01_CREATE_kasa_template.sql. Samo sirenje, nikad
+--       skracivanje. Svaka kolona proverava tabelu/kolonu (OBJECT_ID/
+--       sys.columns) i trenutnu sirinu+tip pre ALTER-a - idempotentno,
+--       drugo pokretanje ne radi nista. TipPDV nije dirana nigde.
+-- ================================================================
+PRINT '=== SIRENJE STRING KOLONA - A) varchar(2000) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_got_racuna', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_got_racuna') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_got_racuna') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_got_racuna] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_artikli_got_racuna.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_got_racuna.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_got_racuna.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_otpremnice', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_otpremnice') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_otpremnice') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_artikli_otpremnice.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_otpremnice.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_otpremnice.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_ponude', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_ponude') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_ponude') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_ponude] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_artikli_ponude.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_ponude.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_ponude.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_predracuna', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_predracuna') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_predracuna') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_predracuna] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_artikli_predracuna.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_predracuna.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_predracuna.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_racuna', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_racuna') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_racuna') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_racuna] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_artikli_racuna.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_racuna.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_racuna.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_ServisiStavke', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_ServisiStavke') AND name = 'Artikal')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_ServisiStavke') AND c.name = 'Artikal' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_ServisiStavke] ALTER COLUMN [Artikal] [varchar](2000) NULL;
+        PRINT 'tbl_ServisiStavke.Artikal: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_ServisiStavke.Artikal: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_ServisiStavke.Artikal: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_lineItem', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_lineItem') AND name = 'description')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_lineItem') AND c.name = 'description' AND t.name = 'varchar' AND c.max_length = 2000)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_lineItem] ALTER COLUMN [description] [varchar](2000) NULL;
+        PRINT 'tbl_lineItem.description: prosireno na varchar(2000).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_lineItem.description: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_lineItem.description: vec varchar(2000) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - B) varchar(MAX) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND name = 'adresaIstovara')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND c.name = 'adresaIstovara' AND t.name = 'varchar' AND c.max_length = -1)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_NalogPrevoz] ALTER COLUMN [adresaIstovara] [varchar](max) NULL;
+        PRINT 'tbl_NalogPrevoz.adresaIstovara: prosireno na varchar(max).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_NalogPrevoz.adresaIstovara: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_NalogPrevoz.adresaIstovara: vec varchar(max) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND name = 'adresaUtovara')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND c.name = 'adresaUtovara' AND t.name = 'varchar' AND c.max_length = -1)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_NalogPrevoz] ALTER COLUMN [adresaUtovara] [varchar](max) NULL;
+        PRINT 'tbl_NalogPrevoz.adresaUtovara: prosireno na varchar(max).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_NalogPrevoz.adresaUtovara: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_NalogPrevoz.adresaUtovara: vec varchar(max) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_ponude', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_ponude') AND name = 'Komentar2')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_ponude') AND c.name = 'Komentar2' AND t.name = 'varchar' AND c.max_length = -1)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_ponude] ALTER COLUMN [Komentar2] [varchar](max) NULL;
+        PRINT 'tbl_ponude.Komentar2: prosireno na varchar(max).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_ponude.Komentar2: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_ponude.Komentar2: vec varchar(max) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - C) varchar(500) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_dnevnice', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_dnevnice') AND name = 'relacija')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_dnevnice') AND c.name = 'relacija' AND t.name = 'varchar' AND c.max_length = 500)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_dnevnice] ALTER COLUMN [relacija] [varchar](500) NULL;
+        PRINT 'tbl_dnevnice.relacija: prosireno na varchar(500).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_dnevnice.relacija: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_dnevnice.relacija: vec varchar(500) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Podaci') AND name = 'Napomena_PDV')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Podaci') AND c.name = 'Napomena_PDV' AND t.name = 'varchar' AND c.max_length = 500)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Podaci] ALTER COLUMN [Napomena_PDV] [varchar](500) NULL;
+        PRINT 'tbl_Podaci.Napomena_PDV: prosireno na varchar(500).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Podaci.Napomena_PDV: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Podaci.Napomena_PDV: vec varchar(500) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - D) varchar(250) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND name = 'mestoIstovara')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND c.name = 'mestoIstovara' AND t.name = 'varchar' AND c.max_length = 250)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_NalogPrevoz] ALTER COLUMN [mestoIstovara] [varchar](250) NULL;
+        PRINT 'tbl_NalogPrevoz.mestoIstovara: prosireno na varchar(250).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_NalogPrevoz.mestoIstovara: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_NalogPrevoz.mestoIstovara: vec varchar(250) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND name = 'mestoUtovara')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_NalogPrevoz') AND c.name = 'mestoUtovara' AND t.name = 'varchar' AND c.max_length = 250)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_NalogPrevoz] ALTER COLUMN [mestoUtovara] [varchar](250) NULL;
+        PRINT 'tbl_NalogPrevoz.mestoUtovara: prosireno na varchar(250).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_NalogPrevoz.mestoUtovara: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_NalogPrevoz.mestoUtovara: vec varchar(250) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - E) varchar(100) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_racuni') AND name = 'Fisk_Isecak')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_racuni') AND c.name = 'Fisk_Isecak' AND t.name = 'varchar' AND c.max_length = 100)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_racuni] ALTER COLUMN [Fisk_Isecak] [varchar](100) NULL;
+        PRINT 'tbl_racuni.Fisk_Isecak: prosireno na varchar(100).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_racuni.Fisk_Isecak: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_racuni.Fisk_Isecak: vec varchar(100) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_racuni') AND name = 'Radni_Nalog')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_racuni') AND c.name = 'Radni_Nalog' AND t.name = 'varchar' AND c.max_length = 100)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_racuni] ALTER COLUMN [Radni_Nalog] [varchar](100) NULL;
+        PRINT 'tbl_racuni.Radni_Nalog: prosireno na varchar(100).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_racuni.Radni_Nalog: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_racuni.Radni_Nalog: vec varchar(100) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Tabela', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Tabela') AND name = 'kategorija')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Tabela') AND c.name = 'kategorija' AND t.name = 'varchar' AND c.max_length = 100)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Tabela] ALTER COLUMN [kategorija] [varchar](100) NULL;
+        PRINT 'tbl_Tabela.kategorija: prosireno na varchar(100).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Tabela.kategorija: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Tabela.kategorija: vec varchar(100) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Tabela', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Tabela') AND name = 'tipVozila')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Tabela') AND c.name = 'tipVozila' AND t.name = 'varchar' AND c.max_length = 100)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Tabela] ALTER COLUMN [tipVozila] [varchar](100) NULL;
+        PRINT 'tbl_Tabela.tipVozila: prosireno na varchar(100).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Tabela.tipVozila: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Tabela.tipVozila: vec varchar(100) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Tabela', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Tabela') AND name = 'vrstaVozila')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Tabela') AND c.name = 'vrstaVozila' AND t.name = 'varchar' AND c.max_length = 100)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Tabela] ALTER COLUMN [vrstaVozila] [varchar](100) NULL;
+        PRINT 'tbl_Tabela.vrstaVozila: prosireno na varchar(100).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Tabela.vrstaVozila: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Tabela.vrstaVozila: vec varchar(100) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - F) varchar(50) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_Got_Racuni', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Got_Racuni') AND name = 'Fisk_Isecak')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Got_Racuni') AND c.name = 'Fisk_Isecak' AND t.name = 'varchar' AND c.max_length = 50)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Got_Racuni] ALTER COLUMN [Fisk_Isecak] [varchar](50) NULL;
+        PRINT 'tbl_Got_Racuni.Fisk_Isecak: prosireno na varchar(50).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Got_Racuni.Fisk_Isecak: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Got_Racuni.Fisk_Isecak: vec varchar(50) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_sindikat', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_sindikat') AND name = 'Fisk_Isecak')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_sindikat') AND c.name = 'Fisk_Isecak' AND t.name = 'varchar' AND c.max_length = 50)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_sindikat] ALTER COLUMN [Fisk_Isecak] [varchar](50) NULL;
+        PRINT 'tbl_sindikat.Fisk_Isecak: prosireno na varchar(50).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_sindikat.Fisk_Isecak: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_sindikat.Fisk_Isecak: vec varchar(50) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Podaci') AND name = 'EP_PDV')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Podaci') AND c.name = 'EP_PDV' AND t.name = 'varchar' AND c.max_length = 50)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Podaci] ALTER COLUMN [EP_PDV] [varchar](50) NULL;
+        PRINT 'tbl_Podaci.EP_PDV: prosireno na varchar(50).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Podaci.EP_PDV: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Podaci.EP_PDV: vec varchar(50) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Podaci') AND name = 'Fax')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Podaci') AND c.name = 'Fax' AND t.name = 'varchar' AND c.max_length = 50)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Podaci] ALTER COLUMN [Fax] [varchar](50) NULL;
+        PRINT 'tbl_Podaci.Fax: prosireno na varchar(50).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Podaci.Fax: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Podaci.Fax: vec varchar(50) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - G) varchar(30) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Kartica') AND name = 'Status')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Kartica') AND c.name = 'Status' AND t.name = 'varchar' AND c.max_length = 30)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Kartica] ALTER COLUMN [Status] [varchar](30) NULL;
+        PRINT 'tbl_Kartica.Status: prosireno na varchar(30).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Kartica.Status: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Kartica.Status: vec varchar(30) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_vozila', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_vozila') AND name = 'registarskaOznaka')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_vozila') AND c.name = 'registarskaOznaka' AND t.name = 'varchar' AND c.max_length = 30)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_vozila] ALTER COLUMN [registarskaOznaka] [varchar](30) NULL;
+        PRINT 'tbl_vozila.registarskaOznaka: prosireno na varchar(30).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_vozila.registarskaOznaka: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_vozila.registarskaOznaka: vec varchar(30) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - H) varchar(15) ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_Artikli_Kalkulacije', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Artikli_Kalkulacije') AND name = 'Id_Kalkulacije')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Artikli_Kalkulacije') AND c.name = 'Id_Kalkulacije' AND t.name = 'varchar' AND c.max_length = 15)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ALTER COLUMN [Id_Kalkulacije] [varchar](15) NULL;
+        PRINT 'tbl_Artikli_Kalkulacije.Id_Kalkulacije: prosireno na varchar(15).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Artikli_Kalkulacije.Id_Kalkulacije: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Artikli_Kalkulacije.Id_Kalkulacije: vec varchar(15) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Artikli_Kalkulacije', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Artikli_Kalkulacije') AND name = 'Id_partnera')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Artikli_Kalkulacije') AND c.name = 'Id_partnera' AND t.name = 'varchar' AND c.max_length = 15)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ALTER COLUMN [Id_partnera] [varchar](15) NULL;
+        PRINT 'tbl_Artikli_Kalkulacije.Id_partnera: prosireno na varchar(15).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Artikli_Kalkulacije.Id_partnera: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Artikli_Kalkulacije.Id_partnera: vec varchar(15) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_Kalkulacija', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Kalkulacija') AND name = 'Id_Partnera')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_Kalkulacija') AND c.name = 'Id_Partnera' AND t.name = 'varchar' AND c.max_length = 15)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Kalkulacija] ALTER COLUMN [Id_Partnera] [varchar](15) NULL;
+        PRINT 'tbl_Kalkulacija.Id_Partnera: prosireno na varchar(15).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Kalkulacija.Id_Partnera: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Kalkulacija.Id_Partnera: vec varchar(15) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_artikli_otpremnice', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_otpremnice') AND name = 'Id_Lager')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_artikli_otpremnice') AND c.name = 'Id_Lager' AND t.name = 'varchar' AND c.max_length = 15)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [Id_Lager] [varchar](15) NULL;
+        PRINT 'tbl_artikli_otpremnice.Id_Lager: prosireno na varchar(15).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_otpremnice.Id_Lager: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_otpremnice.Id_Lager: vec varchar(15) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '=== SIRENJE STRING KOLONA - I) nvarchar(50) POSEBAN SLUCAJ - tbl_poreskeStope.naziv ==='
+GO
+
+IF OBJECT_ID('dbo.tbl_poreskeStope', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_poreskeStope') AND name = 'naziv')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_poreskeStope') AND c.name = 'naziv' AND t.name = 'nvarchar' AND c.max_length = 100)
+BEGIN
+    DECLARE @ps_idxName sysname, @ps_isUniqueConstraint bit, @ps_dropSql nvarchar(max), @ps_createSql nvarchar(max);
+    SET @ps_idxName = NULL;
+
+    SELECT TOP 1
+        @ps_idxName = i.name,
+        @ps_isUniqueConstraint = i.is_unique_constraint
+    FROM sys.indexes i
+    JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+    JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+    WHERE i.object_id = OBJECT_ID('dbo.tbl_poreskeStope')
+      AND c.name = 'naziv'
+      AND i.is_primary_key = 0;
+
+    BEGIN TRY
+        IF @ps_idxName IS NOT NULL
+        BEGIN
+            IF @ps_isUniqueConstraint = 1
+                SET @ps_dropSql = N'ALTER TABLE [dbo].[tbl_poreskeStope] DROP CONSTRAINT [' + @ps_idxName + N'];';
+            ELSE
+                SET @ps_dropSql = N'DROP INDEX [' + @ps_idxName + N'] ON [dbo].[tbl_poreskeStope];';
+            EXEC sp_executesql @ps_dropSql;
+            PRINT 'tbl_poreskeStope: uklonjen indeks/constraint [' + @ps_idxName + '] pre ALTER-a nad naziv.';
+        END
+
+        ALTER TABLE [dbo].[tbl_poreskeStope] ALTER COLUMN [naziv] [nvarchar](50) NULL;
+
+        EXEC sp_executesql N'UPDATE dbo.tbl_poreskeStope SET [naziv] = RTRIM([naziv])';
+        PRINT 'tbl_poreskeStope.naziv: prosireno na nvarchar(50); postojece vrednosti RTRIM-ovane (uklonjeni razmaci iz eventualne nchar konverzije).';
+
+        IF @ps_idxName IS NOT NULL
+        BEGIN
+            IF @ps_isUniqueConstraint = 1
+                SET @ps_createSql = N'ALTER TABLE [dbo].[tbl_poreskeStope] ADD CONSTRAINT [' + @ps_idxName + N'] UNIQUE ([naziv]);';
+            ELSE
+                SET @ps_createSql = N'CREATE INDEX [' + @ps_idxName + N'] ON [dbo].[tbl_poreskeStope] ([naziv]);';
+            EXEC sp_executesql @ps_createSql;
+            PRINT 'tbl_poreskeStope: vracen indeks/constraint [' + @ps_idxName + '].';
+        END
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_poreskeStope.naziv: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_poreskeStope.naziv: vec nvarchar(50) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)
