@@ -1880,6 +1880,161 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- DOPUNA (bez promene verzijaBaze) = GRUPA B - kolone koje postoje u
+--       trgovinskoj semi a fale u transportnoj (01_CREATE_kasa_template.sql).
+--       Provereno da nijedna ne postoji vec pod drugim imenom u istoj tabeli.
+-- ================================================================
+PRINT '--- Grupa B: tbl_Fiskalni ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_Fiskalni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Fiskalni', 'idOsnovnogDokumeta') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Fiskalni] ADD [idOsnovnogDokumeta] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_Fiskalni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Fiskalni', 'komentarRacuna') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Fiskalni] ADD [komentarRacuna] [varchar](max) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_Fiskalni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Fiskalni', 'ZatvorenAvans') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Fiskalni] ADD [ZatvorenAvans] [int] NULL;
+END
+GO
+
+PRINT '--- Grupa B: tbl_KEP ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_KEP', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_KEP', 'blagajna') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_KEP] ADD [blagajna] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_KEP', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_KEP', 'idFirme') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_KEP] ADD [idFirme] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_KEP', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_KEP', 'idKorisnik') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_KEP] ADD [idKorisnik] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_KEP', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_KEP', 'vremeUnosa') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_KEP] ADD [vremeUnosa] [datetime] NULL;
+END
+GO
+
+PRINT '--- Grupa B: tbl_JM ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_JM', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_JM', 'ff') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_JM] ADD [ff] [varchar](50) NULL;
+END
+GO
+
+PRINT '--- Grupa B: tbl_servisi ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_servisi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_servisi', 'RegOznaka') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_servisi] ADD [RegOznaka] [varchar](30) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_servisi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_servisi', 'vlasnik') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_servisi] ADD [vlasnik] [varchar](200) NULL;
+END
+GO
+
+-- tbl_servisi.kmServisa/kmPonavljanja: trgovinska strana je uza (decimal(18,0)),
+-- sirimo na decimal(18,2) da odgovara 01_CREATE_kasa_template.sql.
+IF OBJECT_ID('dbo.tbl_servisi', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_servisi') AND name = 'kmServisa')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_servisi') AND c.name = 'kmServisa' AND t.name = 'decimal' AND c.scale = 2)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_servisi] ALTER COLUMN [kmServisa] [decimal](18, 2) NULL;
+        PRINT 'tbl_servisi.kmServisa: prosireno na decimal(18,2).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_servisi.kmServisa: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_servisi.kmServisa: vec decimal(18,2) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+IF OBJECT_ID('dbo.tbl_servisi', 'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_servisi') AND name = 'kmPonavljanja')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
+                    WHERE c.object_id = OBJECT_ID('dbo.tbl_servisi') AND c.name = 'kmPonavljanja' AND t.name = 'decimal' AND c.scale = 2)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_servisi] ALTER COLUMN [kmPonavljanja] [decimal](18, 2) NULL;
+        PRINT 'tbl_servisi.kmPonavljanja: prosireno na decimal(18,2).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_servisi.kmPonavljanja: greska pri sirenju - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_servisi.kmPonavljanja: vec decimal(18,2) ili tabela/kolona ne postoji - preskoceno.';
+GO
+
+PRINT '--- Grupa B: tbl_ServisiStavke ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_ServisiStavke', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_ServisiStavke', 'Tip_Prodaje') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_ServisiStavke] ADD [Tip_Prodaje] [varchar](15) NULL;
+END
+GO
+
+PRINT '--- Grupa B: tblKontniOkvir ---'
+GO
+
+IF OBJECT_ID('dbo.tblKontniOkvir', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tblKontniOkvir', 'Analitika') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tblKontniOkvir] ADD [Analitika] [varchar](20) NULL;
+END
+GO
+
+PRINT '--- Grupa B: tblstavkeNaloga ---'
+GO
+
+IF OBJECT_ID('dbo.tblstavkeNaloga', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tblstavkeNaloga', 'idKonta') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tblstavkeNaloga] ADD [idKonta] [int] NULL;
+END
+GO
+
 PRINT 'Migracija završena.';
 GO
 
