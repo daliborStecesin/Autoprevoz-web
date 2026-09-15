@@ -2245,6 +2245,224 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- DOPUNA (bez promene verzijaBaze) = prosirenje decimalne preciznosti
+--       cena/kolicina na preostalim artikli-tabelama i tbl_lager, da bi
+--       postojeca baza dostigla isto stanje kao 01_CREATE_kasa_template.sql.
+--       Provereno nad zivim bazama: bez indeksa/check/default constraint-a
+--       nad ciljnim kolonama, jedina prepreka su computed kolone
+--       (tbl_Artikli_Kalkulacije, tbl_lager.Vrednost) - vidi grupe B i C.
+--       Svaka grupa je idempotentna nezavisno (sys.columns scale = 4).
+-- ================================================================
+SET XACT_ABORT ON;
+GO
+
+PRINT '=== PROSIRENJE DECIMALNE PRECIZNOSTI - A) tabele bez prepreka ==='
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_got_racuna') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_got_racuna] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_got_racuna] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_got_racuna] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_got_racuna] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_got_racuna: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_got_racuna: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_got_racuna: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_otpremnice') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_otpremnice] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_otpremnice: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_otpremnice: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_otpremnice: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_ponude') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_ponude] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_ponude] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_ponude] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_ponude] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_ponude: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_ponude: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_ponude: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_predracuna') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_predracuna] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_predracuna] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_predracuna] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_predracuna] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_predracuna: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_predracuna: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_predracuna: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_artikli_sindikat') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_artikli_sindikat] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_sindikat] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_sindikat] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_artikli_sindikat] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_artikli_sindikat: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_artikli_sindikat: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_artikli_sindikat: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_ServisiStavke') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_ServisiStavke] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_ServisiStavke] ALTER COLUMN [CenaPoJMBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_ServisiStavke] ALTER COLUMN [CenaPoJMSP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_ServisiStavke] ALTER COLUMN [CenaPoJMBPminusRab] [decimal](18, 4) NULL;
+        PRINT 'tbl_ServisiStavke: Kolicina/CenaPoJMBP/CenaPoJMSP/CenaPoJMBPminusRab prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_ServisiStavke: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_ServisiStavke: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Prodaja_1') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Prodaja_1] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_Prodaja_1] ALTER COLUMN [Cena] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_Prodaja_1] ALTER COLUMN [OsnovnaCena] [decimal](18, 4) NULL;
+        PRINT 'tbl_Prodaja_1: Kolicina/Cena/OsnovnaCena prosireni na decimal(18,4).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Prodaja_1: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Prodaja_1: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+PRINT '=== PROSIRENJE DECIMALNE PRECIZNOSTI - B) tbl_Artikli_Kalkulacije (computed kolone) ==='
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_Artikli_Kalkulacije') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [VrednostSaRab];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [VrednostNabavnaBP];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [Osnovica_Ulaz];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [PDV_Ulaz];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [vrednost_UlazSP];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [ProdajnaCenaBP];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [PDV_Iznos];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [ProdajnaVrednost];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [ProdajnaVrednostBP];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [PDV_Vrednost];
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] DROP COLUMN [RUC];
+
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ALTER COLUMN [CenaNabavna] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ALTER COLUMN [ProdajnaCenaSP] [decimal](18, 4) NULL;
+
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [VrednostSaRab]  AS (CONVERT([decimal](19,2),[CenaNabavna]-([CenaNabavna]*[Rabat])/(100),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [VrednostNabavnaBP]  AS (CONVERT([decimal](19,2),[Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [Osnovica_Ulaz]  AS (CONVERT([decimal](19,2),[Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [PDV_Ulaz]  AS (CONVERT([decimal](19,2),([Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)))*([PDV_Stopa]/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [vrednost_UlazSP]  AS (CONVERT([decimal](19,2),([Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)))*(((100)+[PDV_Stopa])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [ProdajnaCenaBP]  AS (CONVERT([decimal](19,2),[ProdajnaCenaSP]/(((100)+[PDV_Stopa])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [PDV_Iznos]  AS (CONVERT([decimal](19,2),[ProdajnaCenaSP]-[ProdajnaCenaSP]/(((100)+[PDV_Stopa])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [ProdajnaVrednost]  AS (CONVERT([decimal](19,2),[Kolicina]*[ProdajnaCenaSP],(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [ProdajnaVrednostBP]  AS (CONVERT([decimal](19,2),([Kolicina]*[ProdajnaCenaSP])/(((100)+[PDV_Stopa])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [PDV_Vrednost]  AS (CONVERT([decimal](19,2),[Kolicina]*[ProdajnaCenaSP]-([Kolicina]*[ProdajnaCenaSP])/(((100)+[PDV_Stopa])/(100)),(0)));
+        ALTER TABLE [dbo].[tbl_Artikli_Kalkulacije] ADD [RUC]  AS (CONVERT([decimal](19,2),([Kolicina]*[ProdajnaCenaSP])/(((100)+[PDV_Stopa])/(100))-[Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)),(0)));
+
+        PRINT 'tbl_Artikli_Kalkulacije: CenaNabavna/Kolicina/ProdajnaCenaSP prosireni na decimal(18,4), 11 computed kolona vraceno.';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_Artikli_Kalkulacije: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_Artikli_Kalkulacije: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
+PRINT '=== PROSIRENJE DECIMALNE PRECIZNOSTI - C) tbl_lager (computed kolona Vrednost) ==='
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbl_lager') AND name = 'Kolicina' AND scale = 4)
+BEGIN
+    BEGIN TRY
+        ALTER TABLE [dbo].[tbl_lager] DROP COLUMN [Vrednost];
+
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [Cena] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [CenaBP] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [Kolicina] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [kolicina2] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [Kriticno] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [nabavna] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [srednja] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [objekat1] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [objekat2] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [objekat3] [decimal](18, 4) NULL;
+        ALTER TABLE [dbo].[tbl_lager] ALTER COLUMN [objekat4] [decimal](18, 4) NULL;
+
+        ALTER TABLE [dbo].[tbl_lager] ADD [Vrednost] AS (CONVERT([decimal](18,2),[Cena]*[Kolicina]));
+
+        PRINT 'tbl_lager: Cena/CenaBP/Kolicina/kolicina2/Kriticno/nabavna/srednja/objekat1-4 prosireni na decimal(18,4); Vrednost vracena sa eksplicitnim CONVERT na decimal(18,2).';
+    END TRY
+    BEGIN CATCH
+        PRINT 'tbl_lager: greska pri prosirenju preciznosti - ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+ELSE
+    PRINT 'tbl_lager: preciznost vec decimal(18,4) - preskoceno.';
+GO
+
 -- Oznacavanje verzije baze nakon uspesne migracije
 -- 208 = tbl_log_brisanja (centralni log brisanja: ko/kad/forma/opis)
 -- 209 = tbl_KarticaNova (novi finansijski model: Duguje/Potrazuje/Saldo, valuta kolona)

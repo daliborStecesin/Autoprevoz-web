@@ -2103,7 +2103,7 @@ CREATE TABLE [dbo].[tbl_lager](
 	[PDV] [decimal](4, 0) NULL,
 	[SumaPDV] [decimal](18, 2) NULL,
 	[Cena] [decimal](18, 4) NULL,
-	[Vrednost]  AS ([Cena]*[Kolicina]),
+	[Vrednost]  AS (CONVERT(decimal(18,2), [Cena]*[Kolicina])),
 	[Grupa] [varchar](30) NULL,
 	[Sfr_Dobavljaca] [varchar](20) NULL,
 	[ID_Dobavljaca] [varchar](20) NULL,
