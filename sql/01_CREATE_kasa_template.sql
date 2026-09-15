@@ -286,11 +286,11 @@ CREATE TABLE [dbo].[tbl_artikli_got_racuna](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 3) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
@@ -325,17 +325,17 @@ SET ANSI_PADDING ON
 GO
 CREATE TABLE [dbo].[tbl_Artikli_Kalkulacije](
 	[Id_Broj] [int] IDENTITY(1,1) NOT NULL,
-	[Id_Kalkulacije] [varchar](5) NULL,
-	[Id_partnera] [varchar](5) NULL,
+	[Id_Kalkulacije] [varchar](15) NULL,
+	[Id_partnera] [varchar](15) NULL,
 	[Datum] [date] NULL,
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](200) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 3) NULL,
-	[CenaNabavna] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaNabavna] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
 	[PDV_Stopa] [decimal](18, 0) NULL,
-	[ProdajnaCenaSP] [decimal](18, 2) NULL,
+	[ProdajnaCenaSP] [decimal](18, 4) NULL,
 	[VrednostSaRab]  AS (CONVERT([decimal](19,2),[CenaNabavna]-([CenaNabavna]*[Rabat])/(100),(0))),
 	[VrednostNabavnaBP]  AS (CONVERT([decimal](19,2),[Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)),(0))),
 	[Osnovica_Ulaz]  AS (CONVERT([decimal](19,2),[Kolicina]*([CenaNabavna]-([CenaNabavna]*[Rabat])/(100)),(0))),
@@ -372,15 +372,15 @@ SET ANSI_PADDING ON
 GO
 CREATE TABLE [dbo].[tbl_artikli_otpremnice](
 	[Broj] [int] IDENTITY(1,1) NOT NULL,
-	[Id_Lager] [varchar](5) NULL,
+	[Id_Lager] [varchar](15) NULL,
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 5) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
@@ -419,11 +419,11 @@ CREATE TABLE [dbo].[tbl_artikli_ponude](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 3) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
@@ -462,11 +462,11 @@ CREATE TABLE [dbo].[tbl_artikli_predracuna](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 3) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
@@ -555,11 +555,11 @@ CREATE TABLE [dbo].[tbl_artikli_sindikat](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](200) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 3) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 3) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
 	[Osnovica] [decimal](18, 2) NULL,
@@ -1223,6 +1223,9 @@ CREATE TABLE [dbo].[tbl_Fiskalni](
 	[totalTaxAmount] [decimal](18, 2) NULL,
 	[zatvara] [int] NULL,
 	[verificationUrl] [varchar](max) NULL,
+	[idOsnovnogDokumeta] [int] NULL,
+	[komentarRacuna] [varchar](max) NULL,
+	[ZatvorenAvans] [int] NULL,
  CONSTRAINT [PK_tbl_Fiskalni] PRIMARY KEY CLUSTERED 
 (
 	[idFiskalnog] ASC
@@ -1365,7 +1368,7 @@ CREATE TABLE [dbo].[tbl_Got_Racuni](
 	[Slovima] [varchar](200) NULL,
 	[Komentar1] [varchar](200) NULL,
 	[Komentar2] [varchar](200) NULL,
-	[Fisk_Isecak] [varchar](15) NULL,
+	[Fisk_Isecak] [varchar](50) NULL,
 	[Radni_Nalog] [varchar](15) NULL,
 	[Otpremnica] [varchar](15) NULL,
 	[Selektor] [varchar](15) NULL,
@@ -1755,7 +1758,8 @@ SET ANSI_PADDING ON
 GO
 CREATE TABLE [dbo].[tbl_JM](
 	[id_JM] [int] IDENTITY(1,1) NOT NULL,
-	[JM] [varchar](20) NULL
+	[JM] [varchar](20) NULL,
+	[ff] [varchar](50) NULL
 ) ON [PRIMARY]
 
 GO
@@ -1771,7 +1775,7 @@ GO
 CREATE TABLE [dbo].[tbl_Kalkulacija](
 	[Id_Kalkulacije] [int] IDENTITY(1,1) NOT NULL,
 	[Objekat] [varchar](1) NULL,
-	[Id_Partnera] [varchar](5) NULL,
+	[Id_Partnera] [varchar](15) NULL,
 	[Broj_Dokumenta] [varchar](15) NULL,
 	[Broj_Racuna] [varchar](20) NULL,
 	[Broj_Optremnice] [varchar](20) NULL,
@@ -1996,6 +2000,10 @@ CREATE TABLE [dbo].[tbl_KEP](
 	[razduzenje] [decimal](18, 2) NULL,
 	[saldo]  AS ([zaduzenje]-[razduzenje]),
 	[tipDokumenta] [varchar](50) NULL,
+	[blagajna] [int] NULL,
+	[idFirme] [int] NULL,
+	[idKorisnik] [int] NULL,
+	[vremeUnosa] [datetime] NULL,
  CONSTRAINT [PK_tbl_KEP] PRIMARY KEY CLUSTERED 
 (
 	[idKEP] ASC
@@ -2088,20 +2096,20 @@ CREATE TABLE [dbo].[tbl_lager](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](600) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 3) NULL,
-	[Kriticno] [decimal](18, 3) NULL,
-	[CenaBP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[Kriticno] [decimal](18, 4) NULL,
+	[CenaBP] [decimal](18, 4) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[PDV] [decimal](4, 0) NULL,
 	[SumaPDV] [decimal](18, 2) NULL,
-	[Cena] [decimal](18, 2) NULL,
+	[Cena] [decimal](18, 4) NULL,
 	[Vrednost]  AS ([Cena]*[Kolicina]),
 	[Grupa] [varchar](30) NULL,
 	[Sfr_Dobavljaca] [varchar](20) NULL,
 	[ID_Dobavljaca] [varchar](20) NULL,
 	[selektor] [varchar](15) NULL,
-	[nabavna] [decimal](18, 3) NULL,
-	[srednja] [decimal](18, 3) NULL
+	[nabavna] [decimal](18, 4) NULL,
+	[srednja] [decimal](18, 4) NULL
 ) ON [PRIMARY]
 SET ANSI_PADDING OFF
 ALTER TABLE [dbo].[tbl_lager] ADD [barcode2] [varchar](20) NULL
@@ -2109,11 +2117,11 @@ ALTER TABLE [dbo].[tbl_lager] ADD [Lokacija] [varchar](200) NULL
 ALTER TABLE [dbo].[tbl_lager] ADD [slika] [varchar](200) NULL
 ALTER TABLE [dbo].[tbl_lager] ADD [tip] [varchar](20) NULL
 ALTER TABLE [dbo].[tbl_lager] ADD [JM2] [varchar](15) NULL
-ALTER TABLE [dbo].[tbl_lager] ADD [objekat1] [decimal](18, 3) NULL
-ALTER TABLE [dbo].[tbl_lager] ADD [objekat2] [decimal](18, 3) NULL
-ALTER TABLE [dbo].[tbl_lager] ADD [objekat3] [decimal](18, 3) NULL
-ALTER TABLE [dbo].[tbl_lager] ADD [objekat4] [decimal](18, 3) NULL
-ALTER TABLE [dbo].[tbl_lager] ADD [kolicina2] [decimal](18, 3) NULL
+ALTER TABLE [dbo].[tbl_lager] ADD [objekat1] [decimal](18, 4) NULL
+ALTER TABLE [dbo].[tbl_lager] ADD [objekat2] [decimal](18, 4) NULL
+ALTER TABLE [dbo].[tbl_lager] ADD [objekat3] [decimal](18, 4) NULL
+ALTER TABLE [dbo].[tbl_lager] ADD [objekat4] [decimal](18, 4) NULL
+ALTER TABLE [dbo].[tbl_lager] ADD [kolicina2] [decimal](18, 4) NULL
  CONSTRAINT [PK_tbl_lager] PRIMARY KEY CLUSTERED 
 (
 	[Broj] ASC
@@ -2837,7 +2845,7 @@ CREATE TABLE [dbo].[tbl_ponude](
 	[Suma_Racuna] [decimal](18, 2) NULL,
 	[Slovima] [varchar](200) NULL,
 	[Komentar1] [varchar](200) NULL,
-	[Komentar2] [varchar](200) NULL,
+	[Komentar2] [varchar](max) NULL,
 	[Selektor] [varchar](15) NULL,
 	[Status] [varchar](15) NULL,
 	[Id_Partnera] [int] NULL,
@@ -2889,7 +2897,7 @@ SET ANSI_PADDING ON
 GO
 CREATE TABLE [dbo].[tbl_poreskeStope](
 	[idStope] [int] IDENTITY(1,1) NOT NULL,
-	[naziv] [varchar](50) NULL,
+	[naziv] [nvarchar](50) NULL,
 	[stopa] [decimal](18, 2) NULL,
 	[vaziOd] [date] NULL,
 	[vaziDo] [date] NULL,
@@ -3167,8 +3175,8 @@ CREATE TABLE [dbo].[tbl_Prodaja_1](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](50) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 3) NULL,
-	[Cena] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[Cena] [decimal](18, 4) NULL,
 	[Vrednost] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[PDV] [decimal](4, 0) NULL,
@@ -3178,7 +3186,7 @@ CREATE TABLE [dbo].[tbl_Prodaja_1](
 	[Bon_Id] [varchar](8) NULL,
 	[Status] [varchar](25) NULL,
 	[rabat] [decimal](18, 2) NULL,
-	[OsnovnaCena] [decimal](18, 2) NULL,
+	[OsnovnaCena] [decimal](18, 4) NULL,
  CONSTRAINT [PK_tbl_Prodaja_1] PRIMARY KEY CLUSTERED 
 (
 	[Id_Prodaja1] ASC
@@ -3603,6 +3611,8 @@ CREATE TABLE [dbo].[tbl_servisi](
 	[idVlasnika] [int] NULL,
 	[status] [varchar](15) NULL,
 	[BrojServisa] [varchar](50) NULL,
+	[RegOznaka] [varchar](30) NULL,
+	[vlasnik] [varchar](200) NULL,
  CONSTRAINT [PK_tbl_servisi] PRIMARY KEY CLUSTERED 
 (
 	[idServis] ASC
@@ -3630,11 +3640,11 @@ CREATE TABLE [dbo].[tbl_ServisiStavke](
 	[Barcode] [varchar](20) NULL,
 	[Artikal] [varchar](2000) NULL,
 	[JM] [varchar](15) NULL,
-	[Kolicina] [decimal](18, 2) NULL,
-	[CenaPoJMBP] [decimal](18, 2) NULL,
-	[CenaPoJMSP] [decimal](18, 2) NULL,
+	[Kolicina] [decimal](18, 4) NULL,
+	[CenaPoJMBP] [decimal](18, 4) NULL,
+	[CenaPoJMSP] [decimal](18, 4) NULL,
 	[Rabat] [decimal](18, 2) NULL,
-	[CenaPoJMBPminusRab] [decimal](18, 2) NULL,
+	[CenaPoJMBPminusRab] [decimal](18, 4) NULL,
 	[VrednostMinusRab] [decimal](18, 2) NULL,
 	[TipPDV] [varchar](1) NULL,
 	[StopaPDV] [decimal](18, 0) NULL,
@@ -3643,6 +3653,7 @@ CREATE TABLE [dbo].[tbl_ServisiStavke](
 	[Ukupno] [decimal](18, 2) NULL,
 	[Suma] [decimal](18, 2) NULL,
 	[selektor] [varchar](15) NULL,
+	[Tip_Prodaje] [varchar](15) NULL,
  CONSTRAINT [PK_tbl_ServisiStavke] PRIMARY KEY CLUSTERED 
 (
 	[idStavke] ASC
@@ -3700,7 +3711,7 @@ CREATE TABLE [dbo].[tbl_sindikat](
 	[Slovima] [varchar](200) NULL,
 	[Komentar1] [varchar](200) NULL,
 	[Komentar2] [varchar](200) NULL,
-	[Fisk_Isecak] [varchar](15) NULL,
+	[Fisk_Isecak] [varchar](50) NULL,
 	[Radni_Nalog] [varchar](15) NULL,
 	[Otpremnica] [varchar](15) NULL,
 	[Selektor] [varchar](15) NULL,
@@ -4181,6 +4192,7 @@ CREATE TABLE [dbo].[tblKontniOkvir](
 	[upotreba] [int] NULL,
 	[idFirme] [int] NULL,
 	[idKorisnika] [int] NULL,
+	[Analitika] [varchar](20) NULL,
  CONSTRAINT [PK_tblKontniOkvir] PRIMARY KEY CLUSTERED 
 (
 	[idKonta] ASC
@@ -4242,6 +4254,7 @@ CREATE TABLE [dbo].[tblstavkeNaloga](
 	[idFirme] [int] NULL,
 	[idKorisnik] [int] NULL,
 	[status] [varchar](20) NULL,
+	[idKonta] [int] NULL,
  CONSTRAINT [PK_tbl_stavkeNaloga] PRIMARY KEY CLUSTERED 
 (
 	[idStavkeNaloga] ASC
