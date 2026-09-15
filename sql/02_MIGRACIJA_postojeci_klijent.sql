@@ -1300,99 +1300,115 @@ GO
 
 
 -- Popunjavanje statusnih kolona za stare podatke
-IF COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_DozvoleMinistarstva', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_DozvoleMinistarstva] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_DozvoleMinistarstva SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_banka', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_banka] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_banka SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_dozvole', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_dozvole', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_dozvole', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_dozvole] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_dozvole SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_imenik] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_imenik SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_moduli', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_moduli', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_moduli', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_moduli] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_moduli SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_partner_racuni', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_partner_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_partner_racuni', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_partner_racuni] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_partner_racuni SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_role', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_role', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_role', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_role] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_role SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_sifarnik', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_sifarnik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_sifarnik', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_sifarnik] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_sifarnik SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_vozac_racuni', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_vozac_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_vozac_racuni', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_vozac_racuni] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_vozac_racuni SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_vozila', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_vozila', 'aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_vozila] SET [aktivan] = 1 WHERE [aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_vozila SET [aktivan] = 1 WHERE [aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_web_korisnici', 'Aktivan') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_web_korisnici', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_web_korisnici', 'Aktivan') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_web_korisnici] SET [Aktivan] = 1 WHERE [Aktivan] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_web_korisnici SET [Aktivan] = 1 WHERE [Aktivan] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_NalogPrevoz', 'brisano') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'brisano') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_NalogPrevoz] SET [brisano] = 0 WHERE [brisano] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_NalogPrevoz SET [brisano] = 0 WHERE [brisano] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_partneri', 'brisano') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_partneri', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_partneri', 'brisano') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_partneri] SET [brisano] = 0 WHERE [brisano] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_partneri SET [brisano] = 0 WHERE [brisano] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_plate', 'brisano') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'brisano') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_plate] SET [brisano] = 0 WHERE [brisano] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [brisano] = 0 WHERE [brisano] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_putniNalogKamion', 'brisano') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'brisano') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_putniNalogKamion] SET [brisano] = 0 WHERE [brisano] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_putniNalogKamion SET [brisano] = 0 WHERE [brisano] IS NULL';
 END
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'brisano') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'brisano') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_troskovi] SET [brisano] = 0 WHERE [brisano] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_troskovi SET [brisano] = 0 WHERE [brisano] IS NULL';
 END
 GO
 
@@ -1563,40 +1579,51 @@ GO
 PRINT '4) Dodatne podrazumevane vrednosti za plate/imenik/troskove gde kolone postoje';
 GO
 
-IF COL_LENGTH('dbo.tbl_imenik', 'tipIsplate') IS NOT NULL
-    UPDATE [dbo].[tbl_imenik] SET [tipIsplate] = 'PROCENAT' WHERE [tipIsplate] IS NULL;
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'tipIsplate') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_imenik SET [tipIsplate] = ''PROCENAT'' WHERE [tipIsplate] IS NULL';
 GO
-IF COL_LENGTH('dbo.tbl_imenik', 'procenatZaPlatu') IS NOT NULL
-    UPDATE [dbo].[tbl_imenik] SET [procenatZaPlatu] = 0 WHERE [procenatZaPlatu] IS NULL;
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'procenatZaPlatu') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_imenik SET [procenatZaPlatu] = 0 WHERE [procenatZaPlatu] IS NULL';
 GO
-IF COL_LENGTH('dbo.tbl_imenik', 'fixnoPlata') IS NOT NULL
-    UPDATE [dbo].[tbl_imenik] SET [fixnoPlata] = 0 WHERE [fixnoPlata] IS NULL;
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'fixnoPlata') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_imenik SET [fixnoPlata] = 0 WHERE [fixnoPlata] IS NULL';
 GO
-IF COL_LENGTH('dbo.tbl_imenik', 'cenaPoKm') IS NOT NULL
-    UPDATE [dbo].[tbl_imenik] SET [cenaPoKm] = 0 WHERE [cenaPoKm] IS NULL;
-GO
-
-IF COL_LENGTH('dbo.tbl_plate', 'isplaceno') IS NOT NULL
-    UPDATE [dbo].[tbl_plate] SET [isplaceno] = 0 WHERE [isplaceno] IS NULL;
-GO
-IF COL_LENGTH('dbo.tbl_plate', 'km') IS NOT NULL
-    UPDATE [dbo].[tbl_plate] SET [km] = 0 WHERE [km] IS NULL;
-GO
-IF COL_LENGTH('dbo.tbl_plate', 'cenaPoKm') IS NOT NULL
-    UPDATE [dbo].[tbl_plate] SET [cenaPoKm] = 0 WHERE [cenaPoKm] IS NULL;
-GO
-IF COL_LENGTH('dbo.tbl_plate', 'fixnoPlata') IS NOT NULL
-    UPDATE [dbo].[tbl_plate] SET [fixnoPlata] = 0 WHERE [fixnoPlata] IS NULL;
-GO
-IF COL_LENGTH('dbo.tbl_plate', 'tipIsplate') IS NOT NULL
-    UPDATE [dbo].[tbl_plate] SET [tipIsplate] = 'PROCENAT' WHERE [tipIsplate] IS NULL;
+IF OBJECT_ID('dbo.tbl_imenik', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_imenik', 'cenaPoKm') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_imenik SET [cenaPoKm] = 0 WHERE [cenaPoKm] IS NULL';
 GO
 
-IF COL_LENGTH('dbo.tbl_troskovi', 'ideTroskovnik') IS NOT NULL
-    UPDATE [dbo].[tbl_troskovi] SET [ideTroskovnik] = 1 WHERE [ideTroskovnik] IS NULL;
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'isplaceno') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [isplaceno] = 0 WHERE [isplaceno] IS NULL';
 GO
-IF COL_LENGTH('dbo.tbl_troskovi', 'jeGotovinski') IS NOT NULL
-    UPDATE [dbo].[tbl_troskovi] SET [jeGotovinski] = 0 WHERE [jeGotovinski] IS NULL;
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'km') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [km] = 0 WHERE [km] IS NULL';
+GO
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'cenaPoKm') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [cenaPoKm] = 0 WHERE [cenaPoKm] IS NULL';
+GO
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'fixnoPlata') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [fixnoPlata] = 0 WHERE [fixnoPlata] IS NULL';
+GO
+IF OBJECT_ID('dbo.tbl_plate', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_plate', 'tipIsplate') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_plate SET [tipIsplate] = ''PROCENAT'' WHERE [tipIsplate] IS NULL';
+GO
+
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'ideTroskovnik') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_troskovi SET [ideTroskovnik] = 1 WHERE [ideTroskovnik] IS NULL';
+GO
+IF OBJECT_ID('dbo.tbl_troskovi', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_troskovi', 'jeGotovinski') IS NOT NULL
+    EXEC sp_executesql N'UPDATE dbo.tbl_troskovi SET [jeGotovinski] = 0 WHERE [jeGotovinski] IS NULL';
 GO
 PRINT '5) Update dbo.tbl_Podesavanja - mapiranje starih opcija na nove kolone';
 GO
@@ -1604,44 +1631,42 @@ GO
 IF OBJECT_ID(N'[dbo].[tbl_Podesavanja]', N'U') IS NOT NULL
 BEGIN
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'nizaStopaPDV') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [nizaStopaPDV] = CAST(10 AS decimal(18,2))
-        WHERE [nizaStopaPDV] IS NULL;
+        WHERE [nizaStopaPDV] IS NULL';
 
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'transportModulAktivan') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [transportModulAktivan] = 1
-        WHERE [transportModulAktivan] IS NULL;
+        WHERE [transportModulAktivan] IS NULL';
 
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'sefApiKey') IS NOT NULL
        AND COL_LENGTH('dbo.tbl_Podesavanja', 'Folder_Privremeni') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [sefApiKey] = [Folder_Privremeni]
-        WHERE ([sefApiKey] IS NULL OR LTRIM(RTRIM([sefApiKey])) = '')
-          AND [Folder_Privremeni] IS NOT NULL;
-
- 
+        WHERE ([sefApiKey] IS NULL OR LTRIM(RTRIM([sefApiKey])) = '''')
+          AND [Folder_Privremeni] IS NOT NULL';
 
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvKategorija') IS NOT NULL
        AND COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString9') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [pdvKategorija] = [OpcijaString9]
-        WHERE ([pdvKategorija] IS NULL OR LTRIM(RTRIM([pdvKategorija])) = '')
-          AND [OpcijaString9] IS NOT NULL;
+        WHERE ([pdvKategorija] IS NULL OR LTRIM(RTRIM([pdvKategorija])) = '''')
+          AND [OpcijaString9] IS NOT NULL';
 
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvSlovo') IS NOT NULL
        AND COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString10') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [pdvSlovo] = [OpcijaString10]
-        WHERE ([pdvSlovo] IS NULL OR LTRIM(RTRIM([pdvSlovo])) = '')
-          AND [OpcijaString10] IS NOT NULL;
+        WHERE ([pdvSlovo] IS NULL OR LTRIM(RTRIM([pdvSlovo])) = '''')
+          AND [OpcijaString10] IS NOT NULL';
 
     IF COL_LENGTH('dbo.tbl_Podesavanja', 'pdvDatumObracuna') IS NOT NULL
        AND COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString11') IS NOT NULL
-        UPDATE [dbo].[tbl_Podesavanja]
+        EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
         SET [pdvDatumObracuna] = [OpcijaString11]
-        WHERE ([pdvDatumObracuna] IS NULL OR LTRIM(RTRIM([pdvDatumObracuna])) = '')
-          AND [OpcijaString11] IS NOT NULL;
+        WHERE ([pdvDatumObracuna] IS NULL OR LTRIM(RTRIM([pdvDatumObracuna])) = '''')
+          AND [OpcijaString11] IS NOT NULL';
 END
 ELSE
 BEGIN
@@ -1656,16 +1681,18 @@ PRINT '================ 04 - FINALIZACIJA ================';
 GO
 
 -- Popunjavanje drzava za stare klijente koji je nemaju
-IF COL_LENGTH('dbo.tbl_Podaci', 'drzava') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_Podaci', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podaci', 'drzava') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podaci] SET [drzava] = 'SRBIJA' WHERE [drzava] IS NULL OR LTRIM(RTRIM([drzava])) = '';
+    EXEC sp_executesql N'UPDATE dbo.tbl_Podaci SET [drzava] = ''SRBIJA'' WHERE [drzava] IS NULL OR LTRIM(RTRIM([drzava])) = ''''';
 END
 GO
 
 -- Normalizacija TipRacuna na tbl_banka (DOMAĆI -> DOMACI, bez Ć)
-IF COL_LENGTH('dbo.tbl_banka', 'TipRacuna') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_banka', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_banka', 'TipRacuna') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_banka] SET [TipRacuna] = 'DOMACI' WHERE [TipRacuna] = N'DOMAĆI';
+    EXEC sp_executesql N'UPDATE dbo.tbl_banka SET [TipRacuna] = ''DOMACI'' WHERE [TipRacuna] = N''DOMAĆI''';
 END
 GO
 
@@ -1735,26 +1762,36 @@ GO
 -- ============================================================
 
 -- OpcijaString13: domaća valuta po klijentu — kolona postoji od kreiranja šeme
-IF COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString13') IS NOT NULL
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaString13') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja]
-    SET [OpcijaString13] = 'RSD'
-    WHERE [OpcijaString13] IS NULL OR [OpcijaString13] = '';
+    EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
+    SET [OpcijaString13] = ''RSD''
+    WHERE [OpcijaString13] IS NULL OR [OpcijaString13] = ''''';
     PRINT 'OpcijaString13 (domacaValuta) postavljena na RSD gde je bila NULL.';
 END
-ELSE
+ELSE IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
 BEGIN
     ALTER TABLE [dbo].[tbl_Podesavanja] ADD [OpcijaString13] [varchar](50) NULL DEFAULT ('RSD');
-    UPDATE [dbo].[tbl_Podesavanja] SET [OpcijaString13] = 'RSD' WHERE [OpcijaString13] IS NULL;
+    EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja SET [OpcijaString13] = ''RSD'' WHERE [OpcijaString13] IS NULL';
     PRINT 'Dodata kolona OpcijaString13 (domacaValuta) sa default RSD.';
 END
 GO
 
--- OpcijaInt12: radSaViseMoneta — kolona postoji od kreiranja šeme, samo popuniti NULL
-UPDATE [dbo].[tbl_Podesavanja]
-SET [OpcijaInt12] = 1
-WHERE [OpcijaInt12] IS NULL;
-PRINT 'OpcijaInt12 (radSaViseMoneta) postavljena na 1 (ukljuceno) gde je bila NULL.';
+-- OpcijaInt12: radSaViseMoneta — kolona postoji od kreiranja šeme, samo popuniti NULL.
+-- NAPOMENA: ovaj UPDATE je ORIGINALNO bio bezuslovan (nema COL_LENGTH IS NULL ADD bloka
+-- za ovu kolonu nigde u fajlu). Dodata je OBJECT_ID/COL_LENGTH provera koje ranije nije
+-- bilo - ovo NIJE cisto "nacin izvrsavanja", vec i dodata provera (logika se menja: umesto
+-- da puca sa Msg 207 na bazi bez ove kolone, sada se tiho preskace). Javi ako ovo nije
+-- zeljeno ponasanje.
+IF OBJECT_ID('dbo.tbl_Podesavanja', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Podesavanja', 'OpcijaInt12') IS NOT NULL
+BEGIN
+    EXEC sp_executesql N'UPDATE dbo.tbl_Podesavanja
+    SET [OpcijaInt12] = 1
+    WHERE [OpcijaInt12] IS NULL';
+    PRINT 'OpcijaInt12 (radSaViseMoneta) postavljena na 1 (ukljuceno) gde je bila NULL.';
+END
 GO
 
 -- ================================================================
