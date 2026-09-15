@@ -408,6 +408,251 @@ BEGIN
 END
 GO
 
+PRINT 'Provera/kreiranje tabele dbo.tbl_CMR';
+IF OBJECT_ID(N'[dbo].[tbl_CMR]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_CMR](
+	[idCMR] [int] IDENTITY(1,1) NOT NULL,
+	[posiljalac] [varchar](max) NULL,
+	[primalac] [varchar](max) NULL,
+	[mestoIsporuke] [varchar](max) NULL,
+	[mestoPreuzaimanja] [varchar](max) NULL,
+	[propratnaDok] [varchar](300) NULL,
+	[oznaka] [varchar](50) NULL,
+	[koleta] [varchar](50) NULL,
+	[vrstaAmbalaze] [varchar](50) NULL,
+	[vrstaTereta] [varchar](50) NULL,
+	[statBr] [varchar](20) NULL,
+	[masaNeto] [decimal](18, 2) NULL,
+	[masabruto] [decimal](18, 2) NULL,
+	[zapremina] [decimal](18, 2) NULL,
+	[uputstvoPosiljaoca] [varchar](max) NULL,
+	[vozarina] [varchar](max) NULL,
+	[pouzece] [varchar](20) NULL,
+	[prevoznik] [varchar](max) NULL,
+	[OstaliPrevoznici] [varchar](500) NULL,
+	[vozilo] [varchar](30) NULL,
+	[prikolica] [varchar](30) NULL,
+	[vozac] [varchar](250) NULL,
+	[posebniDogovor] [varchar](max) NULL,
+	[placa] [varchar](50) NULL,
+	[ispostavljeno] [varchar](250) NULL,
+	[dana] [datetime] NULL,
+	[brojCMR] [varchar](50) NULL,
+ CONSTRAINT [PK_tbl_CMR] PRIMARY KEY CLUSTERED
+(
+	[idCMR] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_CMR vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tbl_DozvoleMinistarstva';
+IF OBJECT_ID(N'[dbo].[tbl_DozvoleMinistarstva]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_DozvoleMinistarstva](
+	[idDozvole] [int] IDENTITY(1,1) NOT NULL,
+	[brojResenja] [varchar](50) NULL,
+	[datumResenja] [date] NULL,
+	[drzava] [varchar](100) NULL,
+	[vrstaDozvole] [varchar](50) NULL,
+	[rbVrste] [varchar](10) NULL,
+	[brojDozvole] [varchar](150) NULL,
+	[datumIsteka] [date] NULL,
+	[datumIzdavanjaVozacu] [date] NULL,
+	[datumVracanjaUKanc] [date] NULL,
+	[idVozila] [int] NULL,
+	[vozilo] [varchar](50) NULL,
+	[idVozaca] [int] NULL,
+	[Vozac] [varchar](100) NULL,
+	[brojNaloga] [varchar](50) NULL,
+	[idNaloga] [int] NULL,
+	[Relacija] [varchar](500) NULL,
+	[razduzeno] [varchar](10) NULL,
+	[stampa] [varchar](10) NULL,
+	[cmr] [varchar](50) NULL,
+	[datumSlanjaNaRazd] [date] NULL,
+	[datumRazduzenja] [date] NULL,
+	[datumDobijanjaResenje] [date] NULL,
+	[vracenoUkanc] [varchar](10) NULL,
+	[poslatoNaRazd] [varchar](10) NULL,
+	[izdataVozacu] [varchar](10) NULL,
+	[uneo] [varchar](100) NULL,
+	[datumUnosa] [datetime] NULL DEFAULT (getdate()),
+	[aktivan] [int] NOT NULL DEFAULT ((1)),
+ CONSTRAINT [PK_tbl_DozvoleMinistarstva] PRIMARY KEY CLUSTERED
+(
+	[idDozvole] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_DozvoleMinistarstva vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tbl_GroupVatRecord';
+IF OBJECT_ID(N'[dbo].[tbl_GroupVatRecord]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_GroupVatRecord](
+	[idZbirne] [int] IDENTITY(1,1) NOT NULL,
+	[idGroupVat] [bigint] NULL,
+	[year] [int] NULL,
+	[calculationNumber] [varchar](500) NULL,
+	[documentNumber] [varchar](500) NULL,
+	[vatPeriodStr] [varchar](50) NULL,
+	[relatedPartyIdentifier] [varchar](500) NULL,
+	[recordingDate] [datetime] NULL,
+	[statusChangeDate] [datetime] NULL,
+	[vatRecordingStatus] [varchar](50) NULL,
+	[createdUtc] [datetime] NULL,
+ CONSTRAINT [PK_tbl_GroupVatRecord] PRIMARY KEY CLUSTERED
+(
+	[idZbirne] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_GroupVatRecord vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tbl_IndividualVatRecord';
+IF OBJECT_ID(N'[dbo].[tbl_IndividualVatRecord]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_IndividualVatRecord](
+	[idUnosa] [int] IDENTITY(1,1) NOT NULL,
+	[idIndividualVat] [bigint] NULL,
+	[year] [int] NULL,
+	[calculationNumber] [varchar](500) NULL,
+	[documentNumber] [varchar](500) NULL,
+	[pibPartnera] [varchar](500) NULL,
+	[vatPeriodStr] [varchar](50) NULL,
+	[documentDirectionStr] [varchar](50) NULL,
+	[documentType] [varchar](50) NULL,
+	[internalInvoiceOption] [int] NULL,
+	[relatedPartyIdentifier] [varchar](500) NULL,
+	[internalInvoiceNumber] [varchar](max) NULL,
+	[basisForPrepayment] [varchar](500) NULL,
+	[recordingDate] [datetime] NULL,
+	[statusChangeDate] [datetime] NULL,
+	[status] [varchar](50) NULL,
+	[totalCalculatedVat] [decimal](18, 2) NULL,
+ CONSTRAINT [PK_Tbl_IndividualVatRecord] PRIMARY KEY CLUSTERED
+(
+	[idUnosa] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_IndividualVatRecord vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tbl_putniNalog';
+IF OBJECT_ID(N'[dbo].[tbl_putniNalog]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_putniNalog](
+	[idPutnog] [int] IDENTITY(1,1) NOT NULL,
+	[datum] [datetime] NULL,
+	[brojNaloga] [varchar](50) NULL,
+	[idVozaca] [int] NULL,
+	[vozac] [varchar](100) NULL,
+	[relacija] [varchar](max) NULL,
+	[idVozila] [int] NULL,
+	[idPrikolice] [int] NULL,
+	[ostaliClanovi] [varchar](max) NULL,
+	[tovarniList] [varchar](max) NULL,
+	[vozilo] [varchar](50) NULL,
+	[prikolica] [varchar](50) NULL,
+ CONSTRAINT [PK_tbl_putniNalog] PRIMARY KEY CLUSTERED
+(
+	[idPutnog] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_putniNalog vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tbl_skenirano';
+IF OBJECT_ID(N'[dbo].[tbl_skenirano]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tbl_skenirano](
+	[idDokumenta] [int] IDENTITY(1,1) NOT NULL,
+	[tipVeze] [varchar](50) NULL,
+	[idVeze] [int] NULL,
+	[Opis] [varchar](250) NULL,
+	[putanja] [varchar](500) NULL,
+	[tipDokumenta] [varchar](50) NULL,
+	[datum] [date] NULL,
+ CONSTRAINT [PK_tbl_skenirano] PRIMARY KEY CLUSTERED
+(
+	[idDokumenta] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tbl_skenirano vec postoji - preskacem CREATE.';
+END
+GO
+
+PRINT 'Provera/kreiranje tabele dbo.tblBanke';
+IF OBJECT_ID(N'[dbo].[tblBanke]', N'U') IS NULL
+BEGIN
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+SET ANSI_PADDING ON
+CREATE TABLE [dbo].[tblBanke](
+	[idBanke] [int] IDENTITY(1,1) NOT NULL,
+	[banka] [varchar](50) NULL,
+	[racun] [varchar](50) NULL,
+	[idPartnera] [int] NULL,
+	[kodBanke] [varchar](5) NULL,
+ CONSTRAINT [PK_tblBanke] PRIMARY KEY CLUSTERED
+(
+	[idBanke] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+    PRINT 'Tabela dbo.tblBanke vec postoji - preskacem CREATE.';
+END
+GO
+
+-- Nijedna od gornjih 7 tabela nema FOREIGN KEY (ni kao izvor ni kao cilj) u
+-- 01_CREATE_kasa_template.sql - provereno, nema ALTER TABLE ... FOREIGN KEY
+-- bloka koji ih pominje. Nema FK-ove za dodavanje.
+
 
 PRINT '================ 02 - ALTER POSTOJECE STRUKTURE ================'
 GO
