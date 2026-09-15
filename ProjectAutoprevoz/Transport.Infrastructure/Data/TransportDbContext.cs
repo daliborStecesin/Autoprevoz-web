@@ -78,10 +78,6 @@ public class TransportDbContext : DbContext
     // Fakturisanje
     public DbSet<Racun> Racuni { get; set; }
     public DbSet<Stavka> ArtikliRacuna { get; set; }
-    public DbSet<GotovinskiRacun> GotovinskiRacuni { get; set; }
-    public DbSet<StavkaGotovinskog> StavkeGotovinskog { get; set; }
-    public DbSet<Otpremnica> Otpremnice { get; set; }
-    public DbSet<StavkaOtpremnice> StavkeOtpremnice { get; set; }
     public DbSet<Dokument> Dokumenti { get; set; }
     public DbSet<StavkaDokumenta> ArtikliDokumenta { get; set; }
 
@@ -208,7 +204,7 @@ public class TransportDbContext : DbContext
         // PARTNERSHIPS — Relacije između entiteta
         // ============================================================================
         
-        // Partner ← Kartice, Racuni, GotovinskiRacuni
+        // Partner ← Kartice, Racuni
         modelBuilder.Entity<KarticaPartnera>()
             .HasKey(k => k.Id);
 
@@ -227,19 +223,6 @@ public class TransportDbContext : DbContext
             .HasMany(p => p.Racuni)
             .WithOne()
             .HasForeignKey(r => r.IdPartnera)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<GotovinskiRacun>()
-            .HasMany(g => g.Stavke)
-            .WithOne(s => s.Racun)
-            .HasForeignKey(s => s.BrojRacuna)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        // Otpremnica ← Stavke
-        modelBuilder.Entity<Otpremnica>()
-            .HasMany(o => o.Stavke)
-            .WithOne(s => s.Otpremnica)
-            .HasForeignKey(s => s.BrojOtpremnice)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Dokument (ponude/predracuni, tbl_dokumenti) ← Stavke (tbl_artikli_dokumenta)

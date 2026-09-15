@@ -15,14 +15,14 @@ namespace Transport.Application.Services;
 /// <summary>
 /// Kreira novu WEB klijentsku firmu (Faza 1 — samo iz super admin panela):
 /// CREATE DATABASE {kodDrzave}{PIB} → izvršava 01_CREATE_kasa_template.sql (embedded
-/// resurs iz Transport.Web) → proverava verzijaBaze=213 → upisuje tbl_Podaci/
+/// resurs iz Transport.Web) → proverava verzijaBaze=215 → upisuje tbl_Podaci/
 /// tbl_zaposleni (klijentska baza) → tbl_web_licence/tbl_web_korisnici/
 /// tbl_web_clanstvo (master). Vidi KreirajWebFirmuAsync za rollback po koraku.
 /// </summary>
 public class ProvisioningService : IProvisioningService
 {
     private const string SkriptaResursIme = "01_CREATE_kasa_template.sql";
-    private const int OcekivanaVerzijaBaze = 213;
+    private const int OcekivanaVerzijaBaze = 215;
 
     private readonly IDbContextFactory<MasterDbContext> _masterDbFactory;
     private readonly IConfiguration _config;

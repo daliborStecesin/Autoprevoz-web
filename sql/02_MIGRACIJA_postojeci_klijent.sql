@@ -3507,10 +3507,18 @@ GO
 --       dopuna: tbl_artikli_racuna/tbl_artikli_dokumenta cene i kolicine na
 --       4 decimale, tbl_lineItem unitPrice/quantity/cenaSP/cenaSaRbt na 4
 --       decimale, dodato tbl_racuni.zaokruzenje
+-- 215 = univerzalna migracija - skripta sad radi i nad trgovinskim bazama,
+--       ne samo transportnim; 7 novih tabela (tbl_CMR, tbl_DozvoleMinistarstva,
+--       tbl_GroupVatRecord, tbl_IndividualVatRecord, tbl_putniNalog,
+--       tbl_skenirano, tblBanke); cene i kolicine na decimal(18,4) u svim
+--       tabelama artikala; ujednacene duzine string kolona do stanja iz
+--       01_CREATE_kasa_template.sql; tbl_poreskeStope.naziv na nvarchar(50);
+--       uklonjen trigger updatePartnera (Msg 512 na grupnim UPDATE-ovima);
+--       moduli e-Faktura i e-Otpremnica (tbl_web_licence, master baza)
 IF COL_LENGTH('dbo.tbl_Podesavanja', 'verzijaBaze') IS NOT NULL
 BEGIN
-    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 214;
-    PRINT 'Verzija baze postavljena na 214.';
+    UPDATE [dbo].[tbl_Podesavanja] SET [verzijaBaze] = 215;
+    PRINT 'Verzija baze postavljena na 215.';
 END
 GO
 

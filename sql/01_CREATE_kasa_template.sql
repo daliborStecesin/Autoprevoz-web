@@ -2775,7 +2775,7 @@ CREATE TABLE [dbo].[tbl_Podesavanja](
 	--       dopuna: tbl_artikli_racuna/tbl_artikli_dokumenta cene i kolicine
 	--       na 4 decimale, tbl_lineItem unitPrice/quantity/cenaSP/cenaSaRbt
 	--       na 4 decimale, dodato tbl_racuni.zaokruzenje
-	[verzijaBaze] [int] NULL DEFAULT ((214)),
+	[verzijaBaze] [int] NULL DEFAULT ((215)),
 	[rezervaInt1] [int] NULL,
 	[rezervaInt2] [int] NULL,
 	[rezervaInt3] [int] NULL,
