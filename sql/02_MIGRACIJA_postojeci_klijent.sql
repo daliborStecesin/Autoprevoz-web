@@ -663,6 +663,23 @@ GO
 SET XACT_ABORT ON;
 GO
 
+-- ================================================================
+-- DROP trigger [updatePartnera] na tbl_partneri — trigger koristi
+--       (SELECT Broj FROM inserted) u WHERE uslovu, pa puca sa "Subquery
+--       returned more than 1 value" (Msg 512) cim UPDATE zahvati vise od
+--       jednog reda; EF radi grupne izmene (npr. backfill brisano nize u
+--       ovoj skripti). Trigger je i retroaktivno menjao Naziv i PIB na vec
+--       izdatim racunima i karticama, sto ne sme - izdat dokument mora da
+--       zadrzi podatke sa dana izdavanja; web ih upisuje u dokument pri
+--       kreiranju.
+-- ================================================================
+IF OBJECT_ID('dbo.updatePartnera', 'TR') IS NOT NULL
+BEGIN
+    DROP TRIGGER [dbo].[updatePartnera];
+    PRINT 'Uklonjen trigger updatePartnera sa tbl_partneri.';
+END
+GO
+
 IF OBJECT_ID('dbo.tbl_DozvoleMinistarstva', 'U') IS NOT NULL
    AND COL_LENGTH('dbo.tbl_DozvoleMinistarstva', 'uneo') IS NULL
 BEGIN
