@@ -194,12 +194,14 @@
                         <option value="TRGOVINA">TRGOVINA</option>
                     </NativniSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" Class="d-flex align-center" style="gap:16px;">
-                    <MudCheckBox T="bool" @bind-Value="_modulTure" Label="Ture" Color="Color.Primary" Disabled="_ucitava" />
-                    <MudCheckBox T="bool" @bind-Value="_modulRadniNalozi" Label="Radni nalozi" Color="Color.Primary" Disabled="_ucitava" />
-                    <MudCheckBox T="bool" @bind-Value="_modulLager" Label="Lager" Color="Color.Primary" Disabled="_ucitava" />
-                    <MudCheckBox T="bool" @bind-Value="_modulEFaktura" Label="e-Faktura" Color="Color.Primary" Disabled="_ucitava" />
-                    <MudCheckBox T="bool" @bind-Value="_modulEOtpremnica" Label="e-Otpremnica" Color="Color.Primary" Disabled="_ucitava" />
+                <MudItem xs="12">
+                    <div class="d-flex flex-wrap" style="gap:16px;">
+                        <MudCheckBox T="bool" @bind-Value="_modulTure" Label="Ture" Color="Color.Primary" Disabled="_ucitava" />
+                        <MudCheckBox T="bool" @bind-Value="_modulRadniNalozi" Label="Radni nalozi" Color="Color.Primary" Disabled="_ucitava" />
+                        <MudCheckBox T="bool" @bind-Value="_modulLager" Label="Lager" Color="Color.Primary" Disabled="_ucitava" />
+                        <MudCheckBox T="bool" @bind-Value="_modulEFaktura" Label="e-Faktura" Color="Color.Primary" Disabled="_ucitava" />
+                        <MudCheckBox T="bool" @bind-Value="_modulEOtpremnica" Label="e-Otpremnica" Color="Color.Primary" Disabled="_ucitava" />
+                    </div>
                 </MudItem>
 
                 <MudItem xs="12" sm="4">
