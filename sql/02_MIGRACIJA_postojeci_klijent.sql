@@ -1657,6 +1657,229 @@ BEGIN
 END
 GO
 
+-- ================================================================
+-- DOPUNA (bez promene verzijaBaze) = kolone koje postoje u transportnoj
+--       semi (01_CREATE_kasa_template.sql) a fale u trgovinskoj bazi.
+--       Definicije prepisane doslovno iz sablona.
+-- ================================================================
+PRINT '--- Dopuna: tbl_partneri ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_partneri', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_partneri', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_partneri] ADD [brisano] [int] NULL CONSTRAINT [DF_tbl_partneri_brisano] DEFAULT ((0));
+END
+GO
+
+PRINT '--- Dopuna: tbl_putniNalogKamion ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'idPrikolice') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [idPrikolice] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'prikolica') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [prikolica] [varchar](30) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_putniNalogKamion', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_putniNalogKamion', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_putniNalogKamion] ADD [brisano] [int] NULL CONSTRAINT [DF_tbl_putniNalogKamion_brisano] DEFAULT ((0));
+END
+GO
+
+PRINT '--- Dopuna: tbl_Kartica ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_Kartica', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_Kartica', 'opis') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_Kartica] ADD [opis] [varchar](500) NULL;
+END
+GO
+
+PRINT '--- Dopuna: tbl_racuni ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'idTure') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [idTure] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'idNaloga') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [idNaloga] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'idFakturisao') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [idFakturisao] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_racuni', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_racuni', 'fakturisao') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_racuni] ADD [fakturisao] [varchar](70) NULL;
+END
+GO
+
+PRINT '--- Dopuna: tbl_NalogPrevoz ---'
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'cenaJM') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [cenaJM] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'CMR') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [CMR] [varchar](100) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'datumKursa') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [datumKursa] [date] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'fakturisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [fakturisano] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'fakturisanje') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [fakturisanje] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'idDispecer') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [idDispecer] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'idRacuna') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [idRacuna] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'idStavkeRacuna') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [idStavkeRacuna] [int] NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'interniKomentar') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [interniKomentar] [varchar](200) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'JM') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [JM] [varchar](15) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'kolicina') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [kolicina] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'nalog') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [nalog] [varchar](100) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'OpisSifre') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [OpisSifre] [varchar](200) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'placenTransportDin') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [placenTransportDin] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'sifraTransporta') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [sifraTransporta] [varchar](50) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'troskoviDin') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [troskoviDin] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'valutaTure') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [valutaTure] [varchar](30) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'VrednostDomaca') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [VrednostDomaca] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'zaradaDin') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [zaradaDin] [decimal](18, 2) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.tbl_NalogPrevoz', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.tbl_NalogPrevoz', 'brisano') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[tbl_NalogPrevoz] ADD [brisano] [int] NULL CONSTRAINT [DF_tbl_NalogPrevoz_brisano] DEFAULT ((0));
+END
+GO
+
 PRINT 'Migracija završena.';
 GO
 
