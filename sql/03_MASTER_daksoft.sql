@@ -185,6 +185,39 @@ GO
 
 
 /* ============================================================================
+   SEKCIJA 2b — tbl_web_korisnici (identitet korisnika)
+   ----------------------------------------------------------------------------
+   Skripta je do sada samo REFERENCIRALA ovu tabelu (FK iz tbl_web_clanstvo,
+   JOIN u vw_web_pristup) a nikad je nije kreirala — na čistoj master bazi
+   bi to puklo. Definicija prepisana doslovno iz 01_CREATE_kasa_template.sql /
+   02_MIGRACIJA_postojeci_klijent.sql (obe imaju identičan CREATE TABLE).
+   ============================================================================ */
+
+IF OBJECT_ID('dbo.tbl_web_korisnici', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.tbl_web_korisnici
+    (
+        IdKorisnika    INT IDENTITY(1,1) NOT NULL,
+        IdLicence      INT           NULL,
+        Ime            VARCHAR(200)  NULL,
+        Email          VARCHAR(200)  NULL,
+        LozinkaHash    VARCHAR(500)  NULL,
+        Privilegija    INT           NULL CONSTRAINT DF_web_kor_Privilegija DEFAULT ((1)),
+        idRole         INT           NULL,
+        idZaposlenog   INT           NULL,
+        Aktivan        INT           NULL CONSTRAINT DF_web_kor_Aktivan    DEFAULT ((1)),
+        DatumKreiranja DATETIME      NULL CONSTRAINT DF_web_kor_DatKreir   DEFAULT (getdate()),
+        datumIzmene    DATETIME      NULL,
+        CONSTRAINT PK_tbl_web_korisnici PRIMARY KEY CLUSTERED (IdKorisnika)
+    );
+    PRINT '  + tbl_web_korisnici kreirana';
+END
+ELSE
+    PRINT '  = tbl_web_korisnici već postoji';
+GO
+
+
+/* ============================================================================
    SEKCIJA 3 — tbl_web_clanstvo (veza korisnik <-> firma, many-to-many)
    ----------------------------------------------------------------------------
    Jedan korisnik (jedan mail, jedna lozinka) može biti u više firmi.
